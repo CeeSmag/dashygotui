@@ -15,7 +15,7 @@ import (
 // spinner driven by Context.Ticks. Shows Widget.Badge, MinHeight and Subtitle.
 
 func init() {
-	dashboard.Registry.Widget(dashboard.Widget{
+	dashboard.Registry.Add(dashboard.Widget{
 		Key: "system", Page: "monitor", Order: 10, Title: "System", Subtitle: "meters and a divider", MinHeight: 9,
 		Badge: func(c *dashboard.Ctx) string {
 			th := c.Theme()

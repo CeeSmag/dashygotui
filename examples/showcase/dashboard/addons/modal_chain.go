@@ -11,10 +11,10 @@ import (
 // opens the next from its callback: Confirm, then Edit, then Notice.
 
 func init() {
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "chain", Section: "custom", Number: 42, Label: "New Project (3 steps)",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Confirm[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Confirm[dashboard.State]{
 				Title: "Step 1 of 3", Lines: []string{"Create a new project?"}, Accept: "Continue",
 				OnAccept: func(c *dashboard.Ctx) tea.Cmd {
 					c.OpenModal(&modal.Edit[dashboard.State]{
@@ -29,8 +29,7 @@ func init() {
 					})
 					return nil
 				},
-			})
-			return nil
+			}
 		},
 	})
 }

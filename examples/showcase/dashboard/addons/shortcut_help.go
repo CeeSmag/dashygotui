@@ -1,8 +1,6 @@
 package addons
 
 import (
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 	"github.com/CeeSmag/dashygotui/modal"
 )
@@ -11,10 +9,10 @@ import (
 // dashboard pages only, not inside views or over pop-ups.
 
 func init() {
-	dashboard.Registry.Shortcut(dashboard.Shortcut{
+	dashboard.Registry.Add(dashboard.Shortcut{
 		Key: "?", Label: "Help", Prio: 45,
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Notice[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Notice[dashboard.State]{
 				Title: "Keys", Badge: c.Badge("pages"),
 				Lines: []string{
 					"Up / Down      move in a panel",
@@ -36,8 +34,7 @@ func init() {
 					"Ctrl+O                open the web UI (Actions page)",
 					"Ctrl+L                clear the logs, from anywhere",
 				},
-			})
-			return nil
+			}
 		},
 	})
 }

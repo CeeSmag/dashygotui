@@ -14,7 +14,7 @@ import (
 // the app's own Solarized) and whether the terminal's background is set.
 
 func init() {
-	dashboard.Registry.Widget(dashboard.Widget{
+	dashboard.Registry.Add(dashboard.Widget{
 		Key: "palette", Page: "theme", Order: 20, Title: "Palette", Subtitle: "theme.Palette and Backdrop", MinHeight: 9,
 		Badge: func(c *dashboard.Ctx) string { return c.Theme().Muted.Render(c.PaletteID()) },
 		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {

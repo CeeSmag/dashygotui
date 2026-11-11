@@ -20,11 +20,11 @@ func init() {
 		return v
 	}
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "volume", Section: "settings", Number: 14, Label: "Alert Volume",
 		Badge: func(c *dashboard.Ctx) string { return c.Badge(fmt.Sprintf("%d%%", volume(c))) },
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Slider[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Slider[dashboard.State]{
 				Title: "Alert Volume", Help: "How loud alerts are.", Unit: "percent",
 				Min: 0, Max: 100, Value: volume(c),
 				OnChange: func(c *dashboard.Ctx, v int) { c.Flash(fmt.Sprintf("Volume %d%%", v)) },
@@ -32,8 +32,7 @@ func init() {
 					c.FlashResult(fmt.Sprintf("Volume saved at %d%%.", v), c.Store().Set(volumeKey, v))
 					return nil
 				},
-			})
-			return nil
+			}
 		},
 	})
 }

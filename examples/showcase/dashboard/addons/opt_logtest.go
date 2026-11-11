@@ -3,8 +3,6 @@ package addons
 import (
 	"log"
 
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 )
 
@@ -13,9 +11,9 @@ import (
 // sequences, which the log view shows harmlessly. Open [52] Logs to see them.
 
 func init() {
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "logtest", Section: "hooks", Number: 73, Label: "Write Log Entries",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
+		Do: func(c *dashboard.Ctx) {
 			log.Print("[DEBUG] standard logger, debug")
 			log.Print("[INFO] standard logger, info")
 			log.Print("[WARN] standard logger, warning")
@@ -25,6 +23,7 @@ func init() {
 			dashboard.Slog.Warn("slog warning", "queue", "mail", "depth", 940)
 			dashboard.Slog.Error("slog error", "err", "connection reset by peer")
 			log.Print("[INFO] a long line that wraps onto several rows so you can see how continuation lines are indented under the message text, not under the time")
+			//dashygotui:allow A6 this line exists to prove the log view neutralises escape sequences
 			log.Print("[WARN] control characters \x1b[2J\x1b[31m are replaced, never obeyed")
 			// Per-subsystem loggers file their entries under a category tab.
 			dashboard.NetLog.Info("listening", "addr", ":8080")
@@ -34,7 +33,6 @@ func init() {
 			dashboard.AuthLog.Info("login", "user", "ada")
 			dashboard.AuthLog.Warn("failed login", "user", "mallory", "attempts", 3)
 			c.FlashResult("Wrote 16 log entries. Press g to read them, then c to switch tabs.", nil)
-			return nil
 		},
 	})
 }

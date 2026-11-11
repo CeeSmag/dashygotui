@@ -56,11 +56,10 @@ func (d *diceModal) Render(c *dashboard.Ctx, size dashygotui.Size) []string {
 }
 
 func init() {
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "dice", Section: "custom", Number: 40, Label: "Dice Roller",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&diceModal{})
-			return nil
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &diceModal{}
 		},
 	})
 }

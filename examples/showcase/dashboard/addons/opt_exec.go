@@ -18,7 +18,7 @@ import (
 func init() {
 	const tag = "exec"
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "exec", Section: "hooks", Number: 72, Label: "Run External Command",
 		Run: func(c *dashboard.Ctx) tea.Cmd {
 			cmd := exec.CommandContext(context.Background(), "sh", "-c", `printf '\nHello from a child process.\n\nThe dashboard is suspended while this runs.\n'; printf 'Press Enter to return... '; read _`)

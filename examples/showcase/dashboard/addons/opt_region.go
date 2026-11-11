@@ -7,7 +7,11 @@ import (
 	"github.com/CeeSmag/dashygotui/modal"
 )
 
-// [13] Region: a modal.Choice with live OnMove feedback, OnSelect to save and
+// [13] Region. This is the raw modal API on show, to demonstrate Choice's fields.
+// For an ordinary pick-one setting do not write this: use stdaddons.Pick (see [17]
+// Log Level, which is a dozen lines).
+//
+// A modal.Choice with live OnMove feedback, OnSelect to save and
 // OnCancel. The saved value highlights when the picker reopens. Badge puts the
 // saved region in the top border, Intro adds live lines above the list, Rows
 // marks the saved entry afresh on every frame, and FooterSelect and
@@ -33,11 +37,11 @@ func init() {
 		return 2 // eu-west
 	}
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "region", Section: "settings", Number: 13, Label: "Region",
 		Badge: func(c *dashboard.Ctx) string { return c.Badge(regions[current(c)].Label) },
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Choice[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Choice[dashboard.State]{
 				Title: "Region",
 				Help:  "Where the service runs. Moving the highlight reports each choice; Enter saves it.",
 				Badge: func(c *dashboard.Ctx) string { return c.Badge("now " + regions[current(c)].Label) },
@@ -58,8 +62,7 @@ func init() {
 					return nil
 				},
 				OnCancel: func(c *dashboard.Ctx) tea.Cmd { c.Flash("Region unchanged"); return nil },
-			})
-			return nil
+			}
 		},
 	})
 }

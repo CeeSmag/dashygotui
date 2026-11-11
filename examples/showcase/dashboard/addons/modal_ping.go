@@ -76,13 +76,12 @@ func (m *pingModal) Render(c *dashboard.Ctx, size dashygotui.Size) []string {
 }
 
 func init() {
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "ping", Section: "custom", Number: 41, Label: "Ping Host",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
 			m := &pingModal{host: "example.local"}
 			m.tag = fmt.Sprintf("ping.%p", m)
-			c.OpenModal(m)
-			return nil
+			return m
 		},
 	})
 }

@@ -13,7 +13,7 @@ import (
 // System: meters for CPU, memory and disk, read straight from the polled state.
 
 func init() {
-	dashboard.Registry.Widget(dashboard.Widget{
+	dashboard.Registry.Add(dashboard.Widget{
 		Key: "system", Page: "monitor", Order: 10, Title: "System", Subtitle: "synthetic readings", MinHeight: 7,
 		Badge: func(c *dashboard.Ctx) string {
 			if !c.Ready() {

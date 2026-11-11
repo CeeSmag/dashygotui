@@ -1,8 +1,6 @@
 package addons
 
 import (
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 )
@@ -13,12 +11,11 @@ import (
 // Hotkey, the name Bubble Tea reports.
 
 func init() {
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "web", Section: "ops", Number: 4, Label: "Open Web UI",
 		Hotkey: "ctrl+o", HotkeyDisplay: "Ctrl+O", HotkeyTone: dashygotui.ToneInfo,
-		Run: func(c *dashboard.Ctx) tea.Cmd {
+		Do: func(c *dashboard.Ctx) {
 			c.Flash("Would open http://localhost:8080 in your browser")
-			return nil
 		},
 	})
 }

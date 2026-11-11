@@ -1,6 +1,7 @@
 package dashygotui
 
 import (
+	"cmp"
 	"fmt"
 	"strconv"
 	"strings"
@@ -145,6 +146,11 @@ func (m *model[S]) autoHints() []panel.Hint {
 	}
 	if n := len(m.d.pages); n > 1 {
 		hints = append(hints, m.hint("Tab", fmt.Sprintf("Page %d/%d", (m.page+1)%n+1, n), th.Key, 70))
+	}
+	for _, o := range m.d.reg.options {
+		if o.Hotkey != "" && o.HotkeyHint != "" {
+			hints = append(hints, m.toneHint(Hint{Key: cmp.Or(o.HotkeyDisplay, o.Hotkey), Label: o.HotkeyHint, Tone: o.HotkeyTone, Prio: 40}))
+		}
 	}
 	for _, s := range m.d.reg.shortcuts {
 		if s.Label != "" { // pages-scope and everywhere-scope shortcuts both work here
@@ -329,8 +335,11 @@ func (m *model[S]) menuRow(o Option[S], w, numW, labelW int, selected bool) stri
 	}
 	th := m.th
 	badge := ""
-	if o.Badge != nil {
+	switch {
+	case o.Badge != nil:
 		badge = o.Badge(m.ctx)
+	case o.Note != "":
+		badge = th.Muted.Render("[" + o.Note + "]")
 	}
 	mark := "  "
 	if selected {

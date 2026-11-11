@@ -13,7 +13,11 @@ import (
 	"github.com/CeeSmag/dashygotui/modal"
 )
 
-// [10] Storage Limit (hotkey s): modal.Edit with Validate and a background
+// [10] Storage Limit (hotkey s). This is the raw modal API on show, to demonstrate
+// Edit's Validate, Save and OnSaved. For an ordinary number setting do not write
+// this: use stdaddons.Number (see [16] Log Retention, which is five lines).
+//
+// modal.Edit with Validate and a background
 // Save. A failed save or validation shows inline and keeps the editor open. On
 // success OnSaved chains a follow-up task, here pretending to reload the
 // service with the new limit, the way an application restarts a server after
@@ -31,12 +35,12 @@ func init() {
 		return gb
 	}
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "storage", Section: "settings", Number: 10, Label: "Storage Limit", Hotkey: "s",
 		Badge: func(c *dashboard.Ctx) string { return c.Badge(fmt.Sprintf("%d GB", limit(c))) },
-		Run: func(c *dashboard.Ctx) tea.Cmd {
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
 			st := c.Store()
-			c.OpenModal(&modal.Edit[dashboard.State]{
+			return &modal.Edit[dashboard.State]{
 				Title:   "Storage Limit",
 				Help:    "How much disk space the service may use, in gigabytes (1 to 1000).",
 				Current: fmt.Sprintf("%d GB", limit(c)),
@@ -67,8 +71,7 @@ func init() {
 						return saved + " Service reloaded.", nil
 					})
 				},
-			})
-			return nil
+			}
 		},
 	})
 }

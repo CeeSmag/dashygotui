@@ -97,7 +97,7 @@ func TestOptionHotkeyDisplay(t *testing.T) {
 func TestPageFallbackWhen(t *testing.T) {
 	f := newFixture(t)
 	f.cfg.Pages[0].Fallback = func(*ctx, dashygotui.Size) []string { return []string{"summary"} }
-	// The old CloudVault rule: (narrow and short) or very short.
+	// A rule an application asked for: (narrow and short) or very short.
 	f.cfg.Pages[0].FallbackWhen = func(s dashygotui.Size) bool {
 		return (s.Cols < 80 && s.Rows < 22) || s.Rows < 8
 	}

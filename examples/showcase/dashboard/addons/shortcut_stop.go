@@ -15,18 +15,17 @@ import (
 // theme's danger colour.
 
 func init() {
-	dashboard.Registry.Shortcut(dashboard.Shortcut{
+	dashboard.Registry.Add(dashboard.Shortcut{
 		Key: "ctrl+q", Display: "Ctrl+Q", Tone: dashygotui.ToneDanger, Label: "Stop & Exit", Scope: dashygotui.ScopeEverywhere, Prio: 25,
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Confirm[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Confirm[dashboard.State]{
 				Title:  "Stop and exit?",
 				Lines:  []string{"The service is stopped and the dashboard closes."},
 				Accept: "Stop",
 				OnAccept: func(c *dashboard.Ctx) tea.Cmd {
 					return c.Quit("stop", "Service stopped.")
 				},
-			})
-			return nil
+			}
 		},
 	})
 }

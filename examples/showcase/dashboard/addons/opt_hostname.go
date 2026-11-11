@@ -21,11 +21,11 @@ func init() {
 		return h
 	}
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "hostname", Section: "settings", Number: 15, Label: "Hostname",
 		Badge: func(c *dashboard.Ctx) string { return c.Badge(host(c)) },
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Edit[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Edit[dashboard.State]{
 				Title: "Hostname", Help: "Leave it empty to use the default.", Current: host(c),
 				Initial: host(c), Limit: 24, AllowEmpty: true,
 				Validate: func(v string) error {
@@ -41,8 +41,7 @@ func init() {
 					c.FlashResult("Hostname set to "+value+".", c.Store().Set(hostKey, value))
 					return nil
 				},
-			})
-			return nil
+			}
 		},
 	})
 }

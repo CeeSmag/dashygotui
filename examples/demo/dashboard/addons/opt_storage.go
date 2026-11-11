@@ -6,8 +6,6 @@ import (
 	"log"
 	"strconv"
 
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/CeeSmag/dashygotui/examples/demo/dashboard"
 	"github.com/CeeSmag/dashygotui/modal"
 )
@@ -26,12 +24,12 @@ func init() {
 		return gb
 	}
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "storage", Section: "settings", Number: 10, Label: "Storage Limit", Hotkey: "s",
 		Badge: func(c *dashboard.Ctx) string { return c.Badge(fmt.Sprintf("%d GB", limit(c))) },
-		Run: func(c *dashboard.Ctx) tea.Cmd {
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
 			st := c.Store()
-			c.OpenModal(&modal.Edit[dashboard.State]{
+			return &modal.Edit[dashboard.State]{
 				Title:   "Storage Limit",
 				Help:    "How much disk space the service may use, in gigabytes (1 to 1000).",
 				Current: fmt.Sprintf("%d GB", limit(c)),
@@ -51,8 +49,7 @@ func init() {
 					log.Printf("[INFO] storage limit set to %d GB", n)
 					return fmt.Sprintf("Storage limit set to %d GB.", n), nil
 				},
-			})
-			return nil
+			}
 		},
 	})
 }

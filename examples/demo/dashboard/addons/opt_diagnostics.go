@@ -14,12 +14,13 @@ import (
 	"github.com/CeeSmag/dashygotui/text"
 )
 
-// [3] Diagnostics: an option that opens a full-screen view. The view and the
-// option that opens it are one feature, so one file registers both.
+// [3] Diagnostics: a full-screen view and the option that opens it, declared
+// together. Entry registers the option; Items is the menu inside the view.
 
 func init() {
-	dashboard.Registry.View(dashboard.View{
-		ID: "diagnostics", Title: "Diagnostics", Subtitle: "health of the demo service", Mode: "DIAG",
+	dashboard.Registry.Add(dashboard.View{
+		ID: "diagnostics", Title: "Diagnostics", Subtitle: "health of the demo service",
+		Entry: &dashboard.Entry{Section: "actions", Number: 3},
 		Badge: func(c *dashboard.Ctx) string { return c.Theme().Green.Render(c.Theme().G.Bullet + " HEALTHY") },
 		Status: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
 			th, s := c.Theme(), c.State()
@@ -29,30 +30,18 @@ func init() {
 				panel.Row(th, "Traffic", text.Rate(s.NetIn)+" in, "+text.Rate(s.NetOut)+" out"),
 			}
 		},
-		Options: func(*dashboard.Ctx) []dashboard.Option {
-			return []dashboard.Option{
-				{Number: 1, Label: "Run Self-Test", Run: func(c *dashboard.Ctx) tea.Cmd {
-					return c.RunTask("selftest", "Testing...", func(ctx context.Context) (string, error) {
-						select {
-						case <-time.After(600 * time.Millisecond):
-						case <-ctx.Done():
-							return "", ctx.Err()
-						}
-						log.Print("[INFO] self-test passed")
-						return "Self-test passed: 12 of 12 checks.", nil
-					})
-				}},
-			}
-		},
-	})
-
-	dashboard.Registry.Option(dashboard.Option{
-		Key: "diagnostics", Section: "actions", Number: 3, Label: "Diagnostics",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			if err := c.OpenView("diagnostics"); err != nil {
-				c.FlashError(err.Error())
-			}
-			return nil
+		Items: []dashboard.Option{
+			{Label: "Run Self-Test", Run: func(c *dashboard.Ctx) tea.Cmd {
+				return c.RunTask("selftest", "Testing...", func(ctx context.Context) (string, error) {
+					select {
+					case <-time.After(600 * time.Millisecond):
+					case <-ctx.Done():
+						return "", ctx.Err()
+					}
+					log.Print("[INFO] self-test passed")
+					return "Self-test passed: 12 of 12 checks.", nil
+				})
+			}},
 		},
 	})
 }

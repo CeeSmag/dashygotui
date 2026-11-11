@@ -21,16 +21,19 @@ addons package once, blank. Every file in it then registers with the
 
 | Package | Role |
 | --- | --- |
-| `dashygotui` (root) | `Config`, `Dashboard`, `Registry`, `Context`, the Bubble Tea model, keys, `Run` |
+| `dashygotui` (root) | `Config`, `Dashboard`, `Registry`, `Context`, `Local` (per-dashboard addon state), the Bubble Tea model, keys, `Run` |
 | `text` | ANSI- and wide-character-aware width, truncation, padding, wrapping |
 | `theme` | `Palette`, the symbol sets (`Glyphs`) and the immutable `Theme` built from them |
 | `panel` | bordered panels, stacking, joining, overlay, header and footer fitting |
 | `chart` | meter, slider, waveforms (sparkline, bars, line trace, mirrored wave, heat strip, Braille), time series, adaptive wave scaler |
 | `logs` | a bounded log `Buffer` (std `log` and `slog`) and a scrollable, newest-first `Viewer` |
 | `modal` | edit, confirm, typed, notice, choice, slider pop-ups |
-| `stdaddons` | opt-in addons: theme picker, spacing sliders, refresh rate, display mode, log view |
+| `stdaddons` | opt-in addons: theme picker, spacing sliders, refresh rate, display mode, background, log view, and the one-line settings `Toggle`, `Number`, `Pick`, `Text` |
 | `store` | `Store` implementations: JSON file, in-memory |
-| `dashtest` | terminal-free test driver with a fake clock and timers |
+| `dashtest` | terminal-free test driver with a fake clock and timers, and `Audit` |
+| `cmd/dashygotui` | the companion command: `rules`, `check`, `new`, `init` (standard library only) |
+| `docs`, `templates` | the design documents and addon templates, embedded for the command |
+| `internal/guard` | the source-level rules, shared by the library's guard tests and the command |
 | `layout` | page arrangement, spacing and edge insets; pure and non-generic (re-exported by the root as `Layout` and `Spacing`) |
 
 Leaf packages (`text`, `theme`, `panel`, `chart`, `layout`) know nothing
@@ -45,11 +48,13 @@ unknown `S`. The library supplies `Registry[S]`; the **application** declares
 the single instance in its dashboard file. That one variable is the only global
 in an application; the library has none.
 
-Tests inject their own registry, so nothing leaks between them.
+Tests inject their own registry, and an addon's own state lives in `Local`, per dashboard,
+so nothing leaks between tests.
 
 ## Lifecycle
 
-1. **`init()`**: each addon calls `Registry.Option/Widget/View/Shortcut/On...`.
+1. **`init()`**: each addon calls `Registry.Add(...)` (options, widgets, views, shortcuts, settings)
+   or one of the hooks `Registry.OnTick/OnResult/OnMsg`.
    Mistakes are recorded with the caller's `file:line`; nothing panics.
 2. **`New(cfg)`**: freezes the registry, then validates everything together:
    registration mistakes, unknown pages and sections, duplicate IDs, reserved
@@ -171,25 +176,37 @@ never writes the settings file. The JSON file store writes atomically
 (temp file and rename) with mode 0600, and moves an unreadable file aside
 rather than overwriting it.
 
-## What changed from the original (CloudVault) engine
+## Not included
 
-| Before | Now |
-| --- | --- |
-| engine exposed `Config`, `Snapshot`, `SetStorageLimit`, ... | generic `Dashboard[S]`; no domain types |
-| package-level mutable globals (gaps, palette, TTY mode) | immutable `Theme` and spacing on the dashboard |
-| hand-assigned option numbers could collide silently | collisions are a startup error naming both files |
-| the registry lived in the addons package | the library supplies `Registry[S]`; the app owns one |
-| modal-kind / view / page enums to extend | interface values and string IDs; nothing central to edit |
-| `Updated()` channel from a backend | polling as a command, plus `Dashboard.Notify()` to push; no data races |
-| exit-handler registry | `Run` returns `ExitInfo`; `main` acts on it |
-| `/proc` TTY detection, `sudo`, `systemd` in the engine | OS-agnostic core; platform code lives in addons |
-| guard tests grep source for substrings | guard tests parse the AST |
-
-## Not in v1
-
-Addon-defined pages (pages are declared in the dashboard file), mouse support,
-and a CloudVault migration. A third-party chart library
-([ntcharts](https://github.com/NimbleMarkets/ntcharts)) is deliberately not a
-dependency: it is large, ties the module to a Bubble Tea version, and does not
-follow the theme's glyph sets. Its charts can still be used inside any widget,
+Addon-defined pages (pages are declared in the dashboard file) and mouse support. A
+third-party chart library ([ntcharts](https://github.com/NimbleMarkets/ntcharts)) is
+deliberately not a dependency: it is large, ties the module to a Bubble Tea version, and
+does not follow the theme's glyph sets. Its charts can still be used inside any widget,
 because a widget's `Render` returns plain strings.
+
+## Governance: keeping the design on the rails
+
+The library's value is that applications stay small. Four mechanisms keep it so,
+for the library and for the applications built on it (the charter is in
+`DESIGN.md`):
+
+- **One rule engine.** `internal/guard` holds every source-level rule as a small
+  function over parsed Go. The library's own guard tests (`arch_test.go`) and the
+  `dashygotui check` command use the same code, so what the library demands of
+  itself and of an application cannot drift apart.
+- **The command travels with the module.** `cmd/dashygotui` embeds the design
+  documents and the addon templates (`docs.FS`, `templates.FS`), so `go run
+  ...@<version> rules` always prints rules that match the API an application
+  compiles against. `init` writes the instruction files, `new` scaffolds an addon,
+  `check` lints.
+- **The library governs itself.** `api/dashygotui.txt` is a snapshot of the exported
+  API (a change needs `CHANGELOG.md`: `make api-check`); `docs/REFERENCE.md` is
+  generated from the field doc comments and must match; a scan rejects application
+  vocabulary in the library; `examples/buildwatch` is an unrelated second
+  application that must pass the same checks.
+- **The consumer simulation** (`scripts/consumer-test.sh`) builds a throw-away
+  application on the working tree, scaffolds every addon kind, requires a clean
+  `check`, and requires `check` to fail on a bad addon for each rule.
+
+`dashtest.Audit` covers rendering for an application: every page and view at ten
+sizes, exact frames, and only console-safe characters in TTY mode.

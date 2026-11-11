@@ -14,7 +14,7 @@ import (
 
 func init() {
 	const lastKey = "backup.last"
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "backup", Section: "actions", Number: 1, Label: "Run Backup",
 		Badge: func(c *dashboard.Ctx) string {
 			var last time.Time

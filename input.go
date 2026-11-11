@@ -20,7 +20,7 @@ func (m *model[S]) onKey(msg tea.KeyPressMsg) tea.Cmd {
 	for _, s := range m.d.reg.shortcuts {
 		if s.Scope == ScopeEverywhere && s.Key == name {
 			m.digits = ""
-			return s.Run(m.ctx)
+			return s.run(m.ctx)
 		}
 	}
 	if key.Matches(msg, m.d.keys.Force) {
@@ -77,12 +77,12 @@ func (m *model[S]) dashKey(msg tea.KeyPressMsg) tea.Cmd {
 	for _, s := range m.d.reg.shortcuts {
 		if s.Scope == ScopePages && s.Key == name {
 			m.digits = ""
-			return s.Run(m.ctx)
+			return s.run(m.ctx)
 		}
 	}
 	if o, ok := m.d.hotkeys[name]; ok {
 		m.digits = ""
-		return o.Run(m.ctx)
+		return o.run(m.ctx)
 	}
 	if cmd, ok := m.navKey(msg); ok {
 		return cmd
@@ -169,10 +169,10 @@ func (m *model[S]) stepRate(delta int) {
 func (m *model[S]) menus() [][]Option[S] {
 	if m.view != "" {
 		v := m.d.views[m.view]
-		if v.Body != nil || v.Options == nil {
+		if v.Body != nil || !v.hasOptions() {
 			return nil
 		}
-		return [][]Option[S]{v.Options(m.ctx)}
+		return [][]Option[S]{m.viewOptions(v)}
 	}
 	return m.pageMenus(m.page)
 }
@@ -262,10 +262,10 @@ func (m *model[S]) activate() tea.Cmd {
 	m.digits = ""
 	items := m.currentItems()
 	idx := m.cursorAt()
-	if idx < 0 || idx >= len(items) || items[idx].Run == nil {
+	if idx < 0 || idx >= len(items) || items[idx].actions() == 0 {
 		return nil
 	}
-	return items[idx].Run(m.ctx)
+	return items[idx].run(m.ctx)
 }
 
 // typeDigit extends the number being typed and moves the cursor to the first
@@ -391,15 +391,35 @@ func (m *model[S]) openView(id string) {
 
 // enter runs the OnEnter hook of view id, if it has one.
 func (m *model[S]) enter(id string) {
-	if v, ok := m.d.views[id]; ok && v.OnEnter != nil {
+	v, ok := m.d.views[id]
+	if !ok {
+		return
+	}
+	if v.Session != nil {
+		if end := v.Session(m.ctx); end != nil {
+			if m.ends == nil {
+				m.ends = map[string]func(){}
+			}
+			m.ends[id] = end
+		}
+	}
+	if v.OnEnter != nil {
 		m.later(v.OnEnter(m.ctx))
 	}
 }
 
 // leave runs the OnLeave hook of view id, if it has one.
 func (m *model[S]) leave(id string) {
-	if v, ok := m.d.views[id]; ok && v.OnLeave != nil {
+	v, ok := m.d.views[id]
+	if !ok {
+		return
+	}
+	if v.OnLeave != nil {
 		m.later(v.OnLeave(m.ctx))
+	}
+	if end := m.ends[id]; end != nil {
+		delete(m.ends, id)
+		end()
 	}
 }
 

@@ -11,13 +11,11 @@ package addons
 // Nothing else is edited: the file registers itself from init().
 
 import (
-	tea "charm.land/bubbletea/v2"
-
 	"example.com/yourapp/dashboard"
 )
 
 func init() {
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key:     "my_feature", // unique and stable; also the prefix for any Store keys
 		Section: "settings",   // a section declared in the dashboard file
 		Number:  42,           // typed on the keyboard to jump here; unique across the dashboard
@@ -25,11 +23,11 @@ func init() {
 		Label:   "My Feature",
 		// Badge is the row's current state, shown after the label. Optional.
 		Badge: func(c *dashboard.Ctx) string { return c.OnOff(true) },
-		// Run is called on Enter (or Space). Open a modal, start a task, or
-		// change something and flash the result.
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.Flash("My feature ran")
-			return nil
-		},
+		// What Enter (or Space) does: set exactly one of
+		//   Do:    func(c) { ... }                  an action, with nothing to return
+		//   Opens: "view_id"                        open a registered view
+		//   Modal: func(c) Modal { return ... }     open a pop-up
+		//   Run:   func(c) tea.Cmd { ... }          when you must return a command
+		Do: func(c *dashboard.Ctx) { c.Flash("My feature ran") },
 	})
 }

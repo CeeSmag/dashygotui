@@ -10,7 +10,7 @@ import (
 // Ctrl+R: fetch fresh data now, from anywhere.
 
 func init() {
-	dashboard.Registry.Shortcut(dashygotui.Shortcut[dashboard.State]{
+	dashboard.Registry.Add(dashygotui.Shortcut[dashboard.State]{
 		Key:   "ctrl+r",
 		Label: "Refresh",
 		Scope: dashygotui.ScopeEverywhere,

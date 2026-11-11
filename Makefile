@@ -6,7 +6,7 @@ GOLANGCI_LINT := github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 GOVULNCHECK   := golang.org/x/vuln/cmd/govulncheck@v1.9.0
 GOIMPORTS     := golang.org/x/tools/cmd/goimports@v0.52.0
 
-.PHONY: help check fmt fmt-check vet staticcheck lint vuln test race deletion-test template-test tidy-check example examples run run-tty run-demo dist clean
+.PHONY: help check fmt fmt-check vet staticcheck lint vuln test race deletion-test template-test consumer-test app-check api-check tidy-check example examples run run-tty run-demo dist clean
 
 # The example apps: showcase uses every feature; demo is the small quickstart.
 BIN       := bin
@@ -17,7 +17,7 @@ help:
 	@grep -hE '^## ' $(MAKEFILE_LIST) | sed 's/^## //' | awk -F': ' '{ printf "  %-14s %s\n", $$1, $$2 }'
 
 ## check: the full gate required by RULES.md before any task is done.
-check: fmt-check vet staticcheck lint vuln race deletion-test template-test tidy-check
+check: fmt-check vet staticcheck lint vuln race deletion-test template-test consumer-test app-check api-check tidy-check
 
 ## fmt: rewrite files with gofmt and goimports.
 fmt:
@@ -45,9 +45,9 @@ vuln:
 test:
 	go test ./...
 
-## race: tests with the race detector; includes the architecture guard tests.
+## race: tests with the race detector and in random order; includes the architecture guard tests.
 race:
-	go test -race -count=1 ./...
+	go test -race -shuffle=on -count=1 ./...
 
 ## deletion-test: every addon file must be removable without breaking the build.
 deletion-test:
@@ -56,6 +56,18 @@ deletion-test:
 ## template-test: every addon template must compile and register cleanly.
 template-test:
 	./scripts/template-test.sh
+
+## consumer-test: a throw-away application built on this tree must scaffold, build, pass the check, and fail it for each bad addon.
+consumer-test:
+	./scripts/consumer-test.sh
+
+## app-check: the example applications must pass the application rules (dashygotui check).
+app-check:
+	@for d in examples/showcase examples/demo examples/buildwatch; do go run ./cmd/dashygotui check -q $$d || exit 1; done
+
+## api-check: a change to the exported API (api/) must come with a CHANGELOG.md change.
+api-check:
+	./scripts/api-check.sh
 
 tidy-check:
 	go mod tidy -diff

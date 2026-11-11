@@ -15,27 +15,33 @@ import (
 // Charts page, panel 2: a bar graph of inbound traffic, auto-scaled with
 // chart.GraphScale, over a heat strip of memory.
 
+// barSamples are the widget's two series, kept per dashboard.
+type barSamples struct{ net, mem []float64 }
+
 func init() {
-	var net, mem []float64
+	samples := func(c *dashboard.Ctx) *barSamples { return dashygotui.Local[barSamples](c, "chart_bars") }
+
 	dashboard.Registry.OnTick(func(c *dashboard.Ctx, _ time.Time) tea.Cmd {
 		if c.Ready() && c.Err() == nil {
-			s := c.State()
-			net, mem = append(net, s.NetIn), append(mem, s.Mem)
-			if len(net) > 400 {
-				net, mem = net[len(net)-400:], mem[len(mem)-400:]
+			s, b := c.State(), samples(c)
+			b.net, b.mem = append(b.net, s.NetIn), append(b.mem, s.Mem)
+			if len(b.net) > 400 {
+				b.net, b.mem = b.net[len(b.net)-400:], b.mem[len(b.mem)-400:]
 			}
 		}
 		return nil
 	})
 
-	dashboard.Registry.Widget(dashboard.Widget{
+	dashboard.Registry.Add(dashboard.Widget{
 		Key: "chart_bars", Page: "charts", Order: 20, Title: "Bars & Heat", Subtitle: "chart.BarGraph and chart.HeatStrip",
 		Badge: func(c *dashboard.Ctx) string {
+			net := samples(c).net
 			scale := chart.GraphScale(net[max(len(net)-60, 0):], 100_000)
 			return c.Theme().Muted.Render("scale " + text.RateShort(scale))
 		},
 		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
-			th := c.Theme()
+			th, b := c.Theme(), samples(c)
+			net, mem := b.net, b.mem
 			w := max(size.Cols-panel.LabelWidth-1, 1)
 			recent := net[max(len(net)-w, 0):]
 			scale := chart.GraphScale(recent, 100_000)

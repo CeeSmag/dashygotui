@@ -22,12 +22,12 @@ func (m *model[S]) viewKey(msg tea.KeyPressMsg) tea.Cmd {
 			return cmd
 		}
 	}
-	if v.Options != nil && v.Body == nil {
+	if v.hasOptions() && v.Body == nil {
 		name := strings.ToLower(msg.String())
-		for _, o := range v.Options(m.ctx) {
-			if o.Hotkey != "" && o.Hotkey == name && o.Run != nil {
+		for _, o := range m.viewOptions(v) {
+			if o.Hotkey != "" && o.Hotkey == name && o.actions() > 0 {
 				m.digits = ""
-				return o.Run(m.ctx)
+				return o.run(m.ctx)
 			}
 		}
 	}
@@ -85,8 +85,8 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 			badge = v.Badge(m.ctx)
 		}
 		var opts []Option[S]
-		if v.Options != nil {
-			opts = v.Options(m.ctx)
+		if v.hasOptions() {
+			opts = m.viewOptions(v)
 		}
 		switch {
 		case v.Status != nil && len(opts) > 0:
@@ -110,12 +110,17 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 		{Text: th.White.Render(m.title()), Prio: 100},
 		{Text: th.Title.Render(v.Title), Prio: 90},
 	}
+	if v.Tag != nil {
+		if tag := v.Tag(m.ctx); tag != "" {
+			segs = append(segs, panel.Segment{Text: th.Muted.Render(tag), Prio: 50})
+		}
+	}
 	if v.Header != nil {
 		segs = append(segs, v.Header(m.ctx)...)
 	}
 	segs = append(segs, panel.Segment{Text: th.Muted.Render(m.clock()), Prio: 40})
 	var hints []panel.Hint
-	if v.Options != nil && v.Body == nil {
+	if v.hasOptions() && v.Body == nil {
 		hints = append(hints, m.hint(th.G.UpDown, "Move", th.Key, 60), m.hint(th.G.Enter, "Open", th.Key, 55))
 	}
 	if scrollable {
@@ -136,10 +141,7 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	}
 	hints = append(hints, m.hint("Esc/b", "Back", th.Key, 1000), m.hint("q", "Quit", th.Red, 900))
 
-	mode := v.Mode
-	if mode == "" {
-		mode = "VIEW"
-	}
+	mode := cmp.Or(v.Mode, strings.ToUpper(v.Title))
 	out := append([]string{panel.Header(th, segs, cols)}, panel.Frame(lines, cols, body)...)
 	return append(out, m.footer(cols, mode, hints))
 }
@@ -167,9 +169,26 @@ func (m *model[S]) viewPanel(v View[S], cols, body int, rows []string, pos strin
 	}
 	sub := p.Subtitle
 	if pos != "" {
-		sub = strings.Trim(sub+" · "+pos, " ·")
+		sub = strings.TrimSpace(strings.Join([]string{sub, pos}, " "+m.th.G.Sep+" "))
+		sub = strings.TrimPrefix(sub, m.th.G.Sep+" ") // no subtitle: just the position
 	}
 	return panel.Panel(m.th, cmp.Or(p.Title, v.Title), badge, sub, cols, body, rows)
+}
+
+// viewOptions is the view's menu rows, numbered by position where a row has no
+// number of its own.
+func (m *model[S]) viewOptions(v View[S]) []Option[S] {
+	opts := v.Items
+	if v.Options != nil {
+		opts = v.Options(m.ctx)
+	}
+	out := append([]Option[S](nil), opts...)
+	for i := range out {
+		if out[i].Number == 0 {
+			out[i].Number = i + 1
+		}
+	}
+	return out
 }
 
 func (m *model[S]) optionsBadge(n int) string {
@@ -282,8 +301,14 @@ func (m *model[S]) holdTail() {
 	}
 	inner := m.bodySize(v, m.cols, m.rows)
 	lines, _ := m.scrollContent(v, inner.Cols, inner.Rows)
-	if m.viewScroll > 0 && m.viewTotal > 0 && len(lines) > m.viewTotal {
-		m.viewScroll += len(lines) - m.viewTotal
+	added := len(lines) - m.viewTotal
+	if v.Appended != nil {
+		seq := v.Appended(m.ctx)
+		added = seq - m.viewSeq
+		m.viewSeq = seq
+	}
+	if m.viewScroll > 0 && m.viewTotal > 0 && added > 0 {
+		m.viewScroll += added
 	}
 	m.viewTotal = len(lines)
 }

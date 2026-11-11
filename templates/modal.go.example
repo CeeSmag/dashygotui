@@ -43,11 +43,10 @@ func (m *pickModal) Render(c *dashboard.Ctx, size dashygotui.Size) []string {
 }
 
 func init() {
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "my_modal", Section: "settings", Number: 44, Label: "My Modal",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&pickModal{})
-			return nil
-		},
+		// Modal returns the pop-up to open. (Your dashboard package needs the alias
+		// `type Modal = dashygotui.Modal[State]` next to its other aliases.)
+		Modal: func(*dashboard.Ctx) dashboard.Modal { return &pickModal{} },
 	})
 }

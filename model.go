@@ -94,7 +94,12 @@ type model[S any] struct {
 	// being able to return them (view hooks, for one). Update sends them on.
 	queue []tea.Cmd
 
+	locals map[localKey]any // addons' per-dashboard state, see Local
+
+	ends map[string]func() // Session end functions of the views on screen or covered, by view ID
+
 	viewScroll int // rows scrolled off the top of the open view's body (off the bottom, for a Tail view)
+	viewSeq    int // the open Tail view's Appended count when last looked at
 	viewTotal  int // rows the open Tail view's body had when last looked at
 
 	token    int

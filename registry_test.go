@@ -106,7 +106,7 @@ func TestRegistryRejectsMistakesAndNamesTheSite(t *testing.T) {
 		{
 			name:     "missing run",
 			register: func(r *reg) { r.Option(option{Key: "k", Section: "actions", Number: 1, Label: "L"}) },
-			want:     []string{`option "k" has no Run`},
+			want:     []string{`option "k" needs exactly one of Run, Do, Opens and Modal, has 0`},
 		},
 		{
 			name:     "non-positive number",

@@ -15,7 +15,7 @@ import (
 func init() {
 	const setKey = "token.length"
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "token", Section: "settings", Number: 12, Label: "API Token",
 		Badge: func(c *dashboard.Ctx) string {
 			var n int
@@ -24,8 +24,8 @@ func init() {
 			}
 			return c.Badge(fmt.Sprintf("%d characters", n))
 		},
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Edit[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Edit[dashboard.State]{
 				Title:  "API Token",
 				Help:   "Paste the token. It is hidden as you type and is never stored by this demo.",
 				Secret: true,
@@ -34,8 +34,7 @@ func init() {
 					c.FlashResult("Token accepted.", c.Store().Set(setKey, len(value)))
 					return nil
 				},
-			})
-			return nil
+			}
 		},
 	})
 }

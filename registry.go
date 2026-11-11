@@ -1,6 +1,7 @@
 package dashygotui
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -21,7 +22,7 @@ import (
 // is recorded together with the "file.go:line" of the offending call and
 // reported by [Registry.Validate] and [New], before the UI starts.
 //
-// Call the registration methods directly, e.g. dashboard.Registry.Option(...).
+// Call the registration methods directly, e.g. dashboard.Registry.Add(...).
 // The recorded site is the immediate caller, so a wrapper function would hide
 // the real location.
 type Registry[S any] struct {
@@ -85,14 +86,35 @@ func (r *Registry[S]) fail(site, format string, args ...any) {
 }
 
 // Option registers a numbered row for a section.
-func (r *Registry[S]) Option(o Option[S]) {
+func (r *Registry[S]) Option(o Option[S]) { o.register(r, callerSite()) }
+
+// Add registers any number of options, shortcuts, views and widgets in one
+// call, so an addon that adds several things reads as one declaration:
+//
+//	dashboard.Registry.Add(dashboard.Option{...}, dashboard.View{...})
+//
+// It does the same as calling [Registry.Option], [Registry.Shortcut],
+// [Registry.View] and [Registry.Widget] for each, and records the call site of
+// Add itself for error messages.
+func (r *Registry[S]) Add(items ...Addon[S]) {
 	site := callerSite()
+	for _, it := range items {
+		r.registerAddon(it, site, 0)
+	}
+}
+
+func (o Option[S]) register(r *Registry[S], site string) {
 	if !r.begin(site, "option") {
 		r.mu.Unlock()
 		return
 	}
 	defer r.mu.Unlock()
+	r.addOption(site, o)
+}
 
+// addOption validates and stores an option. The registry must be locked and
+// not frozen.
+func (r *Registry[S]) addOption(site string, o Option[S]) {
 	ok := true
 	switch {
 	case strings.TrimSpace(o.Key) == "":
@@ -100,6 +122,10 @@ func (r *Registry[S]) Option(o Option[S]) {
 		ok = false
 	case r.optionKeys[o.Key] != "":
 		r.fail(site, "duplicate option key %q (first registered at %s)", o.Key, r.optionKeys[o.Key])
+		ok = false
+	}
+	if strings.HasPrefix(o.Key, ReservedKeyPrefix) {
+		r.fail(site, "option key %q starts with %q, which is reserved for the library's own settings", o.Key, ReservedKeyPrefix)
 		ok = false
 	}
 	if strings.TrimSpace(o.Section) == "" {
@@ -110,8 +136,8 @@ func (r *Registry[S]) Option(o Option[S]) {
 		r.fail(site, "option %q has no Label", o.Key)
 		ok = false
 	}
-	if o.Run == nil {
-		r.fail(site, "option %q has no Run", o.Key)
+	if n := o.actions(); n != 1 {
+		r.fail(site, "option %q needs exactly one of Run, Do, Opens and Modal, has %d", o.Key, n)
 		ok = false
 	}
 	switch {
@@ -144,8 +170,9 @@ func (r *Registry[S]) Option(o Option[S]) {
 }
 
 // Widget registers a read-only panel for a page.
-func (r *Registry[S]) Widget(w Widget[S]) {
-	site := callerSite()
+func (r *Registry[S]) Widget(w Widget[S]) { w.register(r, callerSite()) }
+
+func (w Widget[S]) register(r *Registry[S], site string) {
 	if !r.begin(site, "widget") {
 		r.mu.Unlock()
 		return
@@ -181,8 +208,9 @@ func (r *Registry[S]) Widget(w Widget[S]) {
 }
 
 // View registers a full-screen view that [Context.OpenView] can open.
-func (r *Registry[S]) View(v View[S]) {
-	site := callerSite()
+func (r *Registry[S]) View(v View[S]) { v.register(r, callerSite()) }
+
+func (v View[S]) register(r *Registry[S], site string) {
 	if !r.begin(site, "view") {
 		r.mu.Unlock()
 		return
@@ -202,9 +230,45 @@ func (r *Registry[S]) View(v View[S]) {
 		r.fail(site, "view %q has no Title", v.ID)
 		ok = false
 	}
-	if v.Body == nil && v.Options == nil && v.Status == nil {
-		r.fail(site, "view %q draws nothing: set Body, Status or Options", v.ID)
+	if v.Options != nil && len(v.Items) > 0 {
+		r.fail(site, "view %q sets both Options and Items; use one", v.ID)
 		ok = false
+	}
+	for i, it := range v.Items {
+		if strings.TrimSpace(it.Label) == "" {
+			r.fail(site, "view %q item #%d has no Label", v.ID, i+1)
+			ok = false
+		}
+		if n := it.actions(); n != 1 {
+			r.fail(site, "view %q item %q needs exactly one of Run, Do, Opens and Modal, has %d", v.ID, it.Label, n)
+			ok = false
+		}
+	}
+	seen := map[int]string{}
+	for i, it := range v.Items {
+		n := it.Number
+		if n == 0 {
+			n = i + 1 // numbered by position
+		}
+		if first, dup := seen[n]; dup {
+			r.fail(site, "view %q item %q has number %d, which %q already has (rows without a Number are numbered by position)", v.ID, it.Label, n, first)
+			ok = false
+		}
+		seen[n] = it.Label
+	}
+	if v.Body == nil && !v.hasOptions() && v.Status == nil {
+		r.fail(site, "view %q draws nothing: set Body, Status, Options or Items", v.ID)
+		ok = false
+	}
+	if (v.Follow || v.Framed) && v.Body == nil {
+		r.fail(site, "view %q sets Follow or Framed but has no Body to frame", v.ID)
+		ok = false
+	}
+	if v.Follow {
+		v.Scroll, v.Tail = true, true
+	}
+	if (v.Follow || v.Framed) && v.Panel == nil {
+		v.Panel = &ViewPanel[S]{}
 	}
 	if v.Scroll && v.Body == nil {
 		r.fail(site, "view %q sets Scroll but has no Body to scroll", v.ID)
@@ -212,6 +276,10 @@ func (r *Registry[S]) View(v View[S]) {
 	}
 	if v.Panel != nil && v.Body == nil {
 		r.fail(site, "view %q sets Panel but has no Body to frame", v.ID)
+		ok = false
+	}
+	if v.Appended != nil && !v.Tail {
+		r.fail(site, "view %q sets Appended but not Tail", v.ID)
 		ok = false
 	}
 	if v.Tail && !v.Scroll {
@@ -223,11 +291,20 @@ func (r *Registry[S]) View(v View[S]) {
 	}
 	r.viewIDs[v.ID] = site
 	r.views = append(r.views, v)
+	if e := v.Entry; e != nil {
+		r.addOption(site, Option[S]{
+			Key: "view." + v.ID, Section: e.Section, Number: e.Number, Order: e.Order,
+			Label: cmp.Or(e.Label, v.Title), Hotkey: e.Hotkey, HotkeyDisplay: e.HotkeyDisplay,
+			HotkeyTone: e.HotkeyTone, HotkeyHint: e.HotkeyHint, Badge: e.Badge, Note: e.Note,
+			Opens: v.ID,
+		})
+	}
 }
 
 // Shortcut registers a global key binding for the dashboard pages.
-func (r *Registry[S]) Shortcut(s Shortcut[S]) {
-	site := callerSite()
+func (r *Registry[S]) Shortcut(s Shortcut[S]) { s.register(r, callerSite()) }
+
+func (s Shortcut[S]) register(r *Registry[S], site string) {
 	if !r.begin(site, "shortcut") {
 		r.mu.Unlock()
 		return
@@ -247,8 +324,8 @@ func (r *Registry[S]) Shortcut(s Shortcut[S]) {
 		r.fail(site, "shortcut %q is already an option hotkey (registered at %s)", s.Key, r.hotkeys[s.Key])
 		ok = false
 	}
-	if s.Run == nil {
-		r.fail(site, "shortcut %q has no Run", s.Key)
+	if n := s.actions(); n != 1 {
+		r.fail(site, "shortcut %q needs exactly one of Run, Do, Opens and Modal, has %d", s.Key, n)
 		ok = false
 	}
 	if !ok {

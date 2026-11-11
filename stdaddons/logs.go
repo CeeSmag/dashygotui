@@ -47,15 +47,20 @@ type LogOptions struct {
 // shows how many entries arrived since you left it.
 func LogsWith[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section string, number int, opts LogOptions, setup ...Setup) {
 	const viewID = "stdaddons.logs"
-	// State lives in this closure, not in a package variable.
-	viewer := logs.NewViewer(buf, logs.WithCategories(opts.Categories...), logs.WithCategoryKey(opts.CategoryKey))
+	// The viewer holds the reader's place (tab, filter, scroll position), which
+	// belongs to one dashboard, not to the process.
+	viewerOf := func(ctx *dashygotui.Context[S]) *logs.Viewer {
+		return dashygotui.LocalWith(ctx, viewID, func() *logs.Viewer {
+			return logs.NewViewer(buf, logs.WithCategories(opts.Categories...), logs.WithCategoryKey(opts.CategoryKey))
+		})
+	}
 
 	reg.View(dashygotui.View[S]{
 		ID:    viewID,
 		Title: "Logs",
 		Mode:  "LOGS",
 		Body: func(ctx *dashygotui.Context[S], size dashygotui.Size) []string {
-			th := ctx.Theme()
+			th, viewer := ctx.Theme(), viewerOf(ctx)
 			sub := fmt.Sprintf("%s scroll  Home live  End oldest  f filter: %s",
 				th.G.UpDown, strings.ToLower(viewer.MinLevel().String()))
 			if opts.CategoryKey != "" {
@@ -66,7 +71,7 @@ func LogsWith[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section stri
 		},
 		Keys: func(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) (tea.Cmd, bool) {
 			// The body is the screen minus header and footer, minus the panel's borders.
-			return nil, viewer.HandleKey(msg.String(), ctx.Size().Rows-4)
+			return nil, viewerOf(ctx).HandleKey(msg.String(), ctx.Size().Rows-4)
 		},
 	})
 

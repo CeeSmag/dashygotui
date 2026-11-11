@@ -47,6 +47,9 @@ linters:
       - comments
       - std-error-handling
     rules:
+      # A command prints and exits; that is its job.
+      - path: (^|/)cmd/
+        linters: [forbidigo]
       # init(), globals and printing are legitimate in applications and tests.
       - path: (^|/)examples/
         linters: [gochecknoglobals, gochecknoinits, forbidigo]

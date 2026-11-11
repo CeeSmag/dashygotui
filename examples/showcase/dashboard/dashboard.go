@@ -87,6 +87,8 @@ type (
 	Widget = dashygotui.Widget[State]
 	// View is a full-screen view.
 	View = dashygotui.View[State]
+	// Entry is the menu option that opens a view.
+	Entry = dashygotui.Entry[State]
 	// Shortcut is a key binding that is not a menu row.
 	Shortcut = dashygotui.Shortcut[State]
 	// Modal is a pop-up.

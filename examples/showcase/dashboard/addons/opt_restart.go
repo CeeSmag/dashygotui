@@ -15,10 +15,10 @@ import (
 // front of a background task.
 
 func init() {
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "restart", Section: "ops", Number: 2, Label: "Restart Service",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Confirm[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Confirm[dashboard.State]{
 				Title:  "Restart the service?",
 				Lines:  []string{"Connections are dropped for a moment while it restarts."},
 				Accept: "Restart",
@@ -37,8 +37,7 @@ func init() {
 					c.Flash("Restart cancelled")
 					return nil
 				},
-			})
-			return nil
+			}
 		},
 	})
 }

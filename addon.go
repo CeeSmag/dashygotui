@@ -9,7 +9,8 @@ import (
 // Option is one numbered, selectable row in a section: the thing an addon adds
 // to a menu. Register it with [Registry.Option].
 type Option[S any] struct {
-	// Key is a unique, stable identifier such as "storage". Required.
+	// Key is a unique, stable identifier such as "storage". Required. It must not
+	// start with "dashygotui.", which the library keeps for its own settings.
 	Key string
 	// Section is the ID of the section the option appears in, as declared in
 	// [Config.Sections]. Required.
@@ -35,12 +36,38 @@ type Option[S any] struct {
 	// HotkeyTone colours the hotkey after the label. The default is the label's
 	// own colour.
 	HotkeyTone Tone
+	// HotkeyHint, when set, also lists the hotkey in the footer with this
+	// wording, written as HotkeyDisplay (or Hotkey) and coloured by HotkeyTone,
+	// so a hotkey needs no separate [Shortcut] to be advertised. It is shown on
+	// the dashboard pages. Optional.
+	HotkeyHint string
 	// Badge returns the row's current state, already styled, such as "[ON ✓]".
 	// Optional.
 	Badge func(*Context[S]) string
-	// Run is called when the user opens the row. Required.
+	// Note is fixed, muted text shown in place of a badge, drawn "[Note]". It is
+	// ignored when Badge is set. Optional.
+	Note string
+
+	// What the row does when opened. Set exactly one of Run, Do, Opens and
+	// Modal; anything else is a startup error.
+
+	// Run is called when the user opens the row. Return the command to run, or
+	// nil.
 	Run func(*Context[S]) tea.Cmd
+	// Do is Run for an action with no command to return.
+	Do func(*Context[S])
+	// Opens is the ID of a registered [View] to open. It is checked at startup,
+	// so a mistyped ID is an error rather than a message at run time.
+	Opens string
+	// Modal returns a pop-up to open, such as a [modal.Confirm] or a notice.
+	Modal func(*Context[S]) Modal[S]
 }
+
+// actions counts how many of Run, Do, Opens and Modal are set.
+func (o Option[S]) actions() int { return actionCount(o.Run, o.Do, o.Opens, o.Modal) }
+
+// run performs the option's action.
+func (o Option[S]) run(c *Context[S]) tea.Cmd { return runAction(c, o.Run, o.Do, o.Opens, o.Modal) }
 
 func (o Option[S]) order() int {
 	if o.Order != 0 {
@@ -103,16 +130,35 @@ type View[S any] struct {
 	Header func(*Context[S]) []panel.Segment
 	// Hints returns extra footer hints, shown with the view's own. Optional.
 	Hints func(*Context[S]) []Hint
-	// Mode is the footer's left-hand label, such as "LIVE". Optional.
+	// Mode is the footer's left-hand label, such as "LIVE". It defaults to the
+	// Title in capitals.
 	Mode string
+	// Tag returns a short muted note for the header, such as "Mode: ON". Empty
+	// shows nothing. Header is the way to add several or styled segments.
+	// Optional.
+	Tag func(*Context[S]) string
 	// Status returns the rows of the status panel. Optional.
 	Status func(*Context[S], Size) []string
 	// Options returns the menu rows, called afresh on every frame so badges and
-	// availability can change. Numbers need only be unique within the view.
+	// availability can change. Numbers need only be unique within the view; a
+	// row with no Number is numbered by its position, from 1.
 	Options func(*Context[S]) []Option[S]
+	// Items is Options for a list that never changes: the rows themselves, with
+	// badges that may still change. Set Items or Options, not both.
+	Items []Option[S]
+	// Entry makes the view reachable from a menu: it registers an option that
+	// opens this view, with the hotkey and footer hint the entry asks for, so a
+	// view and the way into it are one declaration. Optional.
+	Entry *Entry[S]
 	// Body draws the whole body itself, replacing Status and Options. It
 	// returns rows for the given body size.
 	Body func(*Context[S], Size) []string
+	// Follow makes the view a log: Scroll and Tail, drawn in a panel. It needs
+	// Body.
+	Follow bool
+	// Framed draws the body in a bordered panel with the view's Title, as Panel
+	// does with no settings. It needs Body.
+	Framed bool
 	// Panel draws the body inside a bordered panel, as the status panel and the
 	// menu are, instead of edge to edge. Body is then given the panel's inner
 	// size, and a scrolling body shows its position in the panel's bottom
@@ -131,6 +177,12 @@ type View[S any] struct {
 	// rows are appended instead of drifting. Without it the view starts at the
 	// top and scrolls from there. It needs Scroll.
 	Tail bool
+	// Appended, for a Tail view whose body is a bounded history that drops its
+	// oldest rows, returns how many rows have ever been appended (a count that
+	// only rises). A view scrolled back uses it to hold its place: without it the
+	// engine can only compare the body's length, which does not change once the
+	// history is full. It needs Tail. Optional.
+	Appended func(*Context[S]) int
 	// Keys sees every key press first. Return handled == true to stop the
 	// dashboard from acting on it. Optional.
 	Keys func(ctx *Context[S], msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool)
@@ -144,6 +196,35 @@ type View[S any] struct {
 	// called when the dashboard quits; stop long-running work with the context
 	// given to [Dashboard.Model] or [Dashboard.Run]. Optional.
 	OnLeave func(*Context[S]) tea.Cmd
+	// Session is OnEnter and OnLeave in one: it is called when the view becomes
+	// the one on screen and returns the function to call when it stops being. Use
+	// it for work that starts and stops together, such as asking a backend for
+	// more detail only while the view is open. Like OnLeave, it is not called when
+	// the dashboard quits. Optional.
+	Session func(*Context[S]) (end func())
+}
+
+// hasOptions reports whether the view has a menu of rows.
+func (v View[S]) hasOptions() bool { return v.Options != nil || len(v.Items) > 0 }
+
+// Entry describes the option that opens a view; see [View.Entry].
+type Entry[S any] struct {
+	// Section is the ID of the section the option appears in. Required.
+	Section string
+	// Number is the option's number, unique across the dashboard. Required.
+	Number int
+	// Order sorts the option within its section. When zero the Number is used.
+	Order int
+	// Label is the row text. It defaults to the view's Title.
+	Label string
+	// Hotkey, HotkeyDisplay, HotkeyTone and HotkeyHint are those of [Option].
+	Hotkey        string
+	HotkeyDisplay string
+	HotkeyTone    Tone
+	HotkeyHint    string
+	// Badge and Note are those of [Option].
+	Badge func(*Context[S]) string
+	Note  string
 }
 
 // ViewPanel is the frame of a view whose Body is drawn in a panel. See

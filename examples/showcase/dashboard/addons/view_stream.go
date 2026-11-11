@@ -10,49 +10,54 @@ import (
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 )
 
-// [54] Event Stream (hotkey e): a Tail view, like `tail -f`. Rows are appended
+// [54] Event Stream (hotkey e): a Follow view (Scroll + Tail), like `tail -f`. Rows are appended
 // at the bottom as they happen; the view starts at the newest, Up goes back in
 // time, and a view scrolled back holds its place while new rows arrive (watch
 // the row numbers stay put). End returns to the live bottom. Tail needs Scroll,
 // which does the scrolling and the scroll bar. Panel draws the body in a
-// bordered panel, with the scroll position in its bottom border. The events live
-// in a closure.
+// bordered panel, with the scroll position in its bottom border. The events are per-dashboard
+// state (dashygotui.Local).
+
+// streamState is the view's history, kept per dashboard.
+type streamState struct {
+	events []string
+	total  int // events ever recorded: numbers keep rising after old ones are dropped
+}
 
 func init() {
-	var events []string
+	history := func(c *dashboard.Ctx) *streamState { return dashygotui.Local[streamState](c, "stream") }
 
 	dashboard.Registry.OnTick(func(c *dashboard.Ctx, now time.Time) tea.Cmd {
 		if c.Ready() && c.Err() == nil {
-			events = append(events, fmt.Sprintf("%s  #%04d  cpu %4.1f%%  mem %4.1f%%",
-				now.Format("15:04:05"), len(events)+1, c.State().CPU, c.State().Mem))
-			if len(events) > 2000 {
-				events = events[len(events)-2000:]
+			h := history(c)
+			h.total++
+			h.events = append(h.events, fmt.Sprintf("%s  #%04d  cpu %4.1f%%  mem %4.1f%%",
+				now.Format("15:04:05"), h.total, c.State().CPU, c.State().Mem))
+			if len(h.events) > 2000 {
+				h.events = h.events[len(h.events)-2000:]
 			}
 		}
 		return nil
 	})
 
-	dashboard.Registry.View(dashboard.View{
-		ID: "stream", Title: "Event Stream", Mode: "STREAM", Scroll: true, Tail: true,
-		// Panel frames the body like a status panel, and puts the scroll
-		// position in its bottom border.
-		Panel: &dashygotui.ViewPanel[dashboard.State]{Title: "Events", Subtitle: "newest at the bottom"},
-		Badge: func(c *dashboard.Ctx) string { return c.Count(len(events), "events") },
+	dashboard.Registry.Add(dashboard.View{
+		ID: "stream", Title: "Event Stream", Mode: "STREAM",
+		Entry: &dashboard.Entry{Section: "views", Number: 54, Hotkey: "e"},
+		// Follow is Scroll, Tail and a panel in one word. Setting Panel as well
+		// gives the panel its own title and subtitle; the scroll position goes in
+		// its bottom border.
+		Follow: true,
+		// The history is capped, so tell the engine how many rows were ever added;
+		// a view scrolled back then holds its place even when the list is full.
+		Appended: func(c *dashboard.Ctx) int { return history(c).total },
+		Panel:    &dashygotui.ViewPanel[dashboard.State]{Title: "Events", Subtitle: "newest at the bottom"},
+		Badge:    func(c *dashboard.Ctx) string { return c.Count(len(history(c).events), "events") },
 		Body: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
+			events := history(c).events
 			if len(events) == 0 {
 				return []string{c.Theme().Muted.Render("waiting for events...")}
 			}
 			return append([]string(nil), events...)
-		},
-	})
-
-	dashboard.Registry.Option(dashboard.Option{
-		Key: "stream", Section: "views", Number: 54, Label: "Event Stream", Hotkey: "e",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			if err := c.OpenView("stream"); err != nil {
-				c.FlashError(err.Error())
-			}
-			return nil
 		},
 	})
 }

@@ -12,28 +12,35 @@ import (
 
 // Activity: a rolling list of request bursts, built from an OnTick hook.
 
+// activityLog is the widget's lines and the request total it last saw, kept per
+// dashboard.
+type activityLog struct {
+	lines []string
+	seen  int
+}
+
 func init() {
-	var lines []string
-	seen := 0
+	log := func(c *dashboard.Ctx) *activityLog { return dashygotui.Local[activityLog](c, "activity") }
 
 	dashboard.Registry.OnTick(func(c *dashboard.Ctx, now time.Time) tea.Cmd {
 		if !c.Ready() || c.Err() != nil {
 			return nil
 		}
-		if total := c.State().Requests; total != seen {
-			lines = append(lines, fmt.Sprintf("%s  +%d requests (%d total)", now.Format("15:04:05"), total-seen, total))
-			seen = total
-			if len(lines) > 100 {
-				lines = lines[len(lines)-100:]
+		if total, a := c.State().Requests, log(c); total != a.seen {
+			a.lines = append(a.lines, fmt.Sprintf("%s  +%d requests (%d total)", now.Format("15:04:05"), total-a.seen, total))
+			a.seen = total
+			if len(a.lines) > 100 {
+				a.lines = a.lines[len(a.lines)-100:]
 			}
 		}
 		return nil
 	})
 
-	dashboard.Registry.Widget(dashboard.Widget{
+	dashboard.Registry.Add(dashboard.Widget{
 		Key: "activity", Page: "monitor", Order: 30, Title: "Activity", Subtitle: "newest at the bottom",
 		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
 			th := c.Theme()
+			lines := log(c).lines
 			if len(lines) == 0 {
 				return []string{th.Muted.Render("waiting for traffic...")}
 			}

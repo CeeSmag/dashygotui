@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 	"github.com/CeeSmag/dashygotui/modal"
 )
@@ -15,25 +13,24 @@ import (
 // on every frame with Content, and a long scrollable report.
 
 func init() {
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "notice", Section: "standard", Number: 30, Label: "Notice",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Notice[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Notice[dashboard.State]{
 				Title: "About", Badge: c.Badge("v1"),
 				Lines: []string{
 					"A Notice is a read-only card. Long lines wrap to fit the width.",
 					"",
 					"It closes on Enter, Esc, Space, b or q.",
 				},
-			})
-			return nil
+			}
 		},
 	})
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "notice_live", Section: "standard", Number: 31, Label: "Notice (live content)",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Notice[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Notice[dashboard.State]{
 				Width: 60,
 				// Content runs on every frame, so this card updates while it is open.
 				Content: func(c *dashboard.Ctx, inner int) (string, string, []string) {
@@ -45,20 +42,18 @@ func init() {
 						fmt.Sprintf("Requests  %d", s.Requests),
 					}
 				},
-			})
-			return nil
+			}
 		},
 	})
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "notice_scroll", Section: "standard", Number: 32, Label: "Notice (scrolls)",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
 			var lines []string
 			for i := 1; i <= 60; i++ {
 				lines = append(lines, fmt.Sprintf("v1.%02d  %s", i, strings.Repeat("change ", 1+i%5)))
 			}
-			c.OpenModal(&modal.Notice[dashboard.State]{Title: "Changelog", Badge: c.Count(len(lines), "entries"), Lines: lines})
-			return nil
+			return &modal.Notice[dashboard.State]{Title: "Changelog", Badge: c.Count(len(lines), "entries"), Lines: lines}
 		},
 	})
 }

@@ -13,11 +13,10 @@ import (
 	"io/fs"
 	"path"
 	"path/filepath"
-	"regexp"
-	"sort"
-	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/CeeSmag/dashygotui/internal/guard"
 )
 
 // source is one parsed non-test Go file of the module.
@@ -31,8 +30,11 @@ func (s source) inExamples() bool { return strings.HasPrefix(s.rel, "examples/")
 func (s source) inAddons() bool { return inAddonsDir(s.rel) }
 
 // isLibrary reports whether the file belongs to the reusable library, as
-// opposed to an example application.
-func (s source) isLibrary() bool { return !s.inExamples() }
+// opposed to an example application or the dashygotui command, which prints and
+// exits as commands do.
+func (s source) isLibrary() bool {
+	return !s.inExamples() && !strings.HasPrefix(s.rel, "cmd/")
+}
 
 func inAddonsDir(rel string) bool {
 	for _, seg := range strings.Split(path.Dir(rel), "/") {
@@ -45,8 +47,7 @@ func inAddonsDir(rel string) bool {
 
 // skippedDirs hold no Go source that the guards apply to.
 var skippedDirs = map[string]bool{
-	".git": true, ".github": true, "testdata": true, "templates": true,
-	"docs": true, "scripts": true, "vendor": true,
+	".git": true, ".github": true, "testdata": true, "scripts": true, "vendor": true,
 }
 
 // loadSources parses every non-test .go file in the module.
@@ -80,223 +81,6 @@ func loadSources(t *testing.T) []source {
 	return out
 }
 
-func importPaths(f *ast.File) []string {
-	var out []string
-	for _, imp := range f.Imports {
-		p, err := strconv.Unquote(imp.Path.Value)
-		if err == nil {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-// --- Rule: the library never imports examples or addons (RULES.md section 3) ---
-
-func libraryImportViolations(rel string, f *ast.File) []string {
-	var out []string
-	for _, p := range importPaths(f) {
-		if !strings.HasPrefix(p, "github.com/CeeSmag/dashygotui") {
-			continue
-		}
-		sub := strings.TrimPrefix(p, "github.com/CeeSmag/dashygotui")
-		if strings.HasPrefix(sub, "/examples") {
-			out = append(out, fmt.Sprintf("%s imports %q: the library must not import examples", rel, p))
-		}
-		for _, seg := range strings.Split(sub, "/") {
-			if seg == "addons" {
-				out = append(out, fmt.Sprintf("%s imports %q: the library must not import addons", rel, p))
-			}
-		}
-	}
-	return out
-}
-
-// --- Rule: the core is OS-agnostic (RULES.md section 3) ---
-
-// execFile is the single library file allowed to import os/exec.
-const execFile = "exec.go"
-
-func osAgnosticViolations(rel string, f *ast.File) []string {
-	var out []string
-	for _, p := range importPaths(f) {
-		switch {
-		case p == "syscall", strings.HasPrefix(p, "golang.org/x/sys"), p == "net/http":
-			out = append(out, fmt.Sprintf("%s imports %q: the core must be OS-agnostic", rel, p))
-		case p == "os/exec" && rel != execFile:
-			out = append(out, fmt.Sprintf("%s imports os/exec: only %s may", rel, execFile))
-		}
-	}
-	runtimeName := "runtime"
-	for _, imp := range f.Imports {
-		if p, _ := strconv.Unquote(imp.Path.Value); p == "runtime" && imp.Name != nil {
-			runtimeName = imp.Name.Name
-		}
-	}
-	ast.Inspect(f, func(n ast.Node) bool {
-		sel, ok := n.(*ast.SelectorExpr)
-		if !ok {
-			return true
-		}
-		id, ok := sel.X.(*ast.Ident)
-		if ok && id.Name == runtimeName && (sel.Sel.Name == "GOOS" || sel.Sel.Name == "GOARCH") {
-			out = append(out, fmt.Sprintf("%s uses runtime.%s: the core must be OS-agnostic", rel, sel.Sel.Name))
-		}
-		return true
-	})
-	return out
-}
-
-// --- Rule: no init() and no mutable package state in the library (section 5) ---
-
-// readOnlyCtors are the only calls a package-level var in the library may be
-// initialised with: sentinel errors and compiled regexps.
-var readOnlyCtors = map[string]bool{
-	"errors.New":         true,
-	"fmt.Errorf":         true,
-	"regexp.MustCompile": true,
-}
-
-func calleeName(e ast.Expr) string {
-	call, ok := e.(*ast.CallExpr)
-	if !ok {
-		return ""
-	}
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return ""
-	}
-	id, ok := sel.X.(*ast.Ident)
-	if !ok {
-		return ""
-	}
-	return id.Name + "." + sel.Sel.Name
-}
-
-func stateViolations(rel string, f *ast.File) []string {
-	var out []string
-	for _, d := range f.Decls {
-		switch d := d.(type) {
-		case *ast.FuncDecl:
-			if d.Recv == nil && d.Name.Name == "init" {
-				out = append(out, fmt.Sprintf("%s declares init(): the library must not use init()", rel))
-			}
-		case *ast.GenDecl:
-			if d.Tok != token.VAR {
-				continue
-			}
-			for _, spec := range d.Specs {
-				vs := spec.(*ast.ValueSpec)
-				if allReadOnly(vs) {
-					continue
-				}
-				out = append(out, fmt.Sprintf("%s declares package-level var %s: the library must not hold mutable package state",
-					rel, joinNames(vs.Names)))
-			}
-		}
-	}
-	return out
-}
-
-func joinNames(ids []*ast.Ident) string {
-	names := make([]string, len(ids))
-	for i, id := range ids {
-		names[i] = id.Name
-	}
-	return strings.Join(names, ", ")
-}
-
-// allReadOnly reports whether a package-level var spec is a blank interface
-// assertion or is initialised only from read-only constructors.
-func allReadOnly(vs *ast.ValueSpec) bool {
-	blank := true
-	for _, id := range vs.Names {
-		if id.Name != "_" {
-			blank = false
-		}
-	}
-	if blank {
-		return true
-	}
-	if len(vs.Values) == 0 {
-		return false
-	}
-	for _, v := range vs.Values {
-		if !readOnlyCtors[calleeName(v)] {
-			return false
-		}
-	}
-	return true
-}
-
-// --- Rule: addon file names (section 10) ---
-
-var addonFileName = regexp.MustCompile(`^(opt|widget|view|modal|shortcut)_[a-z0-9_]+(_test)?\.go$`)
-
-func addonNameViolations(rel string) []string {
-	base := path.Base(rel)
-	if addonFileName.MatchString(base) {
-		return nil
-	}
-	return []string{fmt.Sprintf("%s: addon files must be named opt_*.go, widget_*.go, view_*.go, modal_*.go or shortcut_*.go", rel)}
-}
-
-// --- Rule: addons never depend on each other (sections 3 and 10) ---
-
-// couplingViolations reports every use, in one addon file, of a package-level
-// identifier that is declared in a different addon file of the same package.
-func couplingViolations(files map[string]*ast.File) []string {
-	owner := map[string]string{}
-	for rel, f := range files {
-		for _, d := range f.Decls {
-			switch d := d.(type) {
-			case *ast.FuncDecl:
-				if d.Recv == nil && d.Name.Name != "init" && d.Name.Name != "_" {
-					owner[d.Name.Name] = rel
-				}
-			case *ast.GenDecl:
-				for _, spec := range d.Specs {
-					switch s := spec.(type) {
-					case *ast.TypeSpec:
-						owner[s.Name.Name] = rel
-					case *ast.ValueSpec:
-						for _, id := range s.Names {
-							if id.Name != "_" {
-								owner[id.Name] = rel
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	var out []string
-	for rel, f := range files {
-		imported := map[string]bool{}
-		for _, imp := range f.Imports {
-			p, _ := strconv.Unquote(imp.Path.Value)
-			name := path.Base(p)
-			if imp.Name != nil {
-				name = imp.Name.Name
-			}
-			imported[name] = true
-		}
-		// Unresolved lists identifiers the parser could not bind inside this
-		// file: exactly the references that leave the file.
-		for _, id := range f.Unresolved {
-			if imported[id.Name] {
-				continue
-			}
-			if o, ok := owner[id.Name]; ok && o != rel {
-				out = append(out, fmt.Sprintf("%s uses %s declared in %s: addons must not depend on each other", rel, id.Name, o))
-			}
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
 // --- Tests on the real tree ---
 
 func TestLibraryDoesNotImportExamplesOrAddons(t *testing.T) {
@@ -304,7 +88,7 @@ func TestLibraryDoesNotImportExamplesOrAddons(t *testing.T) {
 		if !s.isLibrary() {
 			continue
 		}
-		for _, v := range libraryImportViolations(s.rel, s.file) {
+		for _, v := range guard.LibraryImportViolations(s.rel, s.file) {
 			t.Error(v)
 		}
 	}
@@ -315,7 +99,7 @@ func TestCoreIsOSAgnostic(t *testing.T) {
 		if !s.isLibrary() {
 			continue
 		}
-		for _, v := range osAgnosticViolations(s.rel, s.file) {
+		for _, v := range guard.OSAgnosticViolations(s.rel, s.file) {
 			t.Error(v)
 		}
 	}
@@ -326,7 +110,7 @@ func TestLibraryHasNoInitOrMutableGlobals(t *testing.T) {
 		if !s.isLibrary() {
 			continue
 		}
-		for _, v := range stateViolations(s.rel, s.file) {
+		for _, v := range guard.StateViolations(s.rel, s.file) {
 			t.Error(v)
 		}
 	}
@@ -345,7 +129,7 @@ func TestAddonFileNames(t *testing.T) {
 		}
 		rel := filepath.ToSlash(p)
 		if strings.HasSuffix(rel, ".go") && inAddonsDir(rel) {
-			for _, v := range addonNameViolations(rel) {
+			for _, v := range guard.AddonNameViolations(rel) {
 				t.Error(v)
 			}
 		}
@@ -369,7 +153,7 @@ func TestAddonsDoNotDependOnEachOther(t *testing.T) {
 		byDir[dir][s.rel] = s.file
 	}
 	for _, files := range byDir {
-		for _, v := range couplingViolations(files) {
+		for _, v := range guard.CouplingViolations(files) {
 			t.Error(v)
 		}
 	}
@@ -399,7 +183,7 @@ func TestGuardLibraryImports(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := libraryImportViolations("p.go", parseFixture(t, "p.go", tt.src))
+			got := guard.LibraryImportViolations("p.go", parseFixture(t, "p.go", tt.src))
 			if len(got) != tt.want {
 				t.Errorf("got %d violations %v, want %d", len(got), got, tt.want)
 			}
@@ -425,7 +209,7 @@ func TestGuardOSAgnostic(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := osAgnosticViolations(tt.rel, parseFixture(t, tt.rel, tt.src))
+			got := guard.OSAgnosticViolations(tt.rel, parseFixture(t, tt.rel, tt.src))
 			if len(got) != tt.want {
 				t.Errorf("got %d violations %v, want %d", len(got), got, tt.want)
 			}
@@ -449,10 +233,12 @@ func TestGuardState(t *testing.T) {
 		{"regexp", `package p; import "regexp"; var re = regexp.MustCompile("a")`, 0},
 		{"interface assertion", `package p; type I interface{}; type T struct{}; var _ I = T{}`, 0},
 		{"mixed group", `package p; import "errors"; var (ErrX = errors.New("x"); n int)`, 1},
+		{"embedded files", "package p\nimport \"embed\"\n//go:embed *.md\nvar FS embed.FS", 0},
+		{"embed var without the directive", "package p\nimport \"embed\"\nvar FS embed.FS", 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := stateViolations("p.go", parseFixture(t, "p.go", tt.src))
+			got := guard.StateViolations("p.go", parseFixture(t, "p.go", tt.src))
 			if len(got) != tt.want {
 				t.Errorf("got %d violations %v, want %d", len(got), got, tt.want)
 			}
@@ -478,7 +264,7 @@ func TestGuardAddonNames(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.rel, func(t *testing.T) {
-			if got := addonNameViolations(tt.rel); len(got) != tt.want {
+			if got := guard.AddonNameViolations(tt.rel); len(got) != tt.want {
 				t.Errorf("got %v, want %d violations", got, tt.want)
 			}
 		})
@@ -546,7 +332,7 @@ func TestGuardCoupling(t *testing.T) {
 			for name, src := range tt.files {
 				files[name] = parseFixture(t, name, src)
 			}
-			if got := couplingViolations(files); len(got) != tt.want {
+			if got := guard.CouplingViolations(files); len(got) != tt.want {
 				t.Errorf("got %d violations %v, want %d", len(got), got, tt.want)
 			}
 		})

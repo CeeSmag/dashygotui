@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -162,7 +163,7 @@ func TestEveryOptionDoesSomethingVisible(t *testing.T) {
 		{"50", []string{"Diagnostics", "HEALTHY", "Run Self-Test", "DIAG"}},
 		{"51", []string{"Processes", "api-gateway", "PID", "PROCS"}},
 		{"52", []string{"Logs", "LIVE", "LOGS"}},
-		{"70", []string{"Alert #1"}},
+		{"70", []string{"Alert #1"}}, // each dashboard counts its own alerts
 		{"73", []string{"Wrote 16 log entries"}},
 		{"20", []string{"Color Theme", "Solarized Dark", "Console (16 colours)"}},
 		{"21", []string{"Section Gap", "Terminal"}},
@@ -792,9 +793,8 @@ func TestTransparentBackgroundHotkeyAndFlag(t *testing.T) {
 	}
 }
 
-// openLogs opens the Logs view and puts it in a known state. The view's
-// selection lives in the addon's closure for the whole process, so an earlier
-// test may have left it on another tab or filter.
+// openLogs opens the Logs view and puts it on the All tab at the debug level,
+// which the assertions below expect. (A new dashboard starts at the default level.)
 func openLogs(d *dashtest.Driver) {
 	d.Press("g")
 	for i := 0; i < 12 && !d.Contains("[All]"); i++ {
@@ -1017,4 +1017,83 @@ func TestStartViewFlagOpensTheStack(t *testing.T) {
 	d.RequireContains("Mode: ON") // the diagnostics view
 	d.Press("esc")
 	d.RequireContains("Monitor", "System")
+}
+
+func TestStdaddonsSettingsAreOneLineEach(t *testing.T) {
+	st := store.NewMemory()
+	d := newApp(t, st)
+	d.Press("tab", "tab")
+	d.RequireContains("Log Retention", "[30 days]", "Log Level", "[info]", "Display Name", "[not set]", "Notifications")
+
+	open(d, "16")
+	d.Type("90")
+	d.Press("enter")
+	d.RequireContains("Log Retention set to 90 days.", "[90 days]")
+
+	open(d, "17")
+	d.Press("down", "enter")
+	d.RequireContains("Log Level set to warn.", "[warn]")
+
+	open(d, "18")
+	d.Type("Ada")
+	d.Press("enter")
+	d.RequireContains("Display Name saved.", "[Ada]")
+
+	var days int
+	if ok, _ := st.Get("logs.retention_days", &days); !ok || days != 90 {
+		t.Errorf("stored retention = %d", days)
+	}
+}
+
+func TestViewEntriesNeedNoSeparateOption(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	d.RequireContains("[d] Diagnostics") // Entry.HotkeyHint advertises the hotkey in the footer
+	d.Press("tab", "tab", "tab", "tab")
+	d.RequireContains("Diagnostics (d)", "Processes (p)", "Release Notes (n)")
+	d.Press("d")
+	d.RequireContains("Mode: ON", "DIAGNOSTICS")
+}
+
+func TestDiagnosticsSessionLogsWhileOpen(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	d.Press("d")
+	d.Press("esc")
+	openLogs(d) // the viewer keeps its tab and filter between tests
+	d.RequireContains("diagnostics opened", "diagnostics closed")
+}
+
+// The showcase passes the library's own audit: every page and view at every
+// size, exact frames, and only console-safe characters in TTY mode.
+func TestShowcasePassesTheAudit(t *testing.T) {
+	dashtest.Audit(t, dashboard.Config(opts(store.NewMemory())))
+}
+
+// The counts the examples README quotes must match the application, or the
+// README is lying to whoever reads it first.
+func TestExamplesReadmeCountsAreTrue(t *testing.T) {
+	b, err := os.ReadFile("../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	line := ""
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.Contains(l, "](showcase/)") {
+			line = l
+		}
+	}
+	d, err := dashygotui.New(dashboard.Config(opts(store.NewMemory())))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := d.Outline()
+	files, _ := filepath.Glob("dashboard/addons/*.go")
+	for _, want := range []string{
+		fmt.Sprintf("%d options", len(out.Options)),
+		fmt.Sprintf("%d views", len(out.Views)),
+		fmt.Sprintf("%d one-file addons", len(files)),
+	} {
+		if !strings.Contains(line, want) {
+			t.Errorf("examples/README.md says %q, but the showcase has %q", line, want)
+		}
+	}
 }

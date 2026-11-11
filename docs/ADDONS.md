@@ -12,15 +12,17 @@ feature ([`examples/README.md`](../examples/README.md) maps each to its file);
 
 | You want | File | Register with | Template |
 | --- | --- | --- | --- |
-| a numbered menu row | `opt_<name>.go` | `Registry.Option` | `opt.go.example` |
-| a read-only panel on a page | `widget_<name>.go` | `Registry.Widget` | `widget.go.example` |
-| a full-screen page (and the option that opens it) | `view_<name>.go` | `Registry.View` + `Registry.Option` | `view.go.example` |
-| a custom pop-up | `modal_<name>.go` | `Registry.Option` that calls `OpenModal` | `modal.go.example` |
-| a key that is not a menu row | `shortcut_<name>.go` | `Registry.Shortcut` | `shortcut.go.example` |
+| a numbered menu row | `opt_<name>.go` | an `Option` | `opt.go.example` |
+| a saved setting | `opt_<name>.go` | a `stdaddons.Toggle`, `Number`, `Pick` or `Text` | |
+| a read-only panel on a page | `widget_<name>.go` | a `Widget` | `widget.go.example` |
+| a full-screen page (and the option that opens it) | `view_<name>.go` | a `View` with an `Entry` | `view.go.example` |
+| a custom pop-up | `modal_<name>.go` | an `Option` with a `Modal` | `modal.go.example` |
+| a key that is not a menu row | `shortcut_<name>.go` | a `Shortcut` | `shortcut.go.example` |
 
-Call the registry's methods **directly** (`dashboard.Registry.Option(...)`), not
-through a wrapper: the registry records the caller's `file:line` so an error can
-point at your file.
+Register with `dashboard.Registry.Add(...)`, which takes any of these (several at
+once if you like). Call it **directly**, not through a wrapper: the registry
+records the caller's `file:line` so an error can point at your file. Before writing
+anything, check `COOKBOOK.md`: most addons are a few lines.
 
 ## What the foundation file declares
 
@@ -36,16 +38,18 @@ ID (`Page: "monitor"`). An unknown ID is a startup error.
 ## Options
 
 ```go
-dashboard.Registry.Option(dashboard.Option{
+dashboard.Registry.Add(dashboard.Option{
 	Key:     "storage",   // unique, stable; prefix for Store keys
 	Section: "settings",
 	Number:  10,          // typed to jump here; unique across the dashboard
 	Order:   0,           // optional: sort within the section (default: Number)
 	Label:   "Storage Limit",
 	Badge:   func(c *dashboard.Ctx) string { return c.Badge("50 GB") },
-	Run:     func(c *dashboard.Ctx) tea.Cmd { ... },
+	Modal:   func(c *dashboard.Ctx) dashboard.Modal { return &modal.Edit[State]{...} },
 })
 ```
+
+(A setting like this one is a single `stdaddons.Number`; see "Ready-made settings".)
 
 - **Numbers are yours to assign** and are checked: a clash is an error naming
   both files. Typing `1` then `0` jumps to `[10]`.
@@ -58,10 +62,46 @@ dashboard.Registry.Option(dashboard.Option{
   hotkey may not be a navigation key, a digit, or the same as a shortcut or
   another option's hotkey; a clash is a startup error naming both files.
 
+## What an option does
+
+An option, a shortcut and a view's menu row all say what happens when they are
+used by setting **exactly one** of:
+
+| Field | Use it for |
+| --- | --- |
+| `Do func(*Ctx)` | an action with nothing to return |
+| `Opens string` | opening a registered view by ID (checked at startup) |
+| `Modal func(*Ctx) Modal` | opening a pop-up |
+| `Run func(*Ctx) tea.Cmd` | when you must return a command |
+
+`Note: "text"` draws fixed muted text where a badge would go. `HotkeyHint: "Name"`
+lists the hotkey in the footer, with `HotkeyDisplay` and `HotkeyTone` styling it.
+
+`Registry.Add(a, b, c...)` registers any mix of options, shortcuts, views and
+widgets in one call, and anything that implements `Addon` (an `Addons()` method
+returning some): the ready-made settings in `stdaddons` are written that way.
+
+## Ready-made settings
+
+`stdaddons.Toggle`, `Number`, `Pick` and `Text` are options that edit one value,
+remembered in the `Store` under their `Key`, with a badge, a pop-up, validation and
+a confirmation; `OnChange` runs after a change is saved:
+
+```go
+dashboard.Registry.Add(stdaddons.Number[dashboard.State]{
+	Key: "storage.limit_gb", Section: "settings", Number: 10, Label: "Storage Limit",
+	Unit: "GB", Min: 1, Max: 1000, Default: 50,
+})
+```
+
+A setting that makes no sense (an empty number range, a `Pick` with no items or
+duplicate labels, a `Key` starting with `dashygotui.`, which the library keeps for its
+own settings) is a startup error naming the line, like any registration mistake.
+
 ## Widgets
 
 ```go
-dashboard.Registry.Widget(dashboard.Widget{
+dashboard.Registry.Add(dashboard.Widget{
 	Key: "cpu", Page: "monitor", Order: 10, Title: "CPU", MinHeight: 6,
 	Render: func(c *dashboard.Ctx, size dashygotui.Size) []string { ... },
 })
@@ -71,10 +111,11 @@ dashboard.Registry.Widget(dashboard.Widget{
 so read from `c.State()`. Panels on a page (sections and widgets together) are
 arranged by the page's `Layout` and sorted by `Order`.
 
-A widget that **samples over time** keeps its history in variables declared
-inside `init()` (closures), fed by an `OnTick` hook. See
-`examples/demo/dashboard/addons/widget_network.go`. Package-level variables are
-not allowed in addons.
+A widget that **samples over time** keeps its history with `dashygotui.Local` (state
+that belongs to the dashboard; see "State that outlives a poll"), fed by an `OnTick`
+hook. See `examples/demo/dashboard/addons/widget_network.go`. Package-level variables
+are not allowed in addons, and neither is a variable captured in `init()` and changed
+by a callback: it would be shared by every dashboard in the process.
 
 ## The Context
 
@@ -173,6 +214,20 @@ body is a `Status` panel above `Options`, or your own `Body`.
   when it appears and stop it when it goes. They do not run when the dashboard
   quits; stop long work with the context you gave `Run`.
 - **`Keys`** sees every key first.
+- **`Entry`** makes the view reachable: it registers the option that opens it, with
+  the hotkey and footer hint it asks for, so a view and its way in are one
+  declaration. `Label` defaults to the view's title.
+- **`Items`** is `Options` for a list that never changes. Rows with no `Number` are
+  numbered by position, so a view's menu needs no numbers at all.
+- **`Follow`** is a log: `Scroll`, `Tail` and a panel. **`Framed`** draws any `Body` in
+  a panel with the view's title. Both need `Body`.
+- **`Tag`** adds a short muted note to the header (`"Mode: ON"`).
+- **`Session`** is `OnEnter` and `OnLeave` in one: it returns the function to call
+  when the view stops being on screen.
+- **`Mode`** defaults to the title in capitals.
+- **`Appended`** is for a `Tail` view whose body is a bounded history that drops its
+  oldest rows: it returns how many rows were ever appended, so a view scrolled back
+  holds its place even when the list is full (its length no longer changes).
 - **`Panel`** draws a `Body` in a bordered panel, like the status and options
   panels, instead of edge to edge: `Panel: &dashygotui.ViewPanel[S]{Title:
   "Live Logs", Subtitle: "newest first"}`. `Body` is then given the panel's inner
@@ -191,11 +246,23 @@ navigated, so `OnEnter` and `OnLeave` run.
 
 ### State that outlives a poll
 
-`State` is replaced by every poll, so it is the wrong place for UI state such as
-a pending restart or an open flag. Keep that behind a pointer inside `S`
-(`type State struct { ...; UI *UIState }`, set once in `Poll`) or in the addon's
-closure. The library does not hold app state for you: `S` is yours. The one thing
-it does keep is the scroll position of a `Scroll` view.
+`State` is replaced by every poll, so it is the wrong place for UI state such as a
+pending restart, a selection or a sampled history. Use `dashygotui.Local`:
+
+```go
+cpu := dashygotui.Local[[]float64](c, "cpu_trace")   // zero value on first use
+*cpu = append(*cpu, c.State().CPU)
+
+graph := dashygotui.LocalWith(c, "load", func() *chart.Stream { return chart.NewStream(chart.StreamOpts{}) })
+```
+
+The value belongs to the dashboard, not to the process. That is the difference from a
+variable captured in an addon's `init`, which every dashboard in the process shares:
+two dashboards (a test, an embedding) then corrupt each other, and tests depend on
+their order. The same key with another type is a different value, so name keys after
+the addon. Call `Local` on the update loop (hooks, `Render`, `Body`, `Keys`); a function
+started with `RunTask` runs elsewhere, so read the value first and hand the task what
+it needs.
 
 ## Live graphs
 
@@ -272,7 +339,7 @@ Three kinds of key, from narrow to wide:
 | --- | --- | --- |
 | a number | jumping to a row | every page (typed digits, then Enter) |
 | `Option.Hotkey` | running one option directly | every page; in a view, only that view's options |
-| `Registry.Shortcut` | anything that is not a menu row | its `Scope` |
+| a `Shortcut` | anything that is not a menu row | its `Scope` |
 
 A **shortcut** has a `Scope`. `ScopePages` (the default) works on the dashboard
 pages only. `ScopeEverywhere` works on pages, in views and over pop-ups, and
@@ -280,7 +347,7 @@ comes before everything else, including the force-quit keys. That makes it the
 right scope for a "stop everything" key:
 
 ```go
-dashboard.Registry.Shortcut(dashygotui.Shortcut[dashboard.State]{
+dashboard.Registry.Add(dashygotui.Shortcut[dashboard.State]{
 	Key: "ctrl+q", Label: "Stop", Scope: dashygotui.ScopeEverywhere,
 	Run: func(c *dashboard.Ctx) tea.Cmd { return c.Quit("stop", "Stopped.") },
 })
@@ -306,15 +373,22 @@ A full-screen UI cannot share the terminal with the standard logger. Capture it
 in a [`logs.Buffer`](../logs/) before the dashboard starts, and register the log
 view:
 
-```go
-// dashboard.go
-var Logs = logs.NewBuffer(2000)
+In `dashboard.go`:
 
-// main.go
+```go
+var Logs = logs.NewBuffer(2000)
+```
+
+In `main.go`:
+
+```go
 restore := dashboard.Logs.Divert(log.Default())
 defer restore()
+```
 
-// addons/opt_logs.go
+In `addons/opt_logs.go`:
+
+```go
 func init() { stdaddons.Logs(dashboard.Registry, dashboard.Logs, "actions", 4, stdaddons.Setup{Hotkey: "g"}) }
 ```
 
@@ -421,15 +495,16 @@ full height, and fall back to ASCII in TTY mode.
 | `DualWave` | two streams mirrored on an axis | download over upload |
 | `Braille` | a filled Braille area | a compact traffic graph |
 
-Feed them from a closure filled by an `OnTick` hook (see `widget_waves.go` and
-`widget_network.go` in the demo). `chart.WaveScaler` keeps the scale steady with
+Feed them from a history kept with `dashygotui.Local` and filled by an `OnTick` hook
+(see `widget_waves.go` and `widget_network.go` in the demo). `chart.WaveScaler` keeps the scale steady with
 hysteresis; `chart.Resample` maps timestamped samples onto columns.
 
 ## Ready-made addons
 
 [`stdaddons`](../stdaddons/) provides a theme picker, the four spacing sliders, a
-refresh-rate picker, a display-mode picker and the log view. Each is a one-line
-addon; pass a `stdaddons.Setup` to give it a hotkey or an order:
+refresh-rate picker, a display-mode picker, the background and transparency
+switches, the log view, and the settings above. Each is one declaration; pass a
+`stdaddons.Setup` to the picker-style ones to give them a hotkey or an order:
 
 ```go
 func init() { stdaddons.Theme(dashboard.Registry, "appearance", 20, stdaddons.Setup{Hotkey: "m"}) }
@@ -437,17 +512,10 @@ func init() { stdaddons.Theme(dashboard.Registry, "appearance", 20, stdaddons.Se
 
 ## Rules an addon must follow
 
-1. One file; no edits elsewhere. `make deletion-test` removes each addon in turn
-   and requires the module to still build.
-2. File name `opt_`, `widget_`, `view_`, `modal_` or `shortcut_` + name.
-3. **Never use another addon's functions, types or variables.** Shared code goes
-   in the `dashboard` package or the library. A guard test enforces this.
-4. No package-level `var` for state. Use closures inside `init()`, or fields of
-   a modal or view.
-5. Do not run long work inside `Run`, `Render` or `Badge`; use `RunTask`.
-6. Draw only with the theme's glyphs (`th.G`) and plain ASCII text, so the
-   addon works in TTY mode. The demo's tests fail if a TTY frame contains a
-   symbol the Linux console font may lack.
+They are in [APP-RULES.md](APP-RULES.md), numbered, with the check that enforces each
+(`dashygotui check`). In short: one file and no edits elsewhere (`make deletion-test`),
+the file-name prefix, no use of a sibling addon, no package-level or `init`-captured
+mutable state (use `Local`), no goroutines (use `RunTask`), theme glyphs and plain ASCII.
 
 ## Testing an addon
 
@@ -470,8 +538,12 @@ Match menu rows with a whitespace-tolerant pattern such as `\[10\]\s+Storage`:
 the number column widens when another addon adds a longer number, and your test
 must not break because someone added a file.
 
-State kept in an addon's `init()` closure (a history for a graph, an alert
-counter) lives as long as the process, and is shared by every dashboard built
-from that registry. In a test suite that builds many dashboards, such counters
-carry over from test to test, so assert on patterns (`Alert #\d+`), not on exact
-counts.
+An addon's own state (`dashygotui.Local`) belongs to the dashboard a test builds, so
+tests do not inherit each other's counters or histories and can run in any order
+(`make race` shuffles them). The application's shared pieces, such as a log buffer
+the application owns, are still process-wide: clear them when a test needs a known
+start.
+
+Add one `dashtest.Audit(t, cfg)` test per application: it draws every page and view at
+ten terminal sizes (exact frames, no panic) and in TTY mode (only console-safe
+characters), and with `dashtest.WalkOptions()` opens every option too.

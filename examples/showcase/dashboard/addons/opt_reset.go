@@ -12,10 +12,10 @@ import (
 // Order sorts it last whatever its number.
 
 func init() {
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "reset", Section: "danger", Number: 90, Order: 1000, Label: "Reset All Settings",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Typed[dashboard.State]{
+		Modal: func(c *dashboard.Ctx) dashboard.Modal {
+			return &modal.Typed[dashboard.State]{
 				Title:  "Reset all settings?",
 				Lines:  []string{"Every saved setting is forgotten and the showcase closes."},
 				Word:   "RESET",
@@ -23,8 +23,7 @@ func init() {
 				OnConfirm: func(c *dashboard.Ctx) tea.Cmd {
 					return c.Quit("reset", "All settings were reset.")
 				},
-			})
-			return nil
+			}
 		},
 	})
 }

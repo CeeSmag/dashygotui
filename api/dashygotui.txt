@@ -1,0 +1,730 @@
+# The exported API of dashygotui. Generated: go test -run TestAPISnapshot -update
+chart: const DefaultHold
+chart: field Sample.T time.Time
+chart: field Sample.V float64
+chart: field ScalerOpts.DownLimit int
+chart: field ScalerOpts.DownRatio float64
+chart: field ScalerOpts.Headroom float64
+chart: field ScalerOpts.MaxScale float64
+chart: field ScalerOpts.MinScale float64
+chart: field StreamOpts.Capacity int
+chart: field StreamOpts.Format func(float64) string
+chart: field StreamOpts.Now func() time.Time
+chart: field StreamOpts.Scaler ScalerOpts
+chart: func (d *DualStream) Latest() (top, bottom float64)
+chart: func (d *DualStream) Push(top, bottom float64)
+chart: func (d *DualStream) Render(th *theme.Theme, w, h int) []string
+chart: func (d *DualStream) Reset()
+chart: func (d *DualStream) Scale() float64
+chart: func (s *Series) Add(t time.Time, v float64)
+chart: func (s *Series) Len() int
+chart: func (s *Series) Samples() []Sample
+chart: func (s *Stream) Latest() float64
+chart: func (s *Stream) Push(v float64)
+chart: func (s *Stream) Render(th *theme.Theme, w, h int) []string
+chart: func (s *Stream) Reset()
+chart: func (s *Stream) Scale() float64
+chart: func (s *Stream) ScaleTag(th *theme.Theme, note string) string
+chart: func (s *Stream) Sparkline(th *theme.Theme, cells int) string
+chart: func (s *Stream) Values() []float64
+chart: func (s *WaveScaler) Reset()
+chart: func (s *WaveScaler) Scale() float64
+chart: func (s *WaveScaler) Update(peak float64, now time.Time) float64
+chart: func (s *WaveScaler) UpdateSync(a, b float64, now time.Time) float64
+chart: func BarGraph(th *theme.Theme, vals []float64, scale float64, w, h int) []string
+chart: func Braille(th *theme.Theme, vals []float64, scale float64, w, h int) []string
+chart: func ChoiceRows(th *theme.Theme, num int, label, badge, detail string, inner int, selected bool) []string
+chart: func ClampDots(n int) int
+chart: func DownCell(ascii bool, l, r int) rune
+chart: func DualWave(th *theme.Theme, up, down []float64, scale float64, w, h int) []string
+chart: func GraphRows(w, spare int) int
+chart: func GraphScale(vals []float64, floor float64) float64
+chart: func HeatStrip(th *theme.Theme, vals []float64, scale float64, w int) string
+chart: func LineTrace(th *theme.Theme, vals []float64, scale float64, w, h int) []string
+chart: func Meter(th *theme.Theme, pct float64, w int) string
+chart: func MeterWidth(inner int) int
+chart: func NewDualStream(topLabel, bottomLabel string, o StreamOpts) *DualStream
+chart: func NewSeries(keep time.Duration) *Series
+chart: func NewStream(o StreamOpts) *Stream
+chart: func NewWaveScaler(o ScalerOpts) *WaveScaler
+chart: func Resample(samples []Sample, end time.Time, window, hold time.Duration, n int) []float64
+chart: func SampleHistory(hist []float64, count int) []float64
+chart: func Slider(th *theme.Theme, val, minVal, maxVal, maxWidth int) string
+chart: func Sparkline(th *theme.Theme, vals []float64, scale float64, w int) string
+chart: func TotalDots(v, scale float64, available int) int
+chart: func UpCell(ascii bool, l, r int) rune
+chart: type DualStream struct
+chart: type Sample struct
+chart: type ScalerOpts struct
+chart: type Series struct
+chart: type Stream struct
+chart: type StreamOpts struct
+chart: type WaveScaler struct
+dashtest: func (d *Driver) Advance(delta time.Duration)
+dashtest: func (d *Driver) Contains(s string) bool
+dashtest: func (d *Driver) Exit() dashygotui.ExitInfo
+dashtest: func (d *Driver) Lines() []string
+dashtest: func (d *Driver) Model() tea.Model
+dashtest: func (d *Driver) Notify()
+dashtest: func (d *Driver) Now() time.Time
+dashtest: func (d *Driver) Press(keys ...string)
+dashtest: func (d *Driver) Quit() bool
+dashtest: func (d *Driver) Raw() string
+dashtest: func (d *Driver) RequireAbsent(unwanted ...string)
+dashtest: func (d *Driver) RequireContains(want ...string)
+dashtest: func (d *Driver) Resize(cols, rows int)
+dashtest: func (d *Driver) Screen() string
+dashtest: func (d *Driver) Send(msg tea.Msg)
+dashtest: func (d *Driver) Size() (cols, rows int)
+dashtest: func (d *Driver) Tick()
+dashtest: func (d *Driver) Type(parts ...string)
+dashtest: func Audit[S any](tb testing.TB, cfg dashygotui.Config[S], opts ...AuditOption)
+dashtest: func Epoch() time.Time
+dashtest: func KeyPress(name string) tea.KeyPressMsg
+dashtest: func New[S any](tb testing.TB, cfg dashygotui.Config[S], cols, rows int) *Driver
+dashtest: func Plain(s string) string
+dashtest: func WalkOptions() AuditOption
+dashtest: type AuditOption func(*auditSettings)
+dashtest: type Driver struct
+dashygotui: const BackgroundOff
+dashygotui: const BackgroundPaint
+dashygotui: const BackgroundTerminal BackgroundMode
+dashygotui: const BackgroundTransparent
+dashygotui: const FlashHint
+dashygotui: const FlashResult
+dashygotui: const GlyphsAuto GlyphMode
+dashygotui: const GlyphsTTY
+dashygotui: const GlyphsUnicode
+dashygotui: const LayoutAuto
+dashygotui: const LayoutColumns
+dashygotui: const LayoutGrid2x2
+dashygotui: const LayoutOneTopTwoBottom
+dashygotui: const LayoutRows
+dashygotui: const LayoutTwoTopOneBottom
+dashygotui: const PageSectionGapMax
+dashygotui: const ReservedKeyPrefix
+dashygotui: const ScopeEverywhere
+dashygotui: const ScopePages Scope
+dashygotui: const SectionGapMax
+dashygotui: const SectionOptionGapMax
+dashygotui: const TerminalPageGapMax
+dashygotui: const ToneDanger
+dashygotui: const ToneDefault Tone
+dashygotui: const ToneGood
+dashygotui: const ToneInfo
+dashygotui: const ToneMuted
+dashygotui: const ToneWarn
+dashygotui: field Config.AltScroll bool
+dashygotui: field Config.Background BackgroundMode
+dashygotui: field Config.Clock func() time.Time
+dashygotui: field Config.DetectTTY func() bool
+dashygotui: field Config.Getenv func(string) string
+dashygotui: field Config.Glyphs GlyphMode
+dashygotui: field Config.Header func(*Context[S]) []panel.Segment
+dashygotui: field Config.Interval time.Duration
+dashygotui: field Config.Keys KeyMap
+dashygotui: field Config.OnForceQuit func(*Context[S]) tea.Cmd
+dashygotui: field Config.Pages []Page[S]
+dashygotui: field Config.Palette string
+dashygotui: field Config.Palettes []theme.Palette
+dashygotui: field Config.Poll func(ctx context.Context) (S, error)
+dashygotui: field Config.Registry *Registry[S]
+dashygotui: field Config.Sections []SectionSpec[S]
+dashygotui: field Config.Spacing *Spacing
+dashygotui: field Config.StartView []string
+dashygotui: field Config.Store Store
+dashygotui: field Config.Timer func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd
+dashygotui: field Config.Title string
+dashygotui: field Entry.Badge func(*Context[S]) string
+dashygotui: field Entry.Hotkey string
+dashygotui: field Entry.HotkeyDisplay string
+dashygotui: field Entry.HotkeyHint string
+dashygotui: field Entry.HotkeyTone Tone
+dashygotui: field Entry.Label string
+dashygotui: field Entry.Note string
+dashygotui: field Entry.Number int
+dashygotui: field Entry.Order int
+dashygotui: field Entry.Section string
+dashygotui: field ExitInfo.Message string
+dashygotui: field ExitInfo.Reason string
+dashygotui: field Hint.Key string
+dashygotui: field Hint.Label string
+dashygotui: field Hint.Prio int
+dashygotui: field Hint.Tone Tone
+dashygotui: field Invalid.Reason string
+dashygotui: field KeyMap.Back key.Binding
+dashygotui: field KeyMap.Down key.Binding
+dashygotui: field KeyMap.End key.Binding
+dashygotui: field KeyMap.Faster key.Binding
+dashygotui: field KeyMap.Force key.Binding
+dashygotui: field KeyMap.Home key.Binding
+dashygotui: field KeyMap.Left key.Binding
+dashygotui: field KeyMap.NextPage key.Binding
+dashygotui: field KeyMap.PageDown key.Binding
+dashygotui: field KeyMap.PageUp key.Binding
+dashygotui: field KeyMap.PrevPage key.Binding
+dashygotui: field KeyMap.Quit key.Binding
+dashygotui: field KeyMap.Right key.Binding
+dashygotui: field KeyMap.Select key.Binding
+dashygotui: field KeyMap.Slower key.Binding
+dashygotui: field KeyMap.Up key.Binding
+dashygotui: field Option.Badge func(*Context[S]) string
+dashygotui: field Option.Do func(*Context[S])
+dashygotui: field Option.Hotkey string
+dashygotui: field Option.HotkeyDisplay string
+dashygotui: field Option.HotkeyHint string
+dashygotui: field Option.HotkeyTone Tone
+dashygotui: field Option.Key string
+dashygotui: field Option.Label string
+dashygotui: field Option.Modal func(*Context[S]) Modal[S]
+dashygotui: field Option.Note string
+dashygotui: field Option.Number int
+dashygotui: field Option.Opens string
+dashygotui: field Option.Order int
+dashygotui: field Option.Run func(*Context[S]) tea.Cmd
+dashygotui: field Option.Section string
+dashygotui: field Outline.Options []OutlineOption
+dashygotui: field Outline.Pages []string
+dashygotui: field Outline.Views []string
+dashygotui: field OutlineOption.Hotkey string
+dashygotui: field OutlineOption.Key string
+dashygotui: field OutlineOption.Label string
+dashygotui: field OutlineOption.Number int
+dashygotui: field OutlineOption.Page string
+dashygotui: field Page.Badge func(*Context[S]) string
+dashygotui: field Page.Fallback func(*Context[S], Size) []string
+dashygotui: field Page.FallbackBelow Size
+dashygotui: field Page.FallbackWhen func(Size) bool
+dashygotui: field Page.ID string
+dashygotui: field Page.Layout Layout
+dashygotui: field Page.ShortTitle string
+dashygotui: field Page.TinyTitle string
+dashygotui: field Page.Title string
+dashygotui: field RegistrationError.Msg string
+dashygotui: field RegistrationError.Site string
+dashygotui: field SectionSpec.Badge func(*Context[S]) string
+dashygotui: field SectionSpec.ID string
+dashygotui: field SectionSpec.Noun string
+dashygotui: field SectionSpec.Order int
+dashygotui: field SectionSpec.Page string
+dashygotui: field SectionSpec.Subtitle string
+dashygotui: field SectionSpec.Title string
+dashygotui: field Shortcut.Display string
+dashygotui: field Shortcut.Do func(*Context[S])
+dashygotui: field Shortcut.Key string
+dashygotui: field Shortcut.Label string
+dashygotui: field Shortcut.Modal func(*Context[S]) Modal[S]
+dashygotui: field Shortcut.Opens string
+dashygotui: field Shortcut.Prio int
+dashygotui: field Shortcut.Run func(*Context[S]) tea.Cmd
+dashygotui: field Shortcut.Scope Scope
+dashygotui: field Shortcut.Tone Tone
+dashygotui: field Size.Cols int
+dashygotui: field Size.Rows int
+dashygotui: field TaskResult.Err error
+dashygotui: field TaskResult.Tag string
+dashygotui: field TaskResult.Text string
+dashygotui: field TaskResult.Token int
+dashygotui: field View.Appended func(*Context[S]) int
+dashygotui: field View.Badge func(*Context[S]) string
+dashygotui: field View.Body func(*Context[S], Size) []string
+dashygotui: field View.Entry *Entry[S]
+dashygotui: field View.Follow bool
+dashygotui: field View.Framed bool
+dashygotui: field View.Header func(*Context[S]) []panel.Segment
+dashygotui: field View.Hints func(*Context[S]) []Hint
+dashygotui: field View.ID string
+dashygotui: field View.Items []Option[S]
+dashygotui: field View.Keys func(ctx *Context[S], msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool)
+dashygotui: field View.Mode string
+dashygotui: field View.OnEnter func(*Context[S]) tea.Cmd
+dashygotui: field View.OnLeave func(*Context[S]) tea.Cmd
+dashygotui: field View.Options func(*Context[S]) []Option[S]
+dashygotui: field View.OptionsSubtitle string
+dashygotui: field View.OptionsTitle string
+dashygotui: field View.Panel *ViewPanel[S]
+dashygotui: field View.Scroll bool
+dashygotui: field View.Session func(*Context[S]) (end func())
+dashygotui: field View.Status func(*Context[S], Size) []string
+dashygotui: field View.Subtitle string
+dashygotui: field View.Tag func(*Context[S]) string
+dashygotui: field View.Tail bool
+dashygotui: field View.Title string
+dashygotui: field ViewPanel.Badge func(*Context[S]) string
+dashygotui: field ViewPanel.Subtitle string
+dashygotui: field ViewPanel.Title string
+dashygotui: field Widget.Badge func(*Context[S]) string
+dashygotui: field Widget.Key string
+dashygotui: field Widget.MinHeight int
+dashygotui: field Widget.Order int
+dashygotui: field Widget.Page string
+dashygotui: field Widget.Render func(*Context[S], Size) []string
+dashygotui: field Widget.Subtitle string
+dashygotui: field Widget.Title string
+dashygotui: func (b BackgroundMode) String() string
+dashygotui: func (c *Context[S]) Back()
+dashygotui: func (c *Context[S]) BackgroundMode() BackgroundMode
+dashygotui: func (c *Context[S]) Badge(text string) string
+dashygotui: func (c *Context[S]) CloseModal()
+dashygotui: func (c *Context[S]) Count(n int, what string) string
+dashygotui: func (c *Context[S]) Err() error
+dashygotui: func (c *Context[S]) Exec(cmd *exec.Cmd, tag string) tea.Cmd
+dashygotui: func (c *Context[S]) Flash(msg string)
+dashygotui: func (c *Context[S]) FlashError(msg string)
+dashygotui: func (c *Context[S]) FlashResult(msg string, err error)
+dashygotui: func (c *Context[S]) GlyphMode() GlyphMode
+dashygotui: func (c *Context[S]) GotoPage(id string) bool
+dashygotui: func (c *Context[S]) ModalScroll() int
+dashygotui: func (c *Context[S]) Now() time.Time
+dashygotui: func (c *Context[S]) OnOff(on bool) string
+dashygotui: func (c *Context[S]) OpenModal(mod Modal[S])
+dashygotui: func (c *Context[S]) OpenView(id string) error
+dashygotui: func (c *Context[S]) Page() string
+dashygotui: func (c *Context[S]) PaletteID() string
+dashygotui: func (c *Context[S]) Palettes() []theme.Palette
+dashygotui: func (c *Context[S]) PreviewBackgroundMode(mode BackgroundMode)
+dashygotui: func (c *Context[S]) PreviewGlyphMode(mode GlyphMode)
+dashygotui: func (c *Context[S]) PreviewPalette(id string) bool
+dashygotui: func (c *Context[S]) PreviewSpacing(sp Spacing)
+dashygotui: func (c *Context[S]) Quit(reason, message string) tea.Cmd
+dashygotui: func (c *Context[S]) Ready() bool
+dashygotui: func (c *Context[S]) Refresh() tea.Cmd
+dashygotui: func (c *Context[S]) RefreshInterval() time.Duration
+dashygotui: func (c *Context[S]) RunTask(tag, pending string, fn func(ctx context.Context) (string, error)) tea.Cmd
+dashygotui: func (c *Context[S]) SetBackgroundMode(mode BackgroundMode)
+dashygotui: func (c *Context[S]) SetGlyphMode(mode GlyphMode)
+dashygotui: func (c *Context[S]) SetModalScroll(v int)
+dashygotui: func (c *Context[S]) SetPalette(id string) bool
+dashygotui: func (c *Context[S]) SetRefreshInterval(d time.Duration)
+dashygotui: func (c *Context[S]) SetSpacing(sp Spacing)
+dashygotui: func (c *Context[S]) Size() Size
+dashygotui: func (c *Context[S]) Spacing() Spacing
+dashygotui: func (c *Context[S]) State() S
+dashygotui: func (c *Context[S]) Store() Store
+dashygotui: func (c *Context[S]) TTY() bool
+dashygotui: func (c *Context[S]) Theme() *theme.Theme
+dashygotui: func (c *Context[S]) Ticks() int
+dashygotui: func (d *Dashboard[S]) Attach(s Sender) (detach func())
+dashygotui: func (d *Dashboard[S]) Model(ctx context.Context) tea.Model
+dashygotui: func (d *Dashboard[S]) Notify()
+dashygotui: func (d *Dashboard[S]) Outline() Outline
+dashygotui: func (d *Dashboard[S]) Run(ctx context.Context) (ExitInfo, error)
+dashygotui: func (e *RegistrationError) Error() string
+dashygotui: func (g GlyphMode) String() string
+dashygotui: func (i Invalid[S]) Addons() []Addon[S]
+dashygotui: func (o Option[S]) Addons() []Addon[S]
+dashygotui: func (r *Registry[S]) Add(items ...Addon[S])
+dashygotui: func (r *Registry[S]) OnMsg(fn func(*Context[S], tea.Msg) tea.Cmd)
+dashygotui: func (r *Registry[S]) OnResult(fn func(*Context[S], TaskResult) (handled bool, cmd tea.Cmd))
+dashygotui: func (r *Registry[S]) OnTick(fn func(*Context[S], time.Time) tea.Cmd)
+dashygotui: func (r *Registry[S]) Option(o Option[S])
+dashygotui: func (r *Registry[S]) Shortcut(s Shortcut[S])
+dashygotui: func (r *Registry[S]) Validate() error
+dashygotui: func (r *Registry[S]) View(v View[S])
+dashygotui: func (r *Registry[S]) Widget(w Widget[S])
+dashygotui: func (s Shortcut[S]) Addons() []Addon[S]
+dashygotui: func (v View[S]) Addons() []Addon[S]
+dashygotui: func (w Widget[S]) Addons() []Addon[S]
+dashygotui: func DefaultKeyMap() KeyMap
+dashygotui: func DefaultSpacing() Spacing
+dashygotui: func LocalWith[T, S any](c *Context[S], key string, init func() *T) *T
+dashygotui: func Local[T, S any](c *Context[S], key string) *T
+dashygotui: func NewRegistry[S any]() *Registry[S]
+dashygotui: func New[S any](cfg Config[S]) (*Dashboard[S], error)
+dashygotui: func RefreshIntervals() []time.Duration
+dashygotui: method Addon.Addons func() []Addon[S]
+dashygotui: method Modal.HandleKey func(ctx *Context[S], msg tea.KeyPressMsg) tea.Cmd
+dashygotui: method Modal.Render func(ctx *Context[S], size Size) []string
+dashygotui: method ResultModal.OnResult func(ctx *Context[S], res TaskResult) (handled bool, cmd tea.Cmd)
+dashygotui: method ScrollableModal.ScrollMax func(ctx *Context[S], size Size) int
+dashygotui: method Sender.Send func(msg tea.Msg)
+dashygotui: method Store.Get func(key string, dst any) (found bool, err error)
+dashygotui: method Store.Set func(key string, v any) error
+dashygotui: type Addon[S any] interface
+dashygotui: type BackgroundMode int
+dashygotui: type Config[S any] struct
+dashygotui: type Context[S any] struct
+dashygotui: type Dashboard[S any] struct
+dashygotui: type Entry[S any] struct
+dashygotui: type ExitInfo struct
+dashygotui: type GlyphMode int
+dashygotui: type Hint struct
+dashygotui: type Invalid[S any] struct
+dashygotui: type KeyMap struct
+dashygotui: type Layout = layout.Mode
+dashygotui: type Modal[S any] interface
+dashygotui: type Option[S any] struct
+dashygotui: type Outline struct
+dashygotui: type OutlineOption struct
+dashygotui: type Page[S any] struct
+dashygotui: type RegistrationError struct
+dashygotui: type Registry[S any] struct
+dashygotui: type ResultModal[S any] interface
+dashygotui: type Scope int
+dashygotui: type ScrollableModal[S any] interface
+dashygotui: type SectionSpec[S any] struct
+dashygotui: type Sender interface
+dashygotui: type Shortcut[S any] struct
+dashygotui: type Size struct
+dashygotui: type Spacing = layout.Spacing
+dashygotui: type Store interface
+dashygotui: type TaskResult struct
+dashygotui: type Tone int
+dashygotui: type ViewPanel[S any] struct
+dashygotui: type View[S any] struct
+dashygotui: type Widget[S any] struct
+dashygotui: var ErrInvalidConfig
+layout: const Auto Mode
+layout: const Columns
+layout: const Grid2x2
+layout: const MenuTwoColCols
+layout: const MinCols
+layout: const MinRows
+layout: const OneTopTwoBottom
+layout: const PageSectionMax
+layout: const Rows
+layout: const SectionMax
+layout: const SectionOptionMax
+layout: const StatusPanelH
+layout: const TerminalPageMax
+layout: const TightCols
+layout: const TwoTopOneBottom
+layout: const WideCols
+layout: field Panel.Draw func(w, h int) []string
+layout: field Panel.Want func(w int) int
+layout: field Spacing.PageSection int
+layout: field Spacing.Section int
+layout: field Spacing.SectionOption int
+layout: field Spacing.TerminalPage int
+layout: func (s Spacing) Clamp() Spacing
+layout: func Arrange(panels []Panel, mode Mode, gap, cols, body int) []string
+layout: func DefaultSpacing() Spacing
+layout: func Inset(cols, rows, gap, minW, minH int, content func(w, h int) []string) []string
+layout: func InsetSize(cols, rows, gap, minW, minH int) (w, h int)
+layout: type Mode int
+layout: type Panel struct
+layout: type Spacing struct
+logs: const Debug Level
+logs: const DefaultCapacity
+logs: const DefaultCategory
+logs: const Error
+logs: const Info
+logs: const Warn
+logs: field Entry.Category string
+logs: field Entry.Level Level
+logs: field Entry.Seq uint64
+logs: field Entry.Text string
+logs: field Entry.Time time.Time
+logs: func (b *Buffer) Add(level Level, text string)
+logs: func (b *Buffer) Categories() []string
+logs: func (b *Buffer) Clear()
+logs: func (b *Buffer) Count(atLeast Level) int
+logs: func (b *Buffer) Divert(l *log.Logger) (restore func())
+logs: func (b *Buffer) Handler(opts *slog.HandlerOptions) slog.Handler
+logs: func (b *Buffer) In(category string) *Scoped
+logs: func (b *Buffer) Len() int
+logs: func (b *Buffer) Snapshot() []Entry
+logs: func (b *Buffer) Write(p []byte) (int, error)
+logs: func (l Level) String() string
+logs: func (s *Scoped) Add(level Level, text string)
+logs: func (s *Scoped) Divert(l *log.Logger) (restore func())
+logs: func (s *Scoped) Handler(opts *slog.HandlerOptions) slog.Handler
+logs: func (s *Scoped) Write(p []byte) (int, error)
+logs: func (v *Viewer) Badge(th *theme.Theme) string
+logs: func (v *Viewer) Categories() []string
+logs: func (v *Viewer) Category() string
+logs: func (v *Viewer) HandleKey(name string, rows int) bool
+logs: func (v *Viewer) Live() bool
+logs: func (v *Viewer) MinLevel() Level
+logs: func (v *Viewer) Newer() int
+logs: func (v *Viewer) Rows(th *theme.Theme, cols, rows int) []string
+logs: func (v *Viewer) SetCategory(name string)
+logs: func NewBuffer(capacity int) *Buffer
+logs: func NewViewer(buf *Buffer, opts ...ViewerOption) *Viewer
+logs: func WithCategories(names ...string) ViewerOption
+logs: func WithCategoryKey(key string) ViewerOption
+logs: type Buffer struct
+logs: type Entry struct
+logs: type Level int
+logs: type Scoped struct
+logs: type Viewer struct
+logs: type ViewerOption func(*Viewer)
+modal: field Choice.Badge func(ctx *dashygotui.Context[S]) string
+modal: field Choice.Cursor int
+modal: field Choice.FooterCancel string
+modal: field Choice.FooterSelect string
+modal: field Choice.Help string
+modal: field Choice.Intro func(ctx *dashygotui.Context[S], inner int) []string
+modal: field Choice.Items []Item
+modal: field Choice.OnCancel func(ctx *dashygotui.Context[S]) tea.Cmd
+modal: field Choice.OnMove func(ctx *dashygotui.Context[S], index int)
+modal: field Choice.OnSelect func(ctx *dashygotui.Context[S], index int) tea.Cmd
+modal: field Choice.Rows func(ctx *dashygotui.Context[S]) []Item
+modal: field Choice.Title string
+modal: field Confirm.Accept string
+modal: field Confirm.Lines []string
+modal: field Confirm.OnAccept func(ctx *dashygotui.Context[S]) tea.Cmd
+modal: field Confirm.OnCancel func(ctx *dashygotui.Context[S]) tea.Cmd
+modal: field Confirm.Title string
+modal: field Edit.AllowEmpty bool
+modal: field Edit.Current string
+modal: field Edit.Help string
+modal: field Edit.Initial string
+modal: field Edit.Limit int
+modal: field Edit.OnSaved func(ctx *dashygotui.Context[S], message string) tea.Cmd
+modal: field Edit.Pending string
+modal: field Edit.Save func(ctx context.Context, value string) (message string, err error)
+modal: field Edit.Secret bool
+modal: field Edit.Submit func(ctx *dashygotui.Context[S], value string) tea.Cmd
+modal: field Edit.Title string
+modal: field Edit.Validate func(value string) error
+modal: field Item.Badge string
+modal: field Item.Detail string
+modal: field Item.Label string
+modal: field Notice.Badge string
+modal: field Notice.Content func(ctx *dashygotui.Context[S], inner int) (title, badge string, lines []string)
+modal: field Notice.Lines []string
+modal: field Notice.Title string
+modal: field Notice.Width int
+modal: field Slider.Help string
+modal: field Slider.Max int
+modal: field Slider.Min int
+modal: field Slider.OnCancel func(ctx *dashygotui.Context[S]) tea.Cmd
+modal: field Slider.OnChange func(ctx *dashygotui.Context[S], value int)
+modal: field Slider.OnDone func(ctx *dashygotui.Context[S], value int) tea.Cmd
+modal: field Slider.Title string
+modal: field Slider.Unit string
+modal: field Slider.Value int
+modal: field Typed.Lines []string
+modal: field Typed.OnConfirm func(ctx *dashygotui.Context[S]) tea.Cmd
+modal: field Typed.OnEmpty func(ctx *dashygotui.Context[S]) tea.Cmd
+modal: field Typed.Prompt string
+modal: field Typed.Title string
+modal: field Typed.Word string
+modal: func (c *Choice[S]) HandleKey(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) tea.Cmd
+modal: func (c *Choice[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []string
+modal: func (c *Confirm[S]) HandleKey(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) tea.Cmd
+modal: func (c *Confirm[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []string
+modal: func (e *Edit[S]) HandleKey(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) tea.Cmd
+modal: func (e *Edit[S]) OnResult(ctx *dashygotui.Context[S], res dashygotui.TaskResult) (bool, tea.Cmd)
+modal: func (e *Edit[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []string
+modal: func (n *Notice[S]) HandleKey(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) tea.Cmd
+modal: func (n *Notice[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []string
+modal: func (n *Notice[S]) ScrollMax(ctx *dashygotui.Context[S], size dashygotui.Size) int
+modal: func (s *Slider[S]) HandleKey(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) tea.Cmd
+modal: func (s *Slider[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []string
+modal: func (t *Typed[S]) HandleKey(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) tea.Cmd
+modal: func (t *Typed[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []string
+modal: type Choice[S any] struct
+modal: type Confirm[S any] struct
+modal: type Edit[S any] struct
+modal: type Item struct
+modal: type Notice[S any] struct
+modal: type Slider[S any] struct
+modal: type Typed[S any] struct
+panel: const LabelWidth
+panel: field Hint.Key string
+panel: field Hint.Label string
+panel: field Hint.Prio int
+panel: field Hint.Style lipgloss.Style
+panel: field Hint.Tinted bool
+panel: field Segment.Prio int
+panel: field Segment.Text string
+panel: func Blank(w, h int) []string
+panel: func ClipHeight(block []string, h int) []string
+panel: func Divider(label string) string
+panel: func FitHints(th *theme.Theme, hints []Hint, budget int) string
+panel: func FitSegments(th *theme.Theme, segs []Segment, budget int) string
+panel: func Frame(lines []string, cols, rows int) []string
+panel: func HJoin(gap int, blocks ...[]string) []string
+panel: func Header(th *theme.Theme, segs []Segment, cols int) string
+panel: func Overlay(base, box []string, cols, rows int) []string
+panel: func Panel(th *theme.Theme, title, badge, subtitle string, w, h int, body []string) []string
+panel: func Row(th *theme.Theme, label, value string) string
+panel: func TooSmall(th *theme.Theme, cols, rows, minCols, minRows int) []string
+panel: func VStack(blocks ...[]string) []string
+panel: type Hint struct
+panel: type Segment struct
+stdaddons: field LogOptions.Categories []string
+stdaddons: field LogOptions.CategoryKey string
+stdaddons: field Number.Default int
+stdaddons: field Number.Help string
+stdaddons: field Number.Hotkey string
+stdaddons: field Number.HotkeyDisplay string
+stdaddons: field Number.HotkeyHint string
+stdaddons: field Number.Key string
+stdaddons: field Number.Label string
+stdaddons: field Number.Max int
+stdaddons: field Number.Min int
+stdaddons: field Number.Number int
+stdaddons: field Number.OnChange func(ctx *dashygotui.Context[S], n int) tea.Cmd
+stdaddons: field Number.Order int
+stdaddons: field Number.Section string
+stdaddons: field Number.Unit string
+stdaddons: field Pick.Default string
+stdaddons: field Pick.Help string
+stdaddons: field Pick.Hotkey string
+stdaddons: field Pick.HotkeyDisplay string
+stdaddons: field Pick.HotkeyHint string
+stdaddons: field Pick.Items []modal.Item
+stdaddons: field Pick.Key string
+stdaddons: field Pick.Label string
+stdaddons: field Pick.Number int
+stdaddons: field Pick.OnChange func(ctx *dashygotui.Context[S], label string) tea.Cmd
+stdaddons: field Pick.Order int
+stdaddons: field Pick.Section string
+stdaddons: field Setup.Hotkey string
+stdaddons: field Setup.Order int
+stdaddons: field Text.AllowEmpty bool
+stdaddons: field Text.Default string
+stdaddons: field Text.Help string
+stdaddons: field Text.Hotkey string
+stdaddons: field Text.HotkeyDisplay string
+stdaddons: field Text.HotkeyHint string
+stdaddons: field Text.Key string
+stdaddons: field Text.Label string
+stdaddons: field Text.Limit int
+stdaddons: field Text.Number int
+stdaddons: field Text.OnChange func(ctx *dashygotui.Context[S], value string) tea.Cmd
+stdaddons: field Text.Order int
+stdaddons: field Text.Secret bool
+stdaddons: field Text.Section string
+stdaddons: field Text.Validate func(value string) error
+stdaddons: field Toggle.Default bool
+stdaddons: field Toggle.Hotkey string
+stdaddons: field Toggle.HotkeyDisplay string
+stdaddons: field Toggle.HotkeyHint string
+stdaddons: field Toggle.Key string
+stdaddons: field Toggle.Label string
+stdaddons: field Toggle.Number int
+stdaddons: field Toggle.OnChange func(ctx *dashygotui.Context[S], on bool) tea.Cmd
+stdaddons: field Toggle.Order int
+stdaddons: field Toggle.Section string
+stdaddons: func (n Number[S]) Addons() []dashygotui.Addon[S]
+stdaddons: func (p Pick[S]) Addons() []dashygotui.Addon[S]
+stdaddons: func (t Text[S]) Addons() []dashygotui.Addon[S]
+stdaddons: func (t Toggle[S]) Addons() []dashygotui.Addon[S]
+stdaddons: func Background[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
+stdaddons: func Display[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
+stdaddons: func LogsWith[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section string, number int, opts LogOptions, setup ...Setup)
+stdaddons: func Logs[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section string, number int, setup ...Setup)
+stdaddons: func RefreshRate[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
+stdaddons: func Spacing[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
+stdaddons: func Theme[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
+stdaddons: func Transparency[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
+stdaddons: type LogOptions struct
+stdaddons: type Number[S any] struct
+stdaddons: type Pick[S any] struct
+stdaddons: type Setup struct
+stdaddons: type Text[S any] struct
+stdaddons: type Toggle[S any] struct
+store: const FileName
+store: func (s *JSONFile) Get(key string, dst any) (bool, error)
+store: func (s *JSONFile) Path() string
+store: func (s *JSONFile) Set(key string, v any) error
+store: func (s *Memory) Get(key string, dst any) (bool, error)
+store: func (s *Memory) Set(key string, v any) error
+store: func DefaultPath(app string) (string, error)
+store: func NewJSONFile(path string) *JSONFile
+store: func NewMemory() *Memory
+store: func Open(app string) (*JSONFile, error)
+store: type JSONFile struct
+store: type Memory struct
+text: const Ellipsis
+text: func Bytes(n int64) string
+text: func Center(s string, w int) string
+text: func Fit(s string, w int) string
+text: func FitWith(s string, w int, ellipsis string) string
+text: func OneLine(s string) string
+text: func Pad(s string, w int) string
+text: func Rate(bps float64) string
+text: func RateShort(bps float64) string
+text: func Slice(s string, left, right int) string
+text: func Trunc(s string, w int) string
+text: func TruncWith(s string, w int, ellipsis string) string
+text: func Width(s string) int
+text: func Wrap(s string, w int) []string
+theme: const DefaultID
+theme: field Glyphs.Both string
+theme: field Glyphs.Bullet string
+theme: field Glyphs.Check string
+theme: field Glyphs.CornerBL string
+theme: field Glyphs.CornerBR string
+theme: field Glyphs.CornerTL string
+theme: field Glyphs.CornerTR string
+theme: field Glyphs.Cross string
+theme: field Glyphs.Dot string
+theme: field Glyphs.Down string
+theme: field Glyphs.EchoChar string
+theme: field Glyphs.Ellipsis string
+theme: field Glyphs.Enter string
+theme: field Glyphs.LeftRight string
+theme: field Glyphs.MeterEmpty string
+theme: field Glyphs.MeterFill string
+theme: field Glyphs.Pointer string
+theme: field Glyphs.Prompt string
+theme: field Glyphs.Ramp []string
+theme: field Glyphs.Sep string
+theme: field Glyphs.SliderFill string
+theme: field Glyphs.SliderKnob string
+theme: field Glyphs.SliderRail string
+theme: field Glyphs.Spinner []string
+theme: field Glyphs.Up string
+theme: field Glyphs.UpDown string
+theme: field Palette.Amber string
+theme: field Palette.Background string
+theme: field Palette.Border string
+theme: field Palette.Cyan string
+theme: field Palette.Foreground string
+theme: field Palette.GradLow [3]uint8
+theme: field Palette.GradMid [3]uint8
+theme: field Palette.GradPeak [3]uint8
+theme: field Palette.GradWarn [3]uint8
+theme: field Palette.Green string
+theme: field Palette.ID string
+theme: field Palette.Mint string
+theme: field Palette.Muted string
+theme: field Palette.Name string
+theme: field Palette.Orange string
+theme: field Palette.Red string
+theme: field Palette.Track string
+theme: field Palette.Vibe string
+theme: field Palette.White string
+theme: field Theme.ASCII bool
+theme: field Theme.Amber lipgloss.Style
+theme: field Theme.Border lipgloss.Style
+theme: field Theme.Cursor lipgloss.Style
+theme: field Theme.Cyan lipgloss.Style
+theme: field Theme.G Glyphs
+theme: field Theme.Green lipgloss.Style
+theme: field Theme.Key lipgloss.Style
+theme: field Theme.Mint lipgloss.Style
+theme: field Theme.Muted lipgloss.Style
+theme: field Theme.Orange lipgloss.Style
+theme: field Theme.Palette Palette
+theme: field Theme.Red lipgloss.Style
+theme: field Theme.Title lipgloss.Style
+theme: field Theme.Track lipgloss.Style
+theme: field Theme.White lipgloss.Style
+theme: func (t *Theme) Backdrop() (bg, fg color.Color, ok bool)
+theme: func (t *Theme) Fit(s string, w int) string
+theme: func (t *Theme) Gradient(v float64) lipgloss.Style
+theme: func (t *Theme) GradientRGB(v float64) (r, g, b uint8)
+theme: func (t *Theme) Paint(lines []string) []string
+theme: func (t *Theme) Pointer() string
+theme: func (t *Theme) Spinner(n int) string
+theme: func (t *Theme) Trunc(s string, w int) string
+theme: func Builtins() []Palette
+theme: func Console() Palette
+theme: func Default() Palette
+theme: func DetectTTY(getenv func(string) string) bool
+theme: func Lookup(palettes []Palette, id string) (Palette, bool)
+theme: func New(p Palette, tty bool) *Theme
+theme: func NewWithGlyphs(p Palette, g Glyphs) *Theme
+theme: func Swatch(p Palette) string
+theme: func SwatchWith(p Palette, cell string) string
+theme: func TTYGlyphs() Glyphs
+theme: func UnicodeGlyphs() Glyphs
+theme: type Glyphs struct
+theme: type Palette struct
+theme: type Theme struct

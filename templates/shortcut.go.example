@@ -8,6 +8,9 @@ package addons
 //  3. Pick a key that is not a navigation key, a digit, or another shortcut or
 //     option hotkey (a clash is a startup error that names both files).
 //
+// What the key does is exactly one of Do (an action), Opens (a view by ID),
+// Modal (a pop-up) or Run (when you must return a command).
+//
 // Scope decides where the key works:
 //   - dashygotui.ScopePages (default): on the dashboard pages only.
 //   - dashygotui.ScopeEverywhere: on pages, in views and over pop-ups. This is
@@ -27,20 +30,21 @@ import (
 )
 
 func init() {
-	dashboard.Registry.Shortcut(dashygotui.Shortcut[dashboard.State]{
-		Key:   "ctrl+k",      // as Bubble Tea names it: "ctrl+r", "f5", "d", ...
-		Label: "Kill",        // shown in the footer; leave empty for no hint
-		Prio:  25,            // lower is dropped first on narrow terminals
-		Scope: dashygotui.ScopeEverywhere,
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.OpenModal(&modal.Confirm[dashboard.State]{
+	dashboard.Registry.Add(dashygotui.Shortcut[dashboard.State]{
+		Key:     "ctrl+k",              // as Bubble Tea names it: "ctrl+r", "f5", "d", ...
+		Display: "Ctrl+K",              // how the key is written in the footer
+		Label:   "Kill",                // shown in the footer; leave empty for no hint
+		Tone:    dashygotui.ToneDanger, // colours the hint from the theme
+		Prio:    25,                    // lower is dropped first on narrow terminals
+		Scope:   dashygotui.ScopeEverywhere,
+		Modal: func(*dashboard.Ctx) dashygotui.Modal[dashboard.State] {
+			return &modal.Confirm[dashboard.State]{
 				Title:  "Kill everything?",
 				Lines:  []string{"Everything is shut down."},
 				Accept: "Kill",
 				// Quit ends the dashboard; main reads the reason from ExitInfo.
 				OnAccept: func(c *dashboard.Ctx) tea.Cmd { return c.Quit("kill", "Killed.") },
-			})
-			return nil
+			}
 		},
 	})
 }

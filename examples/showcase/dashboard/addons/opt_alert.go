@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 )
 
@@ -19,24 +20,23 @@ type alertMsg struct {
 }
 
 func init() {
-	alerts := 0
-
 	dashboard.Registry.OnMsg(func(c *dashboard.Ctx, msg tea.Msg) tea.Cmd {
 		a, ok := msg.(alertMsg)
 		if !ok {
 			return nil // not ours
 		}
-		alerts++
-		log.Printf("[%s] alert #%d: %s", a.level, alerts, a.text)
+		alerts := dashygotui.Local[int](c, "alerts")
+		*alerts++
+		log.Printf("[%s] alert #%d: %s", a.level, *alerts, a.text)
 		if a.level == "ERROR" {
-			c.FlashError(fmt.Sprintf("Alert #%d: %s", alerts, a.text))
+			c.FlashError(fmt.Sprintf("Alert #%d: %s", *alerts, a.text))
 		} else {
-			c.Flash(fmt.Sprintf("Alert #%d: %s", alerts, a.text))
+			c.Flash(fmt.Sprintf("Alert #%d: %s", *alerts, a.text))
 		}
 		return func() tea.Msg { return nil } // a non-nil command claims the message
 	})
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "alert", Section: "hooks", Number: 70, Label: "Simulate Alert",
 		Run: func(c *dashboard.Ctx) tea.Cmd {
 			level, text := "WARN", "disk usage above 80%"

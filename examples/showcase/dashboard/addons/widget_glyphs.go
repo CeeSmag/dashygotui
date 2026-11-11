@@ -13,7 +13,7 @@ import (
 // with -glyphs tty, to see the console-safe set.
 
 func init() {
-	dashboard.Registry.Widget(dashboard.Widget{
+	dashboard.Registry.Add(dashboard.Widget{
 		Key: "glyphs", Page: "theme", Order: 10, Title: "Symbols", Subtitle: "theme.Glyphs in use", MinHeight: 8,
 		Badge: func(c *dashboard.Ctx) string {
 			if c.TTY() {

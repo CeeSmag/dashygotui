@@ -30,6 +30,7 @@ func TestMain(m *testing.M) {
 
 func newDemo(t *testing.T, st dashygotui.Store) *dashtest.Driver {
 	t.Helper()
+	dashboard.Logs.Clear() // the log buffer is the application's, shared by every dashboard in the process
 	return dashtest.New(t, dashboard.Config(st), 140, 40)
 }
 
@@ -410,4 +411,9 @@ func TestDemoSwitchesToTTYAndBack(t *testing.T) {
 	again := newDemo(t, st) // remembered
 	again.Press("tab", "tab")
 	again.RequireContains("[TTY]")
+}
+
+// The demo passes the library's audit, including every option it can open.
+func TestDemoPassesTheAuditWalkingEveryOption(t *testing.T) {
+	dashtest.Audit(t, dashboard.Config(store.NewMemory()), dashtest.WalkOptions())
 }

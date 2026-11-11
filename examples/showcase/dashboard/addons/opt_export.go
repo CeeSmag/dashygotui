@@ -20,7 +20,7 @@ import (
 func init() {
 	const tag = "export"
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "export", Section: "ops", Number: 3, Label: "Export Report",
 		Run: func(c *dashboard.Ctx) tea.Cmd {
 			s := c.State() // a copy for the task to read

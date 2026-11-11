@@ -16,22 +16,22 @@ import (
 
 func init() {
 	const keep = 120
-	var cpu []float64
 
 	dashboard.Registry.OnTick(func(c *dashboard.Ctx, _ time.Time) tea.Cmd {
 		if c.Ready() && c.Err() == nil {
-			cpu = append(cpu, c.State().CPU)
-			if len(cpu) > keep {
-				cpu = cpu[len(cpu)-keep:]
+			cpu := dashygotui.Local[[]float64](c, "waves.cpu")
+			*cpu = append(*cpu, c.State().CPU)
+			if len(*cpu) > keep {
+				*cpu = (*cpu)[len(*cpu)-keep:]
 			}
 		}
 		return nil
 	})
 
-	dashboard.Registry.Widget(dashboard.Widget{
+	dashboard.Registry.Add(dashboard.Widget{
 		Key: "waves", Page: "monitor", Order: 40, Title: "CPU Waveforms", Subtitle: "one series, four styles",
 		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
-			th := c.Theme()
+			th, cpu := c.Theme(), *dashygotui.Local[[]float64](c, "waves.cpu")
 			w := max(size.Cols-panel.LabelWidth-1, 1)
 			indent := strings.Repeat(" ", panel.LabelWidth+1)
 			rows := []string{

@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	dashboard.Registry.Widget(dashboard.Widget{
+	dashboard.Registry.Add(dashboard.Widget{
 		Key:       "my_widget", // unique and stable
 		Page:      "monitor",   // a page declared in the dashboard file
 		Order:     50,          // among the page's panels, ascending
@@ -27,7 +27,7 @@ func init() {
 		MinHeight: 6, // rows, borders included, wanted when panels are stacked
 
 		// Badge is shown in the top border. Optional.
-		Badge: func(c *dashboard.Ctx) string { return c.Theme().Green.Render("● LIVE") },
+		Badge: func(c *dashboard.Ctx) string { return c.Theme().Green.Render(c.Theme().G.Bullet + " LIVE") },
 
 		// Render returns the body rows for the inner size. It runs on every
 		// frame, so keep it cheap and read data from c.State().
@@ -40,12 +40,14 @@ func init() {
 		},
 	})
 
-	// A widget that samples over time keeps its history in a variable declared
-	// here, inside init, and feeds it from a tick hook:
+	// A widget that samples over time keeps its history with dashygotui.Local, which
+	// gives it a value that belongs to this dashboard (not a variable captured here
+	// in init, which every dashboard in the process would share), and feeds it from a
+	// tick hook:
 	//
-	//	history := chart.NewSeries(2 * time.Minute)
+	//	history := func(c *dashboard.Ctx) *[]float64 { return dashygotui.Local[[]float64](c, "my_widget") }
 	//	dashboard.Registry.OnTick(func(c *dashboard.Ctx, now time.Time) tea.Cmd {
-	//		history.Add(now, c.State().Something)
+	//		*history(c) = append(*history(c), c.State().Something)
 	//		return nil
 	//	})
 }

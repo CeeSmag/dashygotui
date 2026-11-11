@@ -1,8 +1,6 @@
 package addons
 
 import (
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 )
 
@@ -12,16 +10,15 @@ import (
 
 func init() {
 	jump := func(number, order int, key, label, page, title string) {
-		dashboard.Registry.Option(dashboard.Option{
+		dashboard.Registry.Add(dashboard.Option{
 			Key: key, Section: "navigation", Number: number, Order: order, Label: label,
 			Badge: func(c *dashboard.Ctx) string { return c.Badge(title) },
-			Run: func(c *dashboard.Ctx) tea.Cmd {
+			Do: func(c *dashboard.Ctx) {
 				if !c.GotoPage(page) {
 					c.FlashError("no such page: " + page)
-					return nil
+					return
 				}
 				c.Flash("Now on " + title)
-				return nil
 			},
 		})
 	}

@@ -1,8 +1,6 @@
 package addons
 
 import (
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/CeeSmag/dashygotui/examples/demo/dashboard"
 )
 
@@ -17,13 +15,12 @@ func init() {
 		return on
 	}
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "notifications", Section: "settings", Number: 11, Label: "Notifications",
 		Badge: func(c *dashboard.Ctx) string { return c.OnOff(enabled(c)) },
-		Run: func(c *dashboard.Ctx) tea.Cmd {
+		Do: func(c *dashboard.Ctx) {
 			on := !enabled(c)
 			c.FlashResult("Notifications "+map[bool]string{true: "on", false: "off"}[on]+".", c.Store().Set(enabledKey, on))
-			return nil
 		},
 	})
 }

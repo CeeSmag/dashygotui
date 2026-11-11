@@ -59,8 +59,8 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
   `runtime.GOOS`/`GOARCH` branching, no `/proc` or other platform paths.
   `os/exec` is allowed in exactly one library file (`exec.go`), which wraps
   `tea.ExecProcess`. **[enforced]**
-- Platform-specific behaviour (sudo, systemd, `/proc`, journalctl, ...) belongs
-  to the application's own addons, never to the library.
+- Platform-specific behaviour (privilege escalation, service managers, `/proc`,
+  log readers, ...) belongs to the application's own addons, never to the library.
 - Non-public code lives in `internal/`. Everything not listed in the layout is
   unexported by default.
 
@@ -148,7 +148,7 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
   notice instead of a broken layout.
 - Layout code clamps spacing instead of overflowing. Width is always measured
   ANSI-aware (`text.Width`), never with `len`.
-- The mouse is not captured in v1; the terminal keeps selection and copy.
+- The mouse is not captured; the terminal keeps selection and copy.
 - **Symbols come from the theme.** A renderer draws with `theme.Glyphs` (`th.G`)
   and never hard-codes a symbol that the Linux console font may lack: no `●`,
   `✓`, `✗`, `▲`, `▼`, `…`, `↑↓`, rounded corners or Braille outside the Unicode
@@ -183,8 +183,10 @@ change the guard in the same change and explain why.
 - File names are `opt_<name>.go`, `widget_<name>.go`, `view_<name>.go`,
   `modal_<name>.go` or `shortcut_<name>.go` (plus `_test.go`). **[enforced]**
 - An addon reaches the library only through the `*Context[S]` it is handed and
-  the registry in the dashboard package. No package-level mutable state; modal
-  and view state lives in the modal or view struct.
+  the registry in the dashboard package. No package-level mutable state, and no
+  variable captured in `init` and changed by a callback (it is shared by every
+  dashboard in the process): an addon's own state lives in `dashygotui.Local`, a
+  modal's or view's in its struct. **[enforced on applications: dashygotui check]**
 - Pages and section containers are declared in the dashboard file, not in
   addons. An addon targets them by string ID.
 - Persisted addon settings use `Context.Store()` with a key namespaced by the
@@ -194,10 +196,13 @@ change the guard in the same change and explain why.
 ## 11. Tooling gate
 
 `make check` runs: `gofmt`/`goimports` check, `go vet`, `staticcheck`,
-`golangci-lint`, `govulncheck`, `go test -race ./...` (which includes the guard
-tests), `make deletion-test` (every addon removable), `make template-test` (every
-file in `templates/` compiles and registers cleanly) and `go mod tidy -diff`.
-All must pass. Never skip, silence or loosen a
+`golangci-lint`, `govulncheck`, `go test -race -shuffle=on ./...` (which includes the
+guard, API-snapshot, reference and documentation tests), `make deletion-test` (every
+addon removable), `make template-test` (every file in `templates/` compiles and
+registers cleanly), `make consumer-test` (a throw-away application scaffolds, builds,
+passes `dashygotui check` and fails it for each bad addon), `make app-check` (the
+examples obey the application rules), `make api-check` (an API change comes with a
+changelog entry) and `go mod tidy -diff`. All must pass. Never skip, silence or loosen a
 check to make a change pass; fix the cause. A `//nolint` needs a specific linter
 name and a reason on the same line.
 
@@ -208,8 +213,8 @@ library.
 
 ## 12. Rules for AI coding agents
 
-1. Read this file first, then `docs/ARCHITECTURE.md`; `docs/ADDONS.md` before
-   writing an addon.
+1. Read this file first, then `docs/DESIGN.md` and `docs/ARCHITECTURE.md`;
+   `docs/ADDONS.md` and `docs/COOKBOOK.md` before writing an addon.
 2. Do only what was asked. Do not create, rename or delete files that were not
    requested. Keep diffs minimal and focused.
 3. To add an addon, add one file. If you believe another file must change, stop
@@ -223,3 +228,22 @@ library.
    with a plain message and **no** AI attribution trailer (no `Co-Authored-By`,
    no "Generated with").
 8. Ask before any destructive, irreversible or outward-facing action.
+9. If the library cannot do what is needed, **record a gap and stop** (see
+   `docs/DESIGN.md`); never work around it in an application or in a copy.
+10. A new library feature passes the generic gate in `docs/DESIGN.md`: two
+    unrelated applications could use it, and it carries no application's
+    vocabulary. A change to the exported API updates `api/dashygotui.txt` and
+    `CHANGELOG.md` in the same change. **[enforced]**
+
+## 13. The design charter and the application rules
+
+- `docs/DESIGN.md` is the charter: complexity in the library, simplicity in the
+  application; the generic gate; where code lives; the gap protocol.
+- `docs/APP-RULES.md` holds the rules for applications built on the library
+  (rules A1 to A10). They are enforced on an application by `dashygotui check`
+  (`cmd/dashygotui`) and `dashtest.Audit`, and the library's examples are held to
+  them by the same code (`internal/guard`).
+- `docs/COOKBOOK.md` is the "I want X, so use Y" table. When an addon is longer
+  than the cookbook's form, the cookbook, the library or the addon is wrong.
+- The rules in `internal/guard` are shared: a rule changed there changes the
+  guard tests and the command together.

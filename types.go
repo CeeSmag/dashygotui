@@ -257,6 +257,21 @@ type Shortcut[S any] struct {
 	// "ctrl+q" to replace the default quit; make sure the application still has
 	// a way out.
 	Scope Scope
+	// What the key does. Set exactly one of Run, Do, Opens and Modal; anything
+	// else is a startup error. They mean what they do on [Option].
+
 	// Run is called when the key is pressed.
 	Run func(*Context[S]) tea.Cmd
+	// Do is Run for an action with no command to return.
+	Do func(*Context[S])
+	// Opens is the ID of a registered [View] to open.
+	Opens string
+	// Modal returns a pop-up to open.
+	Modal func(*Context[S]) Modal[S]
 }
+
+// actions counts how many of Run, Do, Opens and Modal are set.
+func (s Shortcut[S]) actions() int { return actionCount(s.Run, s.Do, s.Opens, s.Modal) }
+
+// run performs the shortcut's action.
+func (s Shortcut[S]) run(c *Context[S]) tea.Cmd { return runAction(c, s.Run, s.Do, s.Opens, s.Modal) }

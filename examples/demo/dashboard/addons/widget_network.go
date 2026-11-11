@@ -13,28 +13,41 @@ import (
 )
 
 // Network: a live mirrored waveform, download above the axis and upload below. It samples on every tick with an OnTick hook
-// and keeps its history in closure variables, not package state, so the file
-// stays self-contained.
+// and keeps its history with dashygotui.Local (state of this dashboard, not of the
+// process), so the file stays self-contained.
+
+// traffic is the widget's two series and the scale they share, kept per
+// dashboard.
+type traffic struct {
+	in, out *chart.Series
+	scaler  *chart.WaveScaler
+}
+
+const window = 2 * time.Minute
 
 func init() {
-	const window = 2 * time.Minute
-	in, out := chart.NewSeries(window), chart.NewSeries(window)
-	scaler := chart.NewWaveScaler(chart.ScalerOpts{MinScale: 100_000})
+	history := func(c *dashboard.Ctx) *traffic {
+		return dashygotui.LocalWith(c, "network", func() *traffic {
+			return &traffic{in: chart.NewSeries(window), out: chart.NewSeries(window),
+				scaler: chart.NewWaveScaler(chart.ScalerOpts{MinScale: 100_000})}
+		})
+	}
 
 	dashboard.Registry.OnTick(func(c *dashboard.Ctx, now time.Time) tea.Cmd {
 		if c.Ready() {
 			s := c.State()
-			in.Add(now, s.NetIn)
-			out.Add(now, s.NetOut)
-			scaler.UpdateSync(s.NetIn, s.NetOut, now) // both directions share one scale
+			tr := history(c)
+			tr.in.Add(now, s.NetIn)
+			tr.out.Add(now, s.NetOut)
+			tr.scaler.UpdateSync(s.NetIn, s.NetOut, now) // both directions share one scale
 		}
 		return nil
 	})
 
-	dashboard.Registry.Widget(dashboard.Widget{
+	dashboard.Registry.Add(dashboard.Widget{
 		Key: "network", Page: "monitor", Order: 20, Title: "Network", Subtitle: "last 2 minutes",
 		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
-			th, s := c.Theme(), c.State()
+			th, s, tr := c.Theme(), c.State(), history(c)
 			rows := []string{
 				panel.Row(th, "In", th.Green.Render(th.G.Down+" ")+text.Rate(s.NetIn)),
 				panel.Row(th, "Out", th.Cyan.Render(th.G.Up+" ")+text.Rate(s.NetOut)),
@@ -48,9 +61,9 @@ func init() {
 				return rows
 			}
 			// Download grows upward from the axis, upload downward.
-			recv := chart.Resample(in.Samples(), c.Now(), window, chart.DefaultHold, 2*size.Cols)
-			sent := chart.Resample(out.Samples(), c.Now(), window, chart.DefaultHold, 2*size.Cols)
-			return append(rows, chart.DualWave(th, recv, sent, scaler.Scale(), size.Cols, h)...)
+			recv := chart.Resample(tr.in.Samples(), c.Now(), window, chart.DefaultHold, 2*size.Cols)
+			sent := chart.Resample(tr.out.Samples(), c.Now(), window, chart.DefaultHold, 2*size.Cols)
+			return append(rows, chart.DualWave(th, recv, sent, tr.scaler.Scale(), size.Cols, h)...)
 		},
 	})
 }

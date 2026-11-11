@@ -5,6 +5,82 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [0.3.0] - 2026-11-11
+
+Keeps applications on the library's rails: shorter addons, rules that travel with
+the module, and checks for both the library and the applications built on it.
+Everything is additive except one visible default (see Changed).
+
+### Added
+
+- **Short forms.** `Option.Opens`, `Do`, `Modal` and `Note`; `Shortcut.Opens`, `Do`
+  and `Modal` (exactly one of `Run`, `Do`, `Opens`, `Modal`, checked at startup, and
+  `Opens` is checked against the registered views). `Option.HotkeyHint` advertises a
+  hotkey in the footer.
+- **`Registry.Add(...)`** registers any mix of options, shortcuts, views and widgets
+  in one call, and the `Addon` interface (an `Addons()` method) lets a type of your
+  own stand for several.
+- **View declarations.** `View.Entry` (the option that opens the view, with hotkey and
+  footer hint), `Items` (a fixed menu, numbered by position), `Follow` (Scroll + Tail
+  + panel), `Framed`, `Tag` (a muted header note) and `Session` (start and end
+  together).
+- **Ready-made settings.** `stdaddons.Toggle`, `Number`, `Pick` and `Text`: a value
+  remembered in the `Store`, with badge, pop-up, validation, saving, confirmation and
+  an `OnChange` hook.
+- **`dashygotui` command** (`cmd/dashygotui`, standard library only):
+  `rules` prints the design rules that match the pinned version, `check` lints an
+  application's addons (rules A1 to A10, gap markers, allow comments), `new` writes an
+  addon from a template, `init` writes AGENTS.md, CLAUDE.md and GAPS.md.
+- **`dashtest.Audit`**: one call in an application's tests draws every page and view
+  at ten sizes (exact frames, no panic) and in TTY mode (only console-safe
+  characters); `WalkOptions` also opens every option. `Dashboard.Outline` describes
+  a dashboard's pages, views and options.
+- **Docs**: `docs/DESIGN.md` (the charter and the gap protocol), `docs/APP-RULES.md`,
+  `docs/COOKBOOK.md`, and a generated `docs/REFERENCE.md` of every field an addon
+  fills in.
+- **Governance of the library**: an exported-API snapshot (`api/dashygotui.txt`)
+  that must change with `CHANGELOG.md`, a generated field reference that must match
+  the code, a scan for application vocabulary, `examples/buildwatch` (an unrelated
+  second application), a consumer simulation, and a gap issue template.
+
+- **`dashygotui.Local` and `LocalWith`**: state an addon keeps for one dashboard (a
+  history, a selection, a counter), instead of a variable captured in `init`, which
+  every dashboard in the process shares. `stdaddons.Logs` keeps its viewer this way.
+  `make race` now runs the tests in random order.
+- **`View.Appended`**: a counter that lets a `Tail` view scrolled back hold its place
+  when its body is a bounded history (its length stops changing once full).
+- **Startup validation** for the new forms: duplicate numbers in a view's `Items`,
+  an option `Key` starting with `ReservedKeyPrefix` ("dashygotui."), and bad
+  `stdaddons` settings (empty number range, empty or duplicate `Pick` items, an
+  unknown default), reported through the new `Invalid` addon with the call site.
+- **`dashygotui check -changed`** applies the one-file rule (C1) to the git change set: a
+  change that adds an addon and edits another Go file is reported (advice; `-strict`
+  fails). **`dashygotui init -claude`** writes a Claude Code skill and merges a hook that runs
+  the check after every edit, keeping the user's other settings.
+- **Rule A10** in `dashygotui check`: a variable declared in an addon's `init` and changed
+  by a callback (`n++`, `list = append(...)`, `m[k] = v`) is flagged, with
+  `dashygotui.Local` as the fix.
+- **`dashygotui check` reaches the whole application**: A5, A7 and A8 now apply to every
+  file that imports the library, not only to addons, and the rules catch dot-imports,
+  `lipgloss.Style{}` literals, `os.Stdout`/`Stderr`/`Stdin`, and escape sequences in
+  strings. A docs check requires every Go sample to parse; the examples README counts
+  are tested.
+
+### Changed
+
+- A view's footer `Mode` now defaults to its title in capitals (it was `VIEW`).
+- The position shown in a panelled view's border is joined to its subtitle with the
+  theme's separator, which is ASCII in TTY mode (found by `dashtest.Audit`).
+- The examples and templates use the short forms, register with `Registry.Add`, and
+  keep their state with `Local`; the example tests no longer depend on test order.
+- Showcase tests that worked around process-wide addon state (`oncePerProcess`) are
+  gone, and the demo test clears the shared log buffer.
+
+### Fixed
+
+- The showcase's Event Stream numbered every event #2001 once its capped history
+  filled (found by running the tests repeatedly); it now counts events ever recorded.
+
 ## [0.2.0] - 2026-11-11
 
 Closes the gaps found while moving a real application onto the library. Every

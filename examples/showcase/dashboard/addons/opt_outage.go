@@ -17,7 +17,7 @@ func init() {
 		return on
 	}
 
-	dashboard.Registry.Option(dashboard.Option{
+	dashboard.Registry.Add(dashboard.Option{
 		Key: "outage", Section: "hooks", Number: 71, Label: "Simulate Outage",
 		Badge: func(c *dashboard.Ctx) string { return c.OnOff(outage(c)) },
 		Run: func(c *dashboard.Ctx) tea.Cmd {

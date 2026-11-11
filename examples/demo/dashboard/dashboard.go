@@ -46,6 +46,10 @@ type (
 	Widget = dashygotui.Widget[State]
 	// View is a full-screen view.
 	View = dashygotui.View[State]
+	// Entry is the menu option that opens a view.
+	Entry = dashygotui.Entry[State]
+	// Modal is a pop-up.
+	Modal = dashygotui.Modal[State]
 )
 
 // Config returns the dashboard's configuration. st keeps the user's settings.

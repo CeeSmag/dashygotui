@@ -15,15 +15,17 @@ import (
 )
 
 // [50] Diagnostics (hotkey d): a full-screen view with a Status panel above a
-// menu of Options. The view has its own options with their own numbers, and a
-// view-local Hotkey (t) that works only inside it. The view and the option that
-// opens it are one feature, so one file registers both. OptionsTitle and
-// OptionsSubtitle name the menu panel, Header adds a "Mode: ON" segment to the
-// header and Hints adds a footer hint for the view-local hotkey.
+// menu. One Add call declares the view and the option that opens it (Entry, with
+// its hotkey and footer hint). Items is a static menu: rows are numbered by
+// position, and each row says what it does with Opens, Do or Run. A view-local
+// Hotkey (t) works only inside the view. OptionsTitle and OptionsSubtitle name
+// the menu panel, Tag adds "Mode: ON" to the header, Hints adds a footer hint for
+// the view-local hotkey, and Session runs while the view is on screen.
 
 func init() {
-	dashboard.Registry.View(dashboard.View{
-		ID: "diagnostics", Title: "Diagnostics", Subtitle: "health of the service", Mode: "DIAG",
+	dashboard.Registry.Add(dashboard.View{
+		ID: "diagnostics", Title: "Diagnostics", Subtitle: "health of the service",
+		Entry: &dashboard.Entry{Section: "views", Number: 50, Hotkey: "d", HotkeyHint: "Diagnostics"},
 		Badge: func(c *dashboard.Ctx) string {
 			th := c.Theme()
 			if c.Err() != nil {
@@ -31,11 +33,13 @@ func init() {
 			}
 			return th.Green.Render(th.G.Bullet + " HEALTHY")
 		},
+		Tag: func(*dashboard.Ctx) string { return "Mode: ON" },
+		Session: func(*dashboard.Ctx) func() {
+			log.Print("[INFO] diagnostics opened")
+			return func() { log.Print("[INFO] diagnostics closed") }
+		},
 		OptionsTitle:    "Actions",
 		OptionsSubtitle: "Enter runs the highlighted one",
-		Header: func(c *dashboard.Ctx) []panel.Segment {
-			return []panel.Segment{{Text: c.Theme().Green.Render("Mode: ON"), Prio: 85}}
-		},
 		Hints: func(*dashboard.Ctx) []dashygotui.Hint {
 			return []dashygotui.Hint{{Key: "t", Label: "Self-test", Tone: dashygotui.ToneGood, Prio: 58}}
 		},
@@ -52,38 +56,20 @@ func init() {
 			}
 			return rows
 		},
-		Options: func(*dashboard.Ctx) []dashboard.Option {
-			return []dashboard.Option{
-				{Number: 1, Label: "Run Self-Test", Hotkey: "t", Run: func(c *dashboard.Ctx) tea.Cmd {
-					return c.RunTask("selftest", "Testing...", func(ctx context.Context) (string, error) {
-						select {
-						case <-time.After(600 * time.Millisecond):
-						case <-ctx.Done():
-							return "", ctx.Err()
-						}
-						log.Print("[INFO] self-test passed")
-						return "Self-test passed: 12 of 12 checks.", nil
-					})
-				}},
-				{Number: 2, Label: "Open Logs", Run: func(c *dashboard.Ctx) tea.Cmd {
-					// A view can open another view by ID.
-					if err := c.OpenView("stdaddons.logs"); err != nil {
-						c.FlashError(err.Error())
+		Items: []dashboard.Option{
+			{Label: "Run Self-Test", Hotkey: "t", Run: func(c *dashboard.Ctx) tea.Cmd {
+				return c.RunTask("selftest", "Testing...", func(ctx context.Context) (string, error) {
+					select {
+					case <-time.After(600 * time.Millisecond):
+					case <-ctx.Done():
+						return "", ctx.Err()
 					}
-					return nil
-				}},
-				{Number: 3, Label: "Back to the Page", Run: func(c *dashboard.Ctx) tea.Cmd { c.Back(); return nil }},
-			}
-		},
-	})
-
-	dashboard.Registry.Option(dashboard.Option{
-		Key: "diagnostics", Section: "views", Number: 50, Label: "Diagnostics", Hotkey: "d",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			if err := c.OpenView("diagnostics"); err != nil {
-				c.FlashError(err.Error())
-			}
-			return nil
+					log.Print("[INFO] self-test passed")
+					return "Self-test passed: 12 of 12 checks.", nil
+				})
+			}},
+			{Label: "Open Logs", Opens: "stdaddons.logs"}, // a view can open another view by ID
+			{Label: "Back to the Page", Do: func(c *dashboard.Ctx) { c.Back() }},
 		},
 	})
 }

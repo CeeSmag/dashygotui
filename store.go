@@ -16,6 +16,10 @@ type Store interface {
 	Set(key string, v any) error
 }
 
+// ReservedKeyPrefix starts every [Store] key the library keeps for itself. An
+// option's Key (which settings use as their Store key) must not start with it.
+const ReservedKeyPrefix = "dashygotui."
+
 // Keys the library itself persists in the [Store].
 const (
 	storeKeySpacing  = "dashygotui.spacing"

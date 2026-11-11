@@ -1,10 +1,11 @@
 # Examples
 
-Two applications, both built on the same library and both tested end to end.
+Three applications, all built on the same library and tested end to end.
 
 | | What it is | Run it |
 | --- | --- | --- |
-| [`showcase`](showcase/) | **Uses every feature.** Six pages, 41 options, 10 widgets, 5 views, 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 47 one-file addons. Start here. | `make run` |
+| [`showcase`](showcase/) | **Uses every feature.** Six pages, 44 options, 10 widgets, 5 views, 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 50 one-file addons. Start here. | `make run` |
+| [`buildwatch`](buildwatch/) | **A second, unrelated app** (a CI build monitor) written entirely in the short forms: about 100 lines of addon code. Compare it with the showcase. | `go run ./examples/buildwatch` |
 | [`demo`](demo/) | The small quickstart: three pages and a handful of addons. Also the library's integration test. | `make run-demo` |
 
 ## Building
@@ -49,7 +50,7 @@ brackets is the option number: type it anywhere to jump there.
 | Custom palette that sets the terminal background | `Solarized` in `dashboard.go` |
 | **Options**: badge, `Order`, `Hotkey`, `OnOff`/`Badge`/`Count` helpers | `opt_*.go`; `[60]`-`[62]` for `Order` |
 | **Tasks**: `RunTask`, pending message, `OnResult` hook | `[1]` backup, `[3]` export (opens a report) |
-| **Hooks**: `OnTick` (closure state), `OnMsg` (own message type), `OnResult` | `widget_*.go`, `[70]` alert |
+| **Hooks**: `OnTick` (per-dashboard state with `Local`), `OnMsg` (own message type), `OnResult` | `widget_*.go`, `[70]` alert |
 | `Context.Exec` (hand the terminal to a program) | `[72]` |
 | `Context.Err` / `Ready` (stale data, last good state kept) | `[71]` simulate an outage |
 | `Context.GotoPage` | `[60]`-`[62]` |

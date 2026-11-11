@@ -165,6 +165,26 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 		}
 		hotkeys[o.Hotkey] = o
 	}
+	viewKnown := func(id string) bool {
+		return slices.ContainsFunc(reg.views, func(v View[S]) bool { return v.ID == id })
+	}
+	for _, o := range reg.options {
+		if o.Opens != "" && !viewKnown(o.Opens) {
+			errs = append(errs, fmt.Errorf("option %q opens unknown view %q", o.Key, o.Opens))
+		}
+	}
+	for _, s := range reg.shortcuts {
+		if s.Opens != "" && !viewKnown(s.Opens) {
+			errs = append(errs, fmt.Errorf("shortcut %q opens unknown view %q", s.Key, s.Opens))
+		}
+	}
+	for _, v := range reg.views {
+		for _, it := range v.Items {
+			if it.Opens != "" && !viewKnown(it.Opens) {
+				errs = append(errs, fmt.Errorf("view %q item %q opens unknown view %q", v.ID, it.Label, it.Opens))
+			}
+		}
+	}
 	for _, id := range cfg.StartView {
 		if !slices.ContainsFunc(reg.views, func(v View[S]) bool { return v.ID == id }) {
 			errs = append(errs, fmt.Errorf("StartView names unknown view %q", id))

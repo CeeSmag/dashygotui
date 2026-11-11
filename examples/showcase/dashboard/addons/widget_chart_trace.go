@@ -14,25 +14,37 @@ import (
 // Charts page, panel 3: an oscilloscope-style line trace and a mirrored wave,
 // the latter kept steady by a chart.WaveScaler with hysteresis.
 
+// traceSamples are the widget's series and the scale they share, kept per
+// dashboard.
+type traceSamples struct {
+	cpu, in, out []float64
+	scaler       *chart.WaveScaler
+}
+
 func init() {
-	var cpu, in, out []float64
-	scaler := chart.NewWaveScaler(chart.ScalerOpts{MinScale: 100_000})
+	samples := func(c *dashboard.Ctx) *traceSamples {
+		return dashygotui.LocalWith(c, "chart_trace", func() *traceSamples {
+			return &traceSamples{scaler: chart.NewWaveScaler(chart.ScalerOpts{MinScale: 100_000})}
+		})
+	}
+
 	dashboard.Registry.OnTick(func(c *dashboard.Ctx, now time.Time) tea.Cmd {
 		if c.Ready() && c.Err() == nil {
-			s := c.State()
-			cpu, in, out = append(cpu, s.CPU), append(in, s.NetIn), append(out, s.NetOut)
-			scaler.UpdateSync(s.NetIn, s.NetOut, now)
-			if len(cpu) > 400 {
-				cpu, in, out = cpu[len(cpu)-400:], in[len(in)-400:], out[len(out)-400:]
+			s, t := c.State(), samples(c)
+			t.cpu, t.in, t.out = append(t.cpu, s.CPU), append(t.in, s.NetIn), append(t.out, s.NetOut)
+			t.scaler.UpdateSync(s.NetIn, s.NetOut, now)
+			if len(t.cpu) > 400 {
+				t.cpu, t.in, t.out = t.cpu[len(t.cpu)-400:], t.in[len(t.in)-400:], t.out[len(t.out)-400:]
 			}
 		}
 		return nil
 	})
 
-	dashboard.Registry.Widget(dashboard.Widget{
+	dashboard.Registry.Add(dashboard.Widget{
 		Key: "chart_trace", Page: "charts", Order: 30, Title: "Trace & Mirror", Subtitle: "chart.LineTrace and chart.DualWave",
 		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
-			th := c.Theme()
+			th, t := c.Theme(), samples(c)
+			cpu, in, out, scaler := t.cpu, t.in, t.out, t.scaler
 			w := max(size.Cols-panel.LabelWidth-1, 1)
 			pad := "         "
 			half := size.Rows / 2
