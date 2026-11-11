@@ -6,7 +6,9 @@ list, not a README.
 
 Start from a template in [`templates/`](../templates/), change the import path
 of your `dashboard` package, and pick a number or an order. The
-[`examples/demo`](../examples/demo/) app shows every kind.
+[`examples/showcase`](../examples/showcase/) app shows every kind and every
+feature ([`examples/README.md`](../examples/README.md) maps each to its file);
+[`examples/demo`](../examples/demo/) is the small quickstart.
 
 | You want | File | Register with | Template |
 | --- | --- | --- | --- |
@@ -295,3 +297,9 @@ func TestStorage(t *testing.T) {
 Match menu rows with a whitespace-tolerant pattern such as `\[10\]\s+Storage`:
 the number column widens when another addon adds a longer number, and your test
 must not break because someone added a file.
+
+State kept in an addon's `init()` closure (a history for a graph, an alert
+counter) lives as long as the process, and is shared by every dashboard built
+from that registry. In a test suite that builds many dashboards, such counters
+carry over from test to test, so assert on patterns (`Alert #\d+`), not on exact
+counts.

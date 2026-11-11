@@ -116,8 +116,15 @@ invalid dashboard configuration: opt_trash.go:14: option "trash" reuses number 1
 ## Try it
 
 ```sh
-go run ./examples/demo
+make run        # the showcase: every feature of the library, on six pages
+make run-demo   # the small quickstart
+make example    # build the showcase into bin/showcase
+make help       # every target, including cross-compiling with `make dist`
 ```
+
+The [showcase](examples/showcase/) uses every feature; [`examples/README.md`](examples/README.md)
+maps each feature to the file that shows it. The older paragraph below describes
+the small demo.
 
 Three pages, options with hotkeys, four widgets (live graphs in four waveform
 styles and a mirrored traffic wave), a diagnostics view, a log view, modals,

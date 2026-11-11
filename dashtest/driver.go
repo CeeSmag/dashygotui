@@ -97,7 +97,7 @@ func (d *Driver) run(cmd tea.Cmd) {
 
 // Press sends key presses by name: "enter", "tab", "shift+tab", "esc", "up",
 // "down", "left", "right", "pgup", "pgdown", "home", "end", "space",
-// "ctrl+<letter>", or a single character such as "q" or "7".
+// "backspace", "delete", "ctrl+<letter>", or a single character such as "q" or "7".
 func (d *Driver) Press(keys ...string) {
 	d.tb.Helper()
 	for _, k := range keys {
@@ -243,6 +243,10 @@ func KeyPress(name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyEnd}
 	case "space":
 		return tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
+	case "backspace":
+		return tea.KeyPressMsg{Code: tea.KeyBackspace}
+	case "delete":
+		return tea.KeyPressMsg{Code: tea.KeyDelete}
 	}
 	if rest, ok := strings.CutPrefix(name, "ctrl+"); ok && len(rest) == 1 {
 		return tea.KeyPressMsg{Code: rune(rest[0]), Mod: tea.ModCtrl}

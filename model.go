@@ -84,6 +84,7 @@ type model[S any] struct {
 	flash      string
 	flashBad   bool
 	flashUntil time.Time
+	pending    string // the footer message of the task in flight, cleared when it ends
 
 	token    int
 	quitting bool
@@ -285,6 +286,12 @@ func (m *model[S]) onTick(now time.Time) tea.Cmd {
 // onResult routes a finished task: the open modal first, then the registered
 // hooks, then the footer.
 func (m *model[S]) onResult(res TaskResult) tea.Cmd {
+	// A task is over: take its "working..." message off the footer, whoever
+	// handles the result. A handler that has something to say replaces it.
+	if m.pending != "" && m.flash == m.pending {
+		m.flash, m.flashBad = "", false
+	}
+	m.pending = ""
 	if rm, ok := m.modal.(ResultModal[S]); ok {
 		if handled, cmd := rm.OnResult(m.ctx, res); handled {
 			return cmd
@@ -306,6 +313,7 @@ func (m *model[S]) onResult(res TaskResult) tea.Cmd {
 func (m *model[S]) runTask(tag, pending string, fn func(context.Context) (string, error)) tea.Cmd {
 	if pending != "" {
 		m.setFlash(pending, false, 30*time.Second)
+		m.pending = pending
 	}
 	m.token++
 	token, run := m.token, m.run

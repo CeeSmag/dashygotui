@@ -80,7 +80,7 @@ func config(opts ...func(*dashygotui.Config[state])) dashygotui.Config[state] {
 func TestKeyPressNamesRoundTrip(t *testing.T) {
 	names := []string{
 		"enter", "tab", "shift+tab", "esc", "up", "down", "left", "right",
-		"pgup", "pgdown", "home", "end", "ctrl+q", "ctrl+c", "q", "7", "+", "-",
+		"pgup", "pgdown", "home", "end", "backspace", "delete", "ctrl+q", "ctrl+c", "q", "7", "+", "-",
 	}
 	for _, n := range names {
 		if got := dashtest.KeyPress(n).String(); got != n {

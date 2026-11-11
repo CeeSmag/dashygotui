@@ -71,22 +71,19 @@ func (m *model[S]) tabBar(cols int) string {
 // tabLabel is the tab's text at this width: shorter titles on narrower
 // terminals, and the badge on the active tab.
 func (m *model[S]) tabLabel(p Page[S], cols int, active bool) string {
+	base := p.Title
+	switch {
+	case cols < 75 && p.TinyTitle != "":
+		base = p.TinyTitle
+	case cols < 100 && p.ShortTitle != "":
+		base = p.ShortTitle
+	}
 	if active && p.Badge != nil {
 		if b := p.Badge(m.ctx); b != "" {
-			base := p.ShortTitle
-			if base == "" {
-				base = p.Title
-			}
 			return base + " " + b
 		}
 	}
-	switch {
-	case cols < 75 && p.TinyTitle != "":
-		return p.TinyTitle
-	case cols < 100 && p.ShortTitle != "":
-		return p.ShortTitle
-	}
-	return p.Title
+	return base
 }
 
 // footer is the bottom row: a live spinner, the key hints (or the latest

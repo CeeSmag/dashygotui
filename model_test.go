@@ -592,14 +592,16 @@ func TestPageBadgeAndTitles(t *testing.T) {
 		{ID: "setup", Title: "First-Time Setup", ShortTitle: "Setup", TinyTitle: "Set"},
 		{ID: "theme", Title: "Theme"},
 	}
+	// The active tab shows its badge, and the title shrinks with the terminal
+	// whether or not there is a badge.
 	wide := f.driver(120, 40)
-	wide.RequireContains("Monitor (live)", "First-Time Setup")
+	wide.RequireContains("Monitor Everything (live)", "First-Time Setup")
 	mid := f.driver(90, 40)
-	mid.RequireContains("Setup")
-	mid.RequireAbsent("First-Time Setup")
+	mid.RequireContains("Monitor (live)", "Setup")
+	mid.RequireAbsent("First-Time Setup", "Monitor Everything")
 	narrow := f.driver(60, 40)
-	narrow.RequireContains("Set")
-	narrow.RequireAbsent("Setup")
+	narrow.RequireContains("Mon (live)", "Set")
+	narrow.RequireAbsent("Setup", "Monitor (live)")
 }
 
 func TestSettingsAreAppliedAndPersisted(t *testing.T) {
@@ -885,4 +887,41 @@ func TestCountersAreMonotonic(t *testing.T) {
 	if len(tokens) != 3 || tokens[0] >= tokens[1] || tokens[1] >= tokens[2] {
 		t.Errorf("tokens = %v, want strictly increasing", tokens)
 	}
+}
+
+func TestAHandledResultStillClearsThePendingMessage(t *testing.T) {
+	f := newFixture(t)
+	f.reg.OnResult(func(c *ctx, res dashygotui.TaskResult) (bool, tea.Cmd) {
+		return res.Tag == "quiet", nil // handled, and says nothing itself
+	})
+	f.reg.Option(option{Key: "quiet", Section: "actions", Number: 3, Label: "Quiet", Run: func(c *ctx) tea.Cmd {
+		return c.RunTask("quiet", "Working on it...", func(context.Context) (string, error) { return "done", nil })
+	}})
+	f.reg.Option(option{Key: "loud", Section: "actions", Number: 4, Label: "Loud", Run: func(c *ctx) tea.Cmd {
+		return c.RunTask("loud", "Also working...", func(context.Context) (string, error) { return "finished", nil })
+	}})
+	d := f.driver(160, 40)
+	d.Type("3")
+	d.Press("enter")
+	d.RequireAbsent("Working on it...") // the hook handled the result; the message must not linger
+	d.RequireContains("[Tab]")          // the hint bar is back
+
+	d.Type("4")
+	d.Press("enter")
+	d.RequireContains("✓ finished") // an unhandled result replaces it with the outcome
+	d.RequireAbsent("Also working...")
+}
+
+func TestAnUnrelatedFlashSurvivesATaskFinishing(t *testing.T) {
+	f := newFixture(t)
+	f.reg.Option(option{Key: "job", Section: "actions", Number: 3, Label: "Job", Run: func(c *ctx) tea.Cmd {
+		task := c.RunTask("job", "Working...", func(context.Context) (string, error) { return "", nil })
+		c.Flash("something else") // replaces the pending message before the task ends
+		return task
+	}})
+	f.reg.OnResult(func(*ctx, dashygotui.TaskResult) (bool, tea.Cmd) { return true, nil })
+	d := f.driver(160, 40)
+	d.Type("3")
+	d.Press("enter")
+	d.RequireContains("something else")
 }
