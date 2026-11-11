@@ -94,7 +94,8 @@ type model[S any] struct {
 	// being able to return them (view hooks, for one). Update sends them on.
 	queue []tea.Cmd
 
-	viewScroll int // rows scrolled off the top of the open view's body
+	viewScroll int // rows scrolled off the top of the open view's body (off the bottom, for a Tail view)
+	viewTotal  int // rows the open Tail view's body had when last looked at
 
 	token    int
 	quitting bool
@@ -170,6 +171,9 @@ func (m *model[S]) resolveTTY() bool {
 		return false
 	case GlyphsTTY:
 		return true
+	}
+	if f := m.d.cfg.DetectTTY; f != nil {
+		return f()
 	}
 	return theme.DetectTTY(m.d.cfg.Getenv)
 }
@@ -269,6 +273,7 @@ func (m *model[S]) scheduleDue() tea.Cmd {
 // here, on the Bubble Tea loop.
 func (m *model[S]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	next, cmd := m.update(msg)
+	m.holdTail()
 	if len(m.queue) > 0 {
 		cmd = tea.Batch(append([]tea.Cmd{cmd}, m.queue...)...)
 		m.queue = nil

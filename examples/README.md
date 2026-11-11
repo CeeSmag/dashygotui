@@ -4,7 +4,7 @@ Two applications, both built on the same library and both tested end to end.
 
 | | What it is | Run it |
 | --- | --- | --- |
-| [`showcase`](showcase/) | **Uses every feature.** Six pages, 39 options, 9 widgets, 4 views, 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 44 one-file addons. Start here. | `make run` |
+| [`showcase`](showcase/) | **Uses every feature.** Six pages, 40 options, 10 widgets, 5 views, 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 46 one-file addons. Start here. | `make run` |
 | [`demo`](demo/) | The small quickstart: three pages and a handful of addons. Also the library's integration test. | `make run-demo` |
 
 ## Building
@@ -56,6 +56,8 @@ brackets is the option number: type it anywhere to jump there.
 | **Custom pop-ups**: `Modal`, `ResultModal`, chained flows | `[40]` dice, `[41]` ping, `[42]` three steps |
 | **Views**: status and options, custom body and keys, view-local hotkeys, view opening a view | `[50]` diagnostics, `[51]` processes |
 | **Scrolling view** (`Scroll`) with a scroll bar; `OnEnter` / `OnLeave` hooks | `[53]` release notes (`n`) |
+| **Tail view** (`Tail`): starts at the newest row, holds its place while rows arrive, End goes live | `[54]` event stream (`e`) |
+| **Live graphs that keep their own history**: `chart.Stream`, `chart.DualStream` | `widget_chart_streams.go` (Charts page) |
 | **Compact page** (`Page.Fallback`): shrink the window on the Monitor page | `dashboard.go` (`monitorSummary`) |
 | **`Dashboard.Notify`**: events pushed from a goroutine outside the UI (see "Pushed" in Diagnostics) | `dashboard.go` (`feed`) |
 | **Shortcuts**: `ScopeEverywhere` (ctrl+q, ctrl+r, ctrl+l) and `ScopePages` (`?`) | `shortcut_*.go` |

@@ -6,6 +6,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/CeeSmag/dashygotui/layout"
 	"github.com/CeeSmag/dashygotui/panel"
 	"github.com/CeeSmag/dashygotui/text"
 )
@@ -60,7 +61,7 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	case v.Body != nil && v.Scroll:
 		all, bar := m.scrollContent(v, cols, body)
 		scrollable = bar
-		lines = m.scrollWindow(all, cols, body, bar)
+		lines = m.scrollWindow(v, all, cols, body, bar)
 	case v.Body != nil:
 		lines = v.Body(m.ctx, size)
 	default:
@@ -101,6 +102,9 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	}
 	if scrollable {
 		hints = append(hints, m.hint(th.G.UpDown, "Scroll", th.Key, 60))
+		if v.Tail && m.viewScroll > 0 {
+			hints = append(hints, m.hint("End", "Live", th.Key, 58))
+		}
 	}
 	for _, s := range m.d.reg.shortcuts {
 		if s.Scope == ScopeEverywhere && s.Label != "" {
@@ -148,13 +152,13 @@ func (m *model[S]) scrollMax(v View[S]) int {
 
 // scrollWindow cuts the visible rows out of a scrolling body and, when there
 // is more than fits, draws the scroll bar down the right-hand edge.
-func (m *model[S]) scrollWindow(all []string, cols, body int, bar bool) []string {
+func (m *model[S]) scrollWindow(v View[S], all []string, cols, body int, bar bool) []string {
 	if !bar {
 		return all
 	}
 	th := m.th
 	total := len(all)
-	off := min(max(m.viewScroll, 0), total-body)
+	off := m.topOffset(v, total, body)
 	thumb := min(max(body*body/total, 1), body)
 	top := 0
 	if total > body {
@@ -176,22 +180,62 @@ func (m *model[S]) scrollViewKey(v View[S], msg tea.KeyPressMsg) bool {
 	k := m.d.keys
 	limit := m.scrollMax(v)
 	page := max(m.rows-3, 1)
+	// toward is the sign of "further along the content"; in a Tail view the
+	// offset counts back from the bottom, so down means a smaller offset.
+	toward := 1
+	if v.Tail {
+		toward = -1
+	}
 	switch {
 	case key.Matches(msg, k.Up):
-		m.viewScroll--
+		m.viewScroll -= toward
 	case key.Matches(msg, k.Down):
-		m.viewScroll++
+		m.viewScroll += toward
 	case key.Matches(msg, k.PageUp):
-		m.viewScroll -= page
+		m.viewScroll -= toward * page
 	case key.Matches(msg, k.PageDown):
-		m.viewScroll += page
-	case key.Matches(msg, k.Home):
+		m.viewScroll += toward * page
+	case key.Matches(msg, k.Home): // the start of the content
 		m.viewScroll = 0
-	case key.Matches(msg, k.End):
+		if v.Tail {
+			m.viewScroll = limit
+		}
+	case key.Matches(msg, k.End): // the end of the content
 		m.viewScroll = limit
+		if v.Tail {
+			m.viewScroll = 0
+		}
 	default:
 		return false
 	}
 	m.viewScroll = min(max(m.viewScroll, 0), limit)
 	return true
+}
+
+// topOffset is how many rows of a total-row body are cut off the top.
+func (m *model[S]) topOffset(v View[S], total, body int) int {
+	furthest := max(total-body, 0)
+	off := min(max(m.viewScroll, 0), furthest)
+	if v.Tail {
+		return furthest - off
+	}
+	return off
+}
+
+// holdTail keeps a Tail view that has been scrolled back where it is while rows
+// are appended, by growing its offset from the bottom by the rows added. It
+// runs after every message, and only does anything for such a view.
+func (m *model[S]) holdTail() {
+	if m.view == "" {
+		return
+	}
+	v := m.d.views[m.view]
+	if !v.Tail || !v.Scroll || v.Body == nil || m.cols < layout.MinCols || m.rows < layout.MinRows {
+		return
+	}
+	lines, _ := m.scrollContent(v, m.cols, max(m.rows-2, 1))
+	if m.viewScroll > 0 && m.viewTotal > 0 && len(lines) > m.viewTotal {
+		m.viewScroll += len(lines) - m.viewTotal
+	}
+	m.viewTotal = len(lines)
 }

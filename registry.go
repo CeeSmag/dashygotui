@@ -210,6 +210,10 @@ func (r *Registry[S]) View(v View[S]) {
 		r.fail(site, "view %q sets Scroll but has no Body to scroll", v.ID)
 		ok = false
 	}
+	if v.Tail && !v.Scroll {
+		r.fail(site, "view %q sets Tail but not Scroll", v.ID)
+		ok = false
+	}
 	if !ok {
 		return
 	}

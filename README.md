@@ -86,7 +86,8 @@ to start.
   ([`modal`](modal/)).
 - **Full-screen views** (with engine-managed scrolling and enter/leave hooks),
   a compact **fallback** for pages on small terminals, background **tasks**, tick
-  hooks, and `Dashboard.Notify()` for pushing updates in from outside the UI.
+  hooks, ready-made live graphs (`chart.Stream`, `chart.DualStream`), and
+  `Dashboard.Notify()` for pushing updates in from outside the UI.
 - **Keys**: option hotkeys, global shortcuts (including `ctrl+` combinations that
   work over pop-ups), and an overridable force-quit.
 - **Logs**: capture the standard logger and `slog`, and browse them newest first,

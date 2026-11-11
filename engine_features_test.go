@@ -433,3 +433,77 @@ func TestPageFallbackFitsEverySize(t *testing.T) {
 		}
 	}
 }
+
+// tailView registers a Tail view whose length the test controls.
+func tailView(f *fixture, n *int) {
+	f.reg.View(dashygotui.View[state]{
+		ID: "tail", Title: "Tail", Mode: "TAIL", Scroll: true, Tail: true,
+		Body: func(*ctx, dashygotui.Size) []string {
+			out := make([]string, *n)
+			for i := range out {
+				out[i] = fmt.Sprintf("row-%03d", i+1)
+			}
+			return out
+		},
+	})
+	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "v", Run: func(c *ctx) tea.Cmd { _ = c.OpenView("tail"); return nil }})
+}
+
+func TestTailViewStartsAtTheBottomAndFollows(t *testing.T) {
+	f := newFixture(t)
+	n := 100
+	tailView(f, &n)
+	d := f.driver(60, 20) // 18 rows
+	d.Press("v")
+	d.RequireContains("row-100", "row-083")
+	d.RequireAbsent("row-082", "row-001")
+	n = 110 // rows arrive while live: the view follows
+	d.Advance(time.Second)
+	d.RequireContains("row-110", "row-093")
+	d.RequireAbsent("row-092")
+}
+
+func TestTailViewHoldsItsPlaceWhenScrolledBack(t *testing.T) {
+	f := newFixture(t)
+	n := 100
+	tailView(f, &n)
+	d := f.driver(60, 20)
+	d.Press("v", "up", "up", "up", "up", "up") // five rows back
+	d.RequireContains("row-095", "row-078")
+	d.RequireAbsent("row-096")
+	d.RequireContains("Live") // the way back is advertised
+
+	n = 130 // thirty rows arrive
+	d.Advance(time.Second)
+	d.RequireContains("row-095", "row-078") // still reading the same lines
+	d.RequireAbsent("row-130")
+
+	d.Press("down") // one row towards the present
+	d.RequireContains("row-096")
+	d.Press("end") // back to live
+	d.RequireContains("row-130", "row-113")
+	d.RequireAbsent("Live")
+}
+
+func TestTailViewHomeGoesToTheOldestAndStops(t *testing.T) {
+	f := newFixture(t)
+	n := 100
+	tailView(f, &n)
+	d := f.driver(60, 20)
+	d.Press("v", "home")
+	d.RequireContains("row-001", "row-018")
+	d.RequireAbsent("row-019")
+	d.Press("up", "up") // already at the oldest
+	d.RequireContains("row-001")
+	d.Press("pgdown")
+	d.RequireContains("row-018")
+}
+
+func TestTailNeedsScroll(t *testing.T) {
+	r := dashygotui.NewRegistry[state]()
+	r.View(dashygotui.View[state]{ID: "v", Title: "V", Tail: true,
+		Body: func(*ctx, dashygotui.Size) []string { return nil }})
+	if msg := errText(t, withRegistry(r)); !strings.Contains(msg, "Tail") {
+		t.Errorf("error = %q", msg)
+	}
+}

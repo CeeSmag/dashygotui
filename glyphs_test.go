@@ -483,3 +483,30 @@ func TestTransparentIsAnotherNameForOff(t *testing.T) {
 		t.Error(`"transparent" in the store should mean off`)
 	}
 }
+
+func TestDetectTTYReplacesTheEnvironmentCheck(t *testing.T) {
+	// The environment says xterm, but the application knows better.
+	f := newFixture(t)
+	f.cfg.Getenv = env("TERM", "xterm")
+	f.cfg.DetectTTY = func() bool { return true }
+	d := f.driver(120, 40)
+	d.Press("tab")
+	d.RequireContains("┌")
+	d.RequireAbsent("╭")
+
+	// And the other way round: the environment says linux, the hook says no.
+	g := newFixture(t)
+	g.cfg.Getenv = env("TERM", "linux")
+	g.cfg.DetectTTY = func() bool { return false }
+	e := g.driver(120, 40)
+	e.Press("tab")
+	e.RequireContains("╭")
+
+	// A forced mode still wins over the hook.
+	h := newFixture(t)
+	h.cfg.Glyphs = dashygotui.GlyphsUnicode
+	h.cfg.DetectTTY = func() bool { return true }
+	k := h.driver(120, 40)
+	k.Press("tab")
+	k.RequireContains("╭")
+}

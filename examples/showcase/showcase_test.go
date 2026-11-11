@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -108,7 +109,7 @@ func TestEveryOptionIsListedAndReachableByNumber(t *testing.T) {
 		{"30", "Notice"}, {"31", "Notice (live content)"}, {"32", "Notice (scrolls)"}, {"33", "Confirm"},
 		{"34", "Confirm (acknowledge)"}, {"35", "Type to confirm"}, {"36", "Choice"}, {"37", "Slider"},
 		{"38", "Edit (with validation)"}, {"40", "Dice Roller"}, {"41", "Ping Host"}, {"42", "New Project"},
-		{"50", "Diagnostics"}, {"51", "Processes"}, {"52", "Logs"}, {"53", "Release Notes"},
+		{"50", "Diagnostics"}, {"51", "Processes"}, {"52", "Logs"}, {"53", "Release Notes"}, {"54", "Event Stream"},
 		{"60", "Jump to Charts"}, {"61", "Jump to Theme"}, {"62", "Jump to Monitor"},
 		{"70", "Simulate Alert"}, {"71", "Simulate Outage"}, {"72", "Run External Command"},
 		{"73", "Write Log Entries"},
@@ -870,4 +871,59 @@ func TestPushedEventsReachTheDashboard(t *testing.T) {
 	events.Store(7) // the feed counted something...
 	d.Notify()      // ...and told the dashboard, with no tick needed
 	d.RequireContains("7 events")
+}
+
+// newestEvent is the highest "#nnnn" event number on screen. The stream's
+// events live in the addon's closure for the whole process, so a test cannot
+// know the absolute numbers.
+func newestEvent(t *testing.T, d *dashtest.Driver) int {
+	t.Helper()
+	best := -1
+	for _, m := range regexp.MustCompile(`#(\d{4})`).FindAllStringSubmatch(d.Screen(), -1) {
+		n, _ := strconv.Atoi(m[1])
+		best = max(best, n)
+	}
+	if best < 0 {
+		t.Fatalf("no events on screen:\n%s", d.Screen())
+	}
+	return best
+}
+
+func TestEventStreamIsATailView(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	for i := 0; i < 60; i++ {
+		d.Advance(time.Second)
+	}
+	d.Press("e")
+	d.RequireContains("Event Stream", "STREAM")
+	live := newestEvent(t, d) // starts at the newest event
+	d.RequireAbsent("Live")
+
+	d.Press("up", "up", "up")
+	d.RequireContains("Live")
+	back := newestEvent(t, d)
+	if back != live-3 {
+		t.Fatalf("three rows back should end at #%04d, got #%04d", live-3, back)
+	}
+
+	for i := 0; i < 10; i++ {
+		d.Advance(time.Second) // ten more events arrive
+	}
+	if got := newestEvent(t, d); got != back {
+		t.Errorf("a view scrolled back must hold its place: was #%04d, now #%04d", back, got)
+	}
+	d.Press("end")
+	if got := newestEvent(t, d); got != live+10 {
+		t.Errorf("End should return to the live bottom #%04d, got #%04d", live+10, got)
+	}
+	d.RequireAbsent("Live")
+}
+
+func TestStreamsWidgetShowsTheScale(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	for i := 0; i < 20; i++ {
+		d.Advance(time.Second)
+	}
+	d.Press("tab")
+	d.RequireContains("Streams", "Load", "Read", "Write", "≤")
 }

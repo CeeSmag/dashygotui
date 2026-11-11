@@ -163,12 +163,36 @@ body is a `Status` panel above `Options`, or your own `Body`.
   edge and a "Scroll" hint. Your `Body` is given one column less when there is
   something to scroll, so the bar has room. The position starts at the top each
   time the view opens.
+- **`Tail: true`** (with `Scroll`) is for a body that grows at the bottom, like
+  `tail -f`: the view starts at the newest rows, Up goes back in time, End returns
+  to live, and a view scrolled back **holds its place** while rows are appended.
+  A `Body` that is called on every message in this mode should be cheap.
 - **`OnEnter` / `OnLeave`** run when the view becomes visible and when it stops
   being: opened, left with Back, covered by another view, uncovered again, or
   abandoned by `GotoPage`. They return a `tea.Cmd`, so a view can start a probe
   when it appears and stop it when it goes. They do not run when the dashboard
   quits; stop long work with the context you gave `Run`.
 - **`Keys`** sees every key first.
+
+## Live graphs
+
+[`chart.Stream`](../chart/stream.go) and `chart.DualStream` are graphs that keep
+their own history and adaptive scale, so a widget needs no series, resampling or
+scaler code. `Push` a sample on each tick (from an `OnTick` hook) and `Render` on
+every frame:
+
+```go
+io := chart.NewDualStream("Read", "Write", chart.StreamOpts{})
+// OnTick:  io.Push(readRate, writeRate)
+// Render:  return io.Render(c.Theme(), size.Cols, size.Rows)
+```
+
+`DualStream` draws the two streams mirrored around a centre line that carries the
+labels and the scale (`▲ Read ── [≤1.2M/s] ── ▼ Write`, shortened to the width);
+`Stream` draws one, plus `Sparkline` (`[⡀⣀⠤⠒⠂]`) and `ScaleTag`. The scale
+follows the samples on screen, so a crest still travelling across keeps the
+ceiling up. In TTY mode the glyphs are ASCII. For full control use the
+primitives they are built from (`Braille`, `DualWave`, `WaveScaler`, `Resample`).
 
 ## Compact pages
 
@@ -291,6 +315,9 @@ shade-block graphs and the 16-colour palette.
 - `Config.Glyphs` is `GlyphsAuto` by default: the TTY set when `TERM=linux` (or
   `DASHYGOTUI_TTY=1`), Unicode otherwise. `GlyphsUnicode` and `GlyphsTTY` force
   one.
+- `Config.DetectTTY` replaces the detection when the application can tell better
+  (for instance by asking the operating system whether the terminal is a virtual
+  console). A forced `GlyphsUnicode` or `GlyphsTTY` still wins over it.
 - The user's choice, made in the `stdaddons.Display` picker, is saved and wins
   over detection. `c.TTY()` tells an addon which set is in use.
 - **Never hard-code a symbol in an addon.** Use the theme: `th.G.Bullet`,

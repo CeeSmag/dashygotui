@@ -65,6 +65,11 @@ type Config[S any] struct {
 	// starts in; the user's saved choice (see stdaddons.Background) wins over it.
 	// Use [BackgroundOff] to never touch the terminal's colours.
 	Background BackgroundMode
+	// DetectTTY decides what [GlyphsAuto] means, replacing the built-in check of
+	// the environment. Use it for a test the library cannot make for you, such
+	// as asking the operating system whether the terminal is a Linux virtual
+	// console. Optional.
+	DetectTTY func() bool
 	// Getenv reads environment variables for glyph auto-detection. Default
 	// [os.Getenv]; tests inject their own.
 	Getenv func(string) string

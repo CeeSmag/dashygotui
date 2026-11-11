@@ -384,7 +384,7 @@ func (m *model[S]) openView(id string) {
 	m.leave(m.view)
 	m.stack = append(m.stack, m.view)
 	m.view = id
-	m.viewScroll = 0
+	m.viewScroll, m.viewTotal = 0, 0
 	m.resetCursor()
 	m.enter(id)
 }
@@ -406,7 +406,7 @@ func (m *model[S]) leave(id string) {
 // leaveViews closes every open view and returns to the dashboard pages.
 func (m *model[S]) leaveViews() {
 	m.leave(m.view)
-	m.view, m.stack, m.viewScroll = "", nil, 0
+	m.view, m.stack, m.viewScroll, m.viewTotal = "", nil, 0, 0
 }
 
 // back returns to the view or page the current view was opened from.
@@ -421,7 +421,7 @@ func (m *model[S]) back() {
 	}
 	m.leave(m.view)
 	m.view = prev
-	m.viewScroll = 0
+	m.viewScroll, m.viewTotal = 0, 0
 	if prev == "" {
 		m.restoreCursor()
 		return

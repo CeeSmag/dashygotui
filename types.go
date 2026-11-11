@@ -184,14 +184,6 @@ const (
 	FlashResult = 6 * time.Second
 )
 
-// Hint is one key hint in the footer, rendered as "[Key] Label". Lower
-// priorities are dropped first when the footer is too narrow.
-type Hint struct {
-	Key   string
-	Label string
-	Prio  int
-}
-
 // Shortcut is a global key binding on the dashboard pages.
 type Shortcut[S any] struct {
 	// Key is the key name as Bubble Tea reports it, e.g. "d" or "ctrl+r". It

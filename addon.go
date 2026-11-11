@@ -99,6 +99,12 @@ type View[S any] struct {
 	// but only when there is something to scroll). It needs Body. The scroll
 	// position starts at the top each time the view is opened.
 	Scroll bool
+	// Tail makes a scrolling body behave like a log being written at the bottom:
+	// the view starts at the newest rows (the bottom), Up goes back in time, End
+	// returns to the live bottom, and a view scrolled back holds its place while
+	// rows are appended instead of drifting. Without it the view starts at the
+	// top and scrolls from there. It needs Scroll.
+	Tail bool
 	// Keys sees every key press first. Return handled == true to stop the
 	// dashboard from acting on it. Optional.
 	Keys func(ctx *Context[S], msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool)
