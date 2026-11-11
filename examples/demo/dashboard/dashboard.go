@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/CeeSmag/dashygotui"
+	"github.com/CeeSmag/dashygotui/logs"
 	"github.com/CeeSmag/dashygotui/panel"
 )
 
@@ -30,6 +31,10 @@ type State struct {
 // Registry is the application's single registry. Addons register with it from
 // init(); call its methods directly so errors name the addon's own file.
 var Registry = dashygotui.NewRegistry[State]()
+
+// Logs collects the application's log output. main diverts the standard logger
+// into it before the dashboard starts, and the Logs addon shows it.
+var Logs = logs.NewBuffer(2000)
 
 // Short names for the generic types, so addon files stay terse.
 type (

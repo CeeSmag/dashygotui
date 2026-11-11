@@ -1,5 +1,6 @@
 // Package stdaddons provides ready-made addons that every dashboard may want:
-// a colour-theme picker, the four spacing sliders, and a refresh-rate picker.
+// a colour-theme picker, the four spacing sliders, a refresh-rate picker, a
+// display-mode (Unicode or TTY) picker, and a scrollable log view.
 //
 // They are opt-in. An application adds one by calling its function from a
 // one-file addon, passing the registry, the section to appear in, and the
@@ -9,7 +10,8 @@
 //	func init() { stdaddons.Theme(dashboard.Registry, "appearance", 20) }
 //
 // Each registers an ordinary [dashygotui.Option], so it takes part in number
-// collision checks like any other.
+// collision checks like any other. Pass a [Setup] to give it a hotkey or an
+// order.
 package stdaddons
 
 import (
@@ -23,11 +25,27 @@ import (
 	"github.com/CeeSmag/dashygotui/theme"
 )
 
+// Setup tunes how a standard addon is registered. It is optional.
+type Setup struct {
+	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey.
+	Hotkey string
+	// Order sorts the option within its section, like [dashygotui.Option].Order.
+	Order int
+}
+
+// apply copies the first Setup, if any, onto o.
+func apply[S any](o dashygotui.Option[S], setup []Setup) dashygotui.Option[S] {
+	if len(setup) > 0 {
+		o.Hotkey, o.Order = setup[0].Hotkey, setup[0].Order
+	}
+	return o
+}
+
 // Theme registers an option that opens a colour palette picker. Moving the
 // highlight previews each palette live; Enter keeps one and saves the choice
 // and Esc restores the previous palette.
-func Theme[S any](reg *dashygotui.Registry[S], section string, number int) {
-	reg.Option(dashygotui.Option[S]{
+func Theme[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
+	reg.Option(apply(dashygotui.Option[S]{
 		Key:     "stdaddons.theme",
 		Section: section,
 		Number:  number,
@@ -39,7 +57,7 @@ func Theme[S any](reg *dashygotui.Registry[S], section string, number int) {
 			return ctx.Badge(ctx.PaletteID())
 		},
 		Run: openThemePicker[S],
-	})
+	}, setup))
 }
 
 func openThemePicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
@@ -47,8 +65,9 @@ func openThemePicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
 	original := ctx.PaletteID()
 	items := make([]modal.Item, len(palettes))
 	cursor := 0
+	cell := ctx.Theme().G.MeterFill // one cell per colour, in a glyph the terminal has
 	for i, p := range palettes {
-		items[i] = modal.Item{Label: p.Name, Badge: theme.Swatch(p), Detail: p.Vibe}
+		items[i] = modal.Item{Label: p.Name, Badge: theme.SwatchWith(p, cell), Detail: p.Vibe}
 		if p.ID == original {
 			cursor = i
 		}
@@ -70,15 +89,15 @@ func openThemePicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
 }
 
 // RefreshRate registers an option that opens a refresh-rate picker.
-func RefreshRate[S any](reg *dashygotui.Registry[S], section string, number int) {
-	reg.Option(dashygotui.Option[S]{
+func RefreshRate[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
+	reg.Option(apply(dashygotui.Option[S]{
 		Key:     "stdaddons.refresh",
 		Section: section,
 		Number:  number,
 		Label:   "Refresh Rate",
 		Badge:   func(ctx *dashygotui.Context[S]) string { return ctx.Badge(rateLabel(ctx.RefreshInterval())) },
 		Run:     openRatePicker[S],
-	})
+	}, setup))
 }
 
 func openRatePicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
@@ -131,37 +150,38 @@ type gap struct {
 	set          func(*dashygotui.Spacing, int)
 }
 
-func gaps() []gap {
+func gaps(both string) []gap {
 	return []gap{
-		{"Terminal ↔ Page", "space between the terminal edge and the page", dashygotui.TerminalPageGapMax,
+		{"Terminal " + both + " Page", "space between the terminal edge and the page", dashygotui.TerminalPageGapMax,
 			func(s dashygotui.Spacing) int { return s.TerminalPage }, func(s *dashygotui.Spacing, v int) { s.TerminalPage = v }},
-		{"Page ↔ Section", "space between the page and its panels", dashygotui.PageSectionGapMax,
+		{"Page " + both + " Section", "space between the page and its panels", dashygotui.PageSectionGapMax,
 			func(s dashygotui.Spacing) int { return s.PageSection }, func(s *dashygotui.Spacing, v int) { s.PageSection = v }},
-		{"Section ↔ Section", "space between side-by-side panels", dashygotui.SectionGapMax,
+		{"Section " + both + " Section", "space between side-by-side panels", dashygotui.SectionGapMax,
 			func(s dashygotui.Spacing) int { return s.Section }, func(s *dashygotui.Spacing, v int) { s.Section = v }},
-		{"Section ↔ Option", "space between a panel border and its rows", dashygotui.SectionOptionGapMax,
+		{"Section " + both + " Option", "space between a panel border and its rows", dashygotui.SectionOptionGapMax,
 			func(s dashygotui.Spacing) int { return s.SectionOption }, func(s *dashygotui.Spacing, v int) { s.SectionOption = v }},
 	}
 }
 
 // Spacing registers an option that opens the spacing menu: the four gaps
 // that frame the dashboard, each adjusted with a live slider, plus a reset.
-func Spacing[S any](reg *dashygotui.Registry[S], section string, number int) {
-	reg.Option(dashygotui.Option[S]{
+func Spacing[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
+	reg.Option(apply(dashygotui.Option[S]{
 		Key:     "stdaddons.spacing",
 		Section: section,
 		Number:  number,
 		Label:   "Section Gap",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			sp := ctx.Spacing()
-			return ctx.Badge(fmt.Sprintf("%d·%d·%d·%d", sp.TerminalPage, sp.PageSection, sp.Section, sp.SectionOption))
+			d := ctx.Theme().G.Dot
+			return ctx.Badge(fmt.Sprintf("%d%s%d%s%d%s%d", sp.TerminalPage, d, sp.PageSection, d, sp.Section, d, sp.SectionOption))
 		},
 		Run: openSpacingMenu[S],
-	})
+	}, setup))
 }
 
 func openSpacingMenu[S any](ctx *dashygotui.Context[S]) tea.Cmd {
-	all := gaps()
+	all := gaps(ctx.Theme().G.Both)
 	cur := ctx.Spacing()
 	items := make([]modal.Item, 0, len(all)+1)
 	for _, g := range all {

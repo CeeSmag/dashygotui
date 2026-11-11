@@ -23,7 +23,9 @@ linters:
       forbid:
         - pattern: ^(fmt\.Print(f|ln)?|print|println)$
           msg: the library must not write to stdout/stderr (RULES.md section 6)
-        - pattern: ^log\.
+        # Calling the logger is forbidden; naming its type is fine (the logs package
+        # takes a *log.Logger to divert).
+        - pattern: ^log\.(Print|Printf|Println|Fatal|Fatalf|Fatalln|Panic|Panicf|Panicln|Output|Default|SetOutput|SetFlags|SetPrefix)$
           msg: the library must not log (RULES.md section 6)
         - pattern: ^os\.Exit$
           msg: the library must not call os.Exit (RULES.md section 6)

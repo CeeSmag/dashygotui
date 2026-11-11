@@ -23,11 +23,12 @@ addons package once, blank. Every file in it then registers with the
 | --- | --- |
 | `dashygotui` (root) | `Config`, `Dashboard`, `Registry`, `Context`, the Bubble Tea model, keys, `Run` |
 | `text` | ANSI- and wide-character-aware width, truncation, padding, wrapping |
-| `theme` | `Palette` and the immutable `Theme` of styles built from one |
+| `theme` | `Palette`, the symbol sets (`Glyphs`) and the immutable `Theme` built from them |
 | `panel` | bordered panels, stacking, joining, overlay, header and footer fitting |
-| `chart` | meter, slider, Braille graphs, time series, adaptive wave scaler |
+| `chart` | meter, slider, waveforms (sparkline, bars, line trace, mirrored wave, heat strip, Braille), time series, adaptive wave scaler |
+| `logs` | a bounded log `Buffer` (std `log` and `slog`) and a scrollable, newest-first `Viewer` |
 | `modal` | edit, confirm, typed, notice, choice, slider pop-ups |
-| `stdaddons` | opt-in addons: theme picker, spacing sliders, refresh rate |
+| `stdaddons` | opt-in addons: theme picker, spacing sliders, refresh rate, display mode, log view |
 | `store` | `Store` implementations: JSON file, in-memory |
 | `dashtest` | terminal-free test driver with a fake clock and timers |
 | `layout` | page arrangement, spacing and edge insets; pure and non-generic (re-exported by the root as `Layout` and `Spacing`) |
@@ -104,11 +105,45 @@ modal       = Overlay(box) centred, clipped (keeps the keys and bottom border)
   Nothing opens by accident and there is no timer.
 - Numbers are unique across the dashboard, enforced at startup.
 
+## Keys
+
+Dispatch order for a key press: shortcuts with `ScopeEverywhere` (even over a
+pop-up and ahead of the force-quit keys, so an application can rebind them);
+the force-quit keys (or `Config.OnForceQuit`); the open pop-up; the open view; or
+the page. On a page: pages-scope shortcuts, then option hotkeys, then
+navigation, then typed digits. Reserved keys (navigation, digits, and for most
+shortcuts the force-quit keys) and duplicate keys are startup errors.
+
+## Symbols and colour modes
+
+Every symbol a renderer draws comes from the theme's `Glyphs`, one of two sets:
+Unicode (rounded corners, Braille, `●`, `✓`) and TTY (ASCII plus the straight
+line-drawing characters the console font has, shade-block graphs). The set is
+picked by `Config.Glyphs`: auto-detected from `TERM=linux`, or forced, or chosen
+by the user and saved. In TTY mode the 16-colour `console` palette is the
+default unless a palette was chosen, and the choice of palette is kept
+separate from the palette in effect, so switching back restores the original.
+
+A palette may carry a `Background` and `Foreground`. The model sets them on the
+Bubble Tea `View`, which applies them to the terminal and restores them on exit;
+`BackgroundPaint` additionally writes the colour into every cell after every
+style reset, for terminals that ignore the request.
+
+## Logs
+
+`logs.Buffer` is a mutex-protected ring that implements `io.Writer`, so
+`Divert(log.Default())` points the standard logger at it, and `Handler` gives an
+`slog` handler. The `Viewer` shows it newest first and anchors the view to an
+entry's sequence number, not a row, which is why new entries do not push the line
+being read, and why eviction of the anchor degrades gracefully to the oldest
+kept entry. Log text is stripped of control characters before drawing.
+
 ## Settings
 
-Theme, spacing and refresh rate are changeable at run time and saved in the
-`Store` under `dashygotui.*` keys. Pickers **preview without saving**
-(`PreviewPalette`, `PreviewSpacing`) and save only on confirm, so a cursor move
+Theme, spacing, refresh rate and display mode are changeable at run time and
+saved in the `Store` under `dashygotui.*` keys. Pickers **preview without
+saving** (`PreviewPalette`, `PreviewSpacing`, `PreviewGlyphMode`) and save only
+on confirm, so a cursor move
 never writes the settings file. The JSON file store writes atomically
 (temp file and rename) with mode 0600, and moves an unreadable file aside
 rather than overwriting it.
@@ -130,5 +165,8 @@ rather than overwriting it.
 ## Not in v1
 
 Addon-defined pages (pages are declared in the dashboard file), mouse support,
-and a CloudVault migration. Waveform visualisers beyond the `chart` building
-blocks (`UpCell`, `DownCell`, `WaveScaler`) are left to applications.
+and a CloudVault migration. A third-party chart library
+([ntcharts](https://github.com/NimbleMarkets/ntcharts)) is deliberately not a
+dependency: it is large, ties the module to a Bubble Tea version, and does not
+follow the theme's glyph sets. Its charts can still be used inside any widget,
+because a widget's `Render` returns plain strings.

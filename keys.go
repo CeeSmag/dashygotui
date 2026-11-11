@@ -72,13 +72,19 @@ func (k KeyMap) withDefaults() KeyMap {
 	return k
 }
 
-// reserved reports whether name is bound to a navigation or control action,
-// and so may not be claimed by a [Shortcut].
-func (k KeyMap) reserved(name string) bool {
-	for _, b := range []key.Binding{
+// reserved reports whether name is bound to a navigation or control action, or
+// is a digit, and so may not be claimed by a shortcut or hotkey. The force-quit
+// keys count only when includeForce is set: a [ScopeEverywhere] shortcut may
+// take them over.
+func (k KeyMap) reserved(name string, includeForce bool) bool {
+	bindings := []key.Binding{
 		k.Up, k.Down, k.Left, k.Right, k.PageUp, k.PageDown, k.Home, k.End,
-		k.Select, k.NextPage, k.PrevPage, k.Back, k.Quit, k.Force, k.Slower, k.Faster,
-	} {
+		k.Select, k.NextPage, k.PrevPage, k.Back, k.Quit, k.Slower, k.Faster,
+	}
+	if includeForce {
+		bindings = append(bindings, k.Force)
+	}
+	for _, b := range bindings {
 		for _, kk := range b.Keys() {
 			if kk == name {
 				return true

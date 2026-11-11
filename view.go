@@ -18,6 +18,15 @@ func (m *model[S]) viewKey(msg tea.KeyPressMsg) tea.Cmd {
 			return cmd
 		}
 	}
+	if v.Options != nil && v.Body == nil {
+		name := strings.ToLower(msg.String())
+		for _, o := range v.Options(m.ctx) {
+			if o.Hotkey != "" && o.Hotkey == name && o.Run != nil {
+				m.digits = ""
+				return o.Run(m.ctx)
+			}
+		}
+	}
 	k := m.d.keys
 	if key.Matches(msg, k.Back) {
 		m.back()
@@ -79,7 +88,16 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	}
 	var hints []panel.Hint
 	if v.Options != nil && v.Body == nil {
-		hints = append(hints, m.hint("↑↓", "Move", th.Key, 60), m.hint("↵", "Open", th.Key, 55))
+		hints = append(hints, m.hint(th.G.UpDown, "Move", th.Key, 60), m.hint(th.G.Enter, "Open", th.Key, 55))
+	}
+	for _, s := range m.d.reg.shortcuts {
+		if s.Scope == ScopeEverywhere && s.Label != "" {
+			prio := s.Prio
+			if prio == 0 {
+				prio = 30
+			}
+			hints = append(hints, m.hint(s.Key, s.Label, th.Key, prio))
+		}
 	}
 	hints = append(hints, m.hint("Esc/b", "Back", th.Key, 1000), m.hint("q", "Quit", th.Red, 900))
 

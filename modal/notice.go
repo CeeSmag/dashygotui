@@ -75,9 +75,11 @@ func (n *Notice[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []s
 	if len(window) > visible {
 		window = window[scroll : scroll+visible]
 	}
-	sub := "press [↵], [b] or [q] to return"
+	th := ctx.Theme()
+	enter := th.G.Enter
+	sub := fmt.Sprintf("press [%s], [b] or [q] to return", enter)
 	if len(lines) > visible {
-		sub = fmt.Sprintf("↑↓ scroll • %d more • [↵] return", len(lines)-scroll-visible)
+		sub = fmt.Sprintf("%s scroll %s %d more %s [%s] return", th.G.UpDown, th.G.Sep, len(lines)-scroll-visible, th.G.Sep, enter)
 	}
-	return panel.Panel(ctx.Theme(), title, badge, sub, w, h, window)
+	return panel.Panel(th, title, badge, sub, w, h, window)
 }

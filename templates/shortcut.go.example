@@ -1,0 +1,46 @@
+package addons
+
+// TEMPLATE: a global shortcut, a key that does something without being a menu row.
+//
+// To use it:
+//  1. Copy this file to your addons directory as shortcut_<name>.go.
+//  2. Change the import path of the dashboard package to your own.
+//  3. Pick a key that is not a navigation key, a digit, or another shortcut or
+//     option hotkey (a clash is a startup error that names both files).
+//
+// Scope decides where the key works:
+//   - dashygotui.ScopePages (default): on the dashboard pages only.
+//   - dashygotui.ScopeEverywhere: on pages, in views and over pop-ups. This is
+//     the scope for a "stop everything" key. It may even take over a force-quit
+//     key such as ctrl+q, replacing the default quit. Make sure the app still
+//     has a way out.
+//
+// For a key that opens one particular menu option, set Hotkey on the option
+// instead: no separate file is needed.
+
+import (
+	tea "charm.land/bubbletea/v2"
+
+	"example.com/yourapp/dashboard"
+	"github.com/CeeSmag/dashygotui"
+	"github.com/CeeSmag/dashygotui/modal"
+)
+
+func init() {
+	dashboard.Registry.Shortcut(dashygotui.Shortcut[dashboard.State]{
+		Key:   "ctrl+k",      // as Bubble Tea names it: "ctrl+r", "f5", "d", ...
+		Label: "Kill",        // shown in the footer; leave empty for no hint
+		Prio:  25,            // lower is dropped first on narrow terminals
+		Scope: dashygotui.ScopeEverywhere,
+		Run: func(c *dashboard.Ctx) tea.Cmd {
+			c.OpenModal(&modal.Confirm[dashboard.State]{
+				Title:  "Kill everything?",
+				Lines:  []string{"Everything is shut down."},
+				Accept: "Kill",
+				// Quit ends the dashboard; main reads the reason from ExitInfo.
+				OnAccept: func(c *dashboard.Ctx) tea.Cmd { return c.Quit("kill", "Killed.") },
+			})
+			return nil
+		},
+	})
+}

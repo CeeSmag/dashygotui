@@ -14,8 +14,20 @@ import (
 // over a pop-up; a pop-up then takes every other key; otherwise the view or
 // the page decides.
 func (m *model[S]) onKey(msg tea.KeyPressMsg) tea.Cmd {
+	name := strings.ToLower(msg.String())
+	// A shortcut that works everywhere comes first: over pop-ups, in views, and
+	// ahead of the force-quit keys, so an application can rebind them.
+	for _, s := range m.d.reg.shortcuts {
+		if s.Scope == ScopeEverywhere && s.Key == name {
+			m.digits = ""
+			return s.Run(m.ctx)
+		}
+	}
 	if key.Matches(msg, m.d.keys.Force) {
 		m.digits = ""
+		if f := m.d.cfg.OnForceQuit; f != nil {
+			return f(m.ctx)
+		}
 		return m.quit(ExitInfo{})
 	}
 	if m.modal != nil {
@@ -63,10 +75,14 @@ func (m *model[S]) scrollKey(msg tea.KeyPressMsg, sm ScrollableModal[S]) bool {
 func (m *model[S]) dashKey(msg tea.KeyPressMsg) tea.Cmd {
 	name := strings.ToLower(msg.String())
 	for _, s := range m.d.reg.shortcuts {
-		if s.Key == name {
+		if s.Scope == ScopePages && s.Key == name {
 			m.digits = ""
 			return s.Run(m.ctx)
 		}
+	}
+	if o, ok := m.d.hotkeys[name]; ok {
+		m.digits = ""
+		return o.Run(m.ctx)
 	}
 	if cmd, ok := m.navKey(msg); ok {
 		return cmd

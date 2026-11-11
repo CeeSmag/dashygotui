@@ -2,6 +2,7 @@ package addons
 
 import (
 	"context"
+	"log"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -24,7 +25,7 @@ func init() {
 		},
 		Run: func(c *dashboard.Ctx) tea.Cmd {
 			st := c.Store() // take what the task needs now; the Context is not for other goroutines
-			return c.RunTask("backup", "Backing up…", func(ctx context.Context) (string, error) {
+			return c.RunTask("backup", "Backing up...", func(ctx context.Context) (string, error) {
 				select {
 				case <-time.After(1200 * time.Millisecond):
 				case <-ctx.Done():
@@ -33,6 +34,7 @@ func init() {
 				if err := st.Set(lastKey, time.Now()); err != nil {
 					return "", err
 				}
+				log.Print("[INFO] backup finished")
 				return "Backup finished.", nil
 			})
 		},

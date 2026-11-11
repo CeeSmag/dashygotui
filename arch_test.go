@@ -231,14 +231,14 @@ func allReadOnly(vs *ast.ValueSpec) bool {
 
 // --- Rule: addon file names (section 10) ---
 
-var addonFileName = regexp.MustCompile(`^(opt|widget|view|modal)_[a-z0-9_]+(_test)?\.go$`)
+var addonFileName = regexp.MustCompile(`^(opt|widget|view|modal|shortcut)_[a-z0-9_]+(_test)?\.go$`)
 
 func addonNameViolations(rel string) []string {
 	base := path.Base(rel)
 	if addonFileName.MatchString(base) {
 		return nil
 	}
-	return []string{fmt.Sprintf("%s: addon files must be named opt_*.go, widget_*.go, view_*.go or modal_*.go", rel)}
+	return []string{fmt.Sprintf("%s: addon files must be named opt_*.go, widget_*.go, view_*.go, modal_*.go or shortcut_*.go", rel)}
 }
 
 // --- Rule: addons never depend on each other (sections 3 and 10) ---
@@ -469,6 +469,8 @@ func TestGuardAddonNames(t *testing.T) {
 		{"examples/demo/dashboard/addons/widget_disk_io.go", 0},
 		{"examples/demo/dashboard/addons/view_logs.go", 0},
 		{"examples/demo/dashboard/addons/modal_confirm.go", 0},
+		{"examples/demo/dashboard/addons/shortcut_stop.go", 0},
+		{"examples/demo/dashboard/addons/hotkey_x.go", 1},
 		{"examples/demo/dashboard/addons/opt_storage_test.go", 0},
 		{"examples/demo/dashboard/addons/storage.go", 1},
 		{"examples/demo/dashboard/addons/helpers.go", 1},

@@ -102,7 +102,7 @@ func (c *Choice[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []s
 		head = append(head, text.Wrap(c.Help, inner)...)
 		head = append(head, "")
 	}
-	foot := []string{"", keys(th, "↑↓", "Move", "Enter", "Select", "Esc", "Cancel")}
+	foot := []string{"", keys(th, th.G.UpDown, "Move", "Enter", "Select", "Esc", "Cancel")}
 
 	// Each entry takes two rows; show a window of them around the cursor when
 	// the terminal cannot hold the whole list.

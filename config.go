@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -54,9 +55,20 @@ type Config[S any] struct {
 	// Palette is the ID of the palette used when the user has not chosen one.
 	// Default [theme.DefaultID].
 	Palette string
-	// ASCII restricts output to glyphs found in every console font. See
-	// [theme.DetectASCII].
-	ASCII bool
+	// Glyphs selects the symbol set. The default, [GlyphsAuto], uses the TTY set
+	// when the environment looks like the Linux console and the Unicode set
+	// otherwise; the user's choice, saved in Store, wins over it.
+	Glyphs GlyphMode
+	// Background says how a palette's background colour reaches the terminal.
+	// The default sets the terminal's own colours.
+	Background BackgroundMode
+	// Getenv reads environment variables for glyph auto-detection. Default
+	// [os.Getenv]; tests inject their own.
+	Getenv func(string) string
+	// OnForceQuit is called instead of quitting when a force-quit key is
+	// pressed (ctrl+q and ctrl+c by default), for example to open a "Stop and
+	// exit?" confirmation. Return the command to run. Optional.
+	OnForceQuit func(*Context[S]) tea.Cmd
 
 	// Keys overrides the default key bindings. Unset bindings keep their
 	// defaults.
@@ -85,6 +97,7 @@ type Dashboard[S any] struct {
 	pages    []pageDef[S]
 	views    map[string]View[S]
 	palettes []theme.Palette
+	hotkeys  map[string]Option[S] // option hotkeys, by key name
 }
 
 // panelDef is one panel of a page: a section with its options, or a widget.
@@ -121,9 +134,20 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 	pages, pageErrs := buildPages(cfg, reg)
 	errs = append(errs, pageErrs...)
 	for _, s := range reg.shortcuts {
-		if keys.reserved(s.Key) {
+		if keys.reserved(s.Key, s.Scope == ScopePages) {
 			errs = append(errs, fmt.Errorf("shortcut %q is reserved for navigation or a digit", s.Key))
 		}
+	}
+	hotkeys := make(map[string]Option[S])
+	for _, o := range reg.options {
+		if o.Hotkey == "" {
+			continue
+		}
+		if keys.reserved(o.Hotkey, true) {
+			errs = append(errs, fmt.Errorf("option %q hotkey %q is reserved for navigation or a digit", o.Key, o.Hotkey))
+			continue
+		}
+		hotkeys[o.Hotkey] = o
 	}
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, errors.Join(errs...))
@@ -138,6 +162,9 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 	if cfg.Timer == nil {
 		cfg.Timer = tea.Tick
 	}
+	if cfg.Getenv == nil {
+		cfg.Getenv = os.Getenv
+	}
 	if cfg.Store == nil {
 		cfg.Store = store.NewMemory()
 	}
@@ -151,7 +178,8 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 		keys:     keys,
 		pages:    pages,
 		views:    views,
-		palettes: mergePalettes(theme.Builtins(), cfg.Palettes),
+		palettes: mergePalettes(append(theme.Builtins(), theme.Console()), cfg.Palettes),
+		hotkeys:  hotkeys,
 	}, nil
 }
 

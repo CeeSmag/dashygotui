@@ -59,11 +59,14 @@ type model[S any] struct {
 	interval time.Duration
 	ticks    int
 
-	th       *theme.Theme
-	palette  string
-	spacing  Spacing
-	store    Store
-	startErr error // a setting could not be loaded at start
+	th            *theme.Theme
+	palette       string
+	paletteChosen bool // the user or the config picked a palette; no TTY default
+	glyphMode     GlyphMode
+	tty           bool // the TTY glyph set is in use
+	spacing       Spacing
+	store         Store
+	startErr      error // a setting could not be loaded at start
 
 	// Where the user is.
 	view    string   // "" is the dashboard pages
@@ -104,10 +107,11 @@ func newModel[S any](run context.Context, d *Dashboard[S]) *model[S] {
 		m.spacing = d.cfg.Spacing.Clamp()
 	}
 	if id := d.cfg.Palette; id != "" {
-		m.palette = id
+		m.palette, m.paletteChosen = id, true
 	}
+	m.glyphMode = d.cfg.Glyphs
 	m.loadSettings()
-	m.applyPalette(m.palette)
+	m.rebuildTheme()
 	m.resetCursor()
 	return m
 }
@@ -125,7 +129,13 @@ func (m *model[S]) loadSettings() {
 	if ok, err := m.store.Get(storeKeyPalette, &id); err != nil {
 		m.startErr = err
 	} else if ok && id != "" {
-		m.palette = id
+		m.palette, m.paletteChosen = id, true
+	}
+	var gm string
+	if ok, err := m.store.Get(storeKeyGlyphs, &gm); err != nil {
+		m.startErr = err
+	} else if ok {
+		m.glyphMode = parseGlyphMode(gm)
 	}
 	var ms int
 	if ok, err := m.store.Get(storeKeyInterval, &ms); err != nil {
@@ -135,7 +145,32 @@ func (m *model[S]) loadSettings() {
 	}
 }
 
-func (m *model[S]) applyPalette(id string) bool {
+// resolveTTY decides whether the TTY glyph set is in use.
+func (m *model[S]) resolveTTY() bool {
+	switch m.glyphMode {
+	case GlyphsUnicode:
+		return false
+	case GlyphsTTY:
+		return true
+	}
+	return theme.DetectTTY(m.d.cfg.Getenv)
+}
+
+// rebuildTheme resolves the glyph mode and the palette and builds the theme. On
+// a TTY with no palette chosen it uses the 16-colour console palette, which the
+// Linux console can actually show.
+func (m *model[S]) rebuildTheme() {
+	m.tty = m.resolveTTY()
+	id := m.palette
+	if m.tty && !m.paletteChosen {
+		id = "console" // the default for a TTY; m.palette keeps the base choice
+	}
+	m.buildTheme(id)
+}
+
+// buildTheme builds the theme for palette id, falling back to the default
+// palette when id is unknown. It reports whether id was found.
+func (m *model[S]) buildTheme(id string) bool {
 	p, ok := theme.Lookup(m.d.palettes, id)
 	if !ok {
 		p, _ = theme.Lookup(m.d.palettes, theme.DefaultID)
@@ -143,8 +178,14 @@ func (m *model[S]) applyPalette(id string) bool {
 			p = theme.Default()
 		}
 	}
-	m.palette = p.ID
-	m.th = theme.New(p, m.d.cfg.ASCII)
+	m.th = theme.New(p, m.tty)
+	return ok
+}
+
+// applyPalette makes palette id the chosen one and builds the theme from it.
+func (m *model[S]) applyPalette(id string) bool {
+	ok := m.buildTheme(id)
+	m.palette = m.th.Palette.ID
 	return ok
 }
 
@@ -289,9 +330,9 @@ func (m *model[S]) flashResult(msg string, err error) {
 		if msg != "" {
 			out = text.OneLine(msg) + " " + out
 		}
-		m.setFlash("✗ "+out, true, FlashResult)
+		m.setFlash(m.th.G.Cross+" "+out, true, FlashResult)
 	case msg != "":
-		m.setFlash("✓ "+text.OneLine(msg), false, FlashResult)
+		m.setFlash(m.th.G.Check+" "+text.OneLine(msg), false, FlashResult)
 	}
 }
 
@@ -313,6 +354,11 @@ func (m *model[S]) View() tea.View {
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeNone
 	v.WindowTitle = m.title()
+	if m.d.cfg.Background != BackgroundOff {
+		if bg, fg, ok := m.th.Backdrop(); ok {
+			v.BackgroundColor, v.ForegroundColor = bg, fg
+		}
+	}
 	return v
 }
 
@@ -322,7 +368,11 @@ func (m *model[S]) render(cols, rows int) string {
 	if cols <= 0 || rows <= 0 {
 		return ""
 	}
-	return strings.Join(panel.Frame(m.screen(cols, rows), cols, rows), "\n")
+	frame := panel.Frame(m.screen(cols, rows), cols, rows)
+	if m.d.cfg.Background == BackgroundPaint {
+		frame = m.th.Paint(frame)
+	}
+	return strings.Join(frame, "\n")
 }
 
 // screen builds the active page or view and, when one is open, the pop-up over

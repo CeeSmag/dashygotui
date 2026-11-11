@@ -44,7 +44,7 @@ project-specific consequences explicit.
 
 ```
 main.go  --imports-->  dashboard   (pages, section slots, the one global Registry, Run)
-         --blank---->  dashboard/addons   (opt_*.go, widget_*.go, view_*.go, modal_*.go)
+         --blank---->  dashboard/addons   (opt_*.go, widget_*.go, view_*.go, modal_*.go, shortcut_*.go)
 addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 ```
 
@@ -149,6 +149,12 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 - Layout code clamps spacing instead of overflowing. Width is always measured
   ANSI-aware (`text.Width`), never with `len`.
 - The mouse is not captured in v1; the terminal keeps selection and copy.
+- **Symbols come from the theme.** A renderer draws with `theme.Glyphs` (`th.G`)
+  and never hard-codes a symbol that the Linux console font may lack: no `●`,
+  `✓`, `✗`, `▲`, `▼`, `…`, `↑↓`, rounded corners or Braille outside the Unicode
+  glyph set. TTY mode must draw only ASCII, the straight line-drawing characters
+  and the shade blocks. Text written by addons is plain ASCII (`...`, not `…`).
+  The demo's TTY sweep test enforces this for every page, view and pop-up.
 
 ## 9. Testing
 
@@ -174,8 +180,8 @@ change the guard in the same change and explain why.
 
 ## 10. Addon rules (`addons/` directories)
 
-- File names are `opt_<name>.go`, `widget_<name>.go`, `view_<name>.go` or
-  `modal_<name>.go` (plus `_test.go`). **[enforced]**
+- File names are `opt_<name>.go`, `widget_<name>.go`, `view_<name>.go`,
+  `modal_<name>.go` or `shortcut_<name>.go` (plus `_test.go`). **[enforced]**
 - An addon reaches the library only through the `*Context[S]` it is handed and
   the registry in the dashboard package. No package-level mutable state; modal
   and view state lives in the modal or view struct.

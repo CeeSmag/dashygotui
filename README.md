@@ -84,9 +84,18 @@ to start.
   another page.
 - **Modals**: edit, confirm, type-the-word, notice, choice list, slider
   ([`modal`](modal/)).
-- **Full-screen views**, background **tasks**, tick hooks, shortcuts.
-- **Primitives**: panel, meter, slider, Braille graphs with adaptive scaling,
-  time series, ANSI-aware text helpers ([`panel`](panel/), [`chart`](chart/),
+- **Full-screen views**, background **tasks**, tick hooks.
+- **Keys**: option hotkeys, global shortcuts (including `ctrl+` combinations that
+  work over pop-ups), and an overridable force-quit.
+- **Logs**: capture the standard logger and `slog`, and browse them newest first,
+  scrollable ([`logs`](logs/)).
+- **TTY mode**: a conservative symbol set and 16-colour palette, auto-detected
+  for the Linux console and switchable at run time.
+- **Themes that reach the terminal**: palettes can set the terminal's own
+  background and foreground.
+- **Primitives**: panel, meter, slider, six waveform styles (sparkline, bars,
+  line trace, mirrored wave, heat strip, Braille) with adaptive scaling, time
+  series, ANSI-aware text helpers ([`panel`](panel/), [`chart`](chart/),
   [`text`](text/)).
 - **Themes and spacing** at run time, saved between runs
   ([`stdaddons`](stdaddons/), [`theme`](theme/), [`store`](store/)).
@@ -110,8 +119,11 @@ invalid dashboard configuration: opt_trash.go:14: option "trash" reuses number 1
 go run ./examples/demo
 ```
 
-Three pages, options, three widgets (one with a live graph), a full-screen view,
-modals, and settings kept in `~/.config/dashygotui-demo/`.
+Three pages, options with hotkeys, four widgets (live graphs in four waveform
+styles and a mirrored traffic wave), a diagnostics view, a log view, modals,
+global `ctrl+q` and `ctrl+r`, a display-mode switch, and settings kept in
+`~/.config/dashygotui-demo/`. Try `DASHYGOTUI_TTY=1 go run ./examples/demo` to see
+the console symbol set.
 
 ## Docs
 

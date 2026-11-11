@@ -42,6 +42,7 @@ type Registry[S any] struct {
 	widgetKeys  map[string]string
 	viewIDs     map[string]string
 	shortcutKey map[string]string
+	hotkeys     map[string]string
 
 	errs []error
 }
@@ -54,6 +55,7 @@ func NewRegistry[S any]() *Registry[S] {
 		widgetKeys:  map[string]string{},
 		viewIDs:     map[string]string{},
 		shortcutKey: map[string]string{},
+		hotkeys:     map[string]string{},
 	}
 }
 
@@ -120,11 +122,24 @@ func (r *Registry[S]) Option(o Option[S]) {
 		r.fail(site, "option %q reuses number %d (first used at %s)", o.Key, o.Number, r.optionNums[o.Number])
 		ok = false
 	}
+	if hk := o.Hotkey; hk != "" {
+		switch {
+		case r.hotkeys[hk] != "":
+			r.fail(site, "option %q reuses hotkey %q (first used at %s)", o.Key, hk, r.hotkeys[hk])
+			ok = false
+		case r.shortcutKey[hk] != "":
+			r.fail(site, "option %q hotkey %q is already a shortcut (registered at %s)", o.Key, hk, r.shortcutKey[hk])
+			ok = false
+		}
+	}
 	if !ok {
 		return
 	}
 	r.optionKeys[o.Key] = site
 	r.optionNums[o.Number] = site
+	if o.Hotkey != "" {
+		r.hotkeys[o.Hotkey] = site
+	}
 	r.options = append(r.options, o)
 }
 
@@ -214,6 +229,10 @@ func (r *Registry[S]) Shortcut(s Shortcut[S]) {
 		ok = false
 	case r.shortcutKey[s.Key] != "":
 		r.fail(site, "duplicate shortcut key %q (first registered at %s)", s.Key, r.shortcutKey[s.Key])
+		ok = false
+	}
+	if r.hotkeys[s.Key] != "" {
+		r.fail(site, "shortcut %q is already an option hotkey (registered at %s)", s.Key, r.hotkeys[s.Key])
 		ok = false
 	}
 	if s.Run == nil {

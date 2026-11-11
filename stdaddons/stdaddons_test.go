@@ -50,7 +50,7 @@ func TestThemePicker(t *testing.T) {
 		d := dashtest.New(t, harness(store.NewMemory()), 140, 40)
 		d.Type("20")
 		d.Press("enter")
-		d.RequireContains("Color Theme", "Teal", "Catppuccin Mocha", "Dracula", "Nord", "Soothing pastel", "Enter Select")
+		d.RequireContains("Color Theme", "Teal", "Catppuccin Mocha", "Dracula", "Nord", "Console (16 colours)", "Soothing pastel", "Enter Select")
 	})
 	t.Run("moving previews without saving, esc restores", func(t *testing.T) {
 		st := store.NewMemory()
@@ -72,7 +72,7 @@ func TestThemePicker(t *testing.T) {
 		st := store.NewMemory()
 		d := dashtest.New(t, harness(st), 140, 40)
 		d.Type("20")
-		d.Press("enter", "end", "enter")
+		d.Press("enter", "down", "down", "down", "enter") // Nord is the fourth palette
 		d.RequireContains("pal=nord", "Color theme: Nord", "[Nord]")
 		var id string
 		if ok, err := st.Get("dashygotui.palette", &id); err != nil || !ok || id != "nord" {

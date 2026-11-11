@@ -19,7 +19,8 @@ func init() {
 			if !c.Ready() {
 				return c.Badge("starting")
 			}
-			return c.Theme().Green.Render("● LIVE")
+			th := c.Theme()
+			return th.Green.Render(th.G.Bullet + " LIVE")
 		},
 		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
 			th, s := c.Theme(), c.State()

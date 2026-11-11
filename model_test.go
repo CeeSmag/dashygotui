@@ -634,7 +634,7 @@ func TestSettingsAreAppliedAndPersisted(t *testing.T) {
 	if sp.TerminalPage != 6 || sp.Section != 4 {
 		t.Errorf("stored spacing = %+v, want TerminalPage clamped to 6", sp)
 	}
-	if got := strings.Join(palettes, ","); got != "default,catppuccin,dracula,nord" {
+	if got := strings.Join(palettes, ","); got != "default,catppuccin,dracula,nord,console" {
 		t.Errorf("palettes = %s", got)
 	}
 

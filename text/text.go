@@ -23,7 +23,12 @@ func Width(s string) int { return ansi.StringWidth(s) }
 
 // Trunc cuts s to at most w cells, ending in [Ellipsis] when something was cut.
 // A non-positive w yields the empty string.
-func Trunc(s string, w int) string {
+func Trunc(s string, w int) string { return TruncWith(s, w, Ellipsis) }
+
+// TruncWith is [Trunc] with a caller-chosen ellipsis, for terminals whose font
+// lacks "…". The ellipsis should be a single cell wide; when w is 1 the result
+// is just the ellipsis.
+func TruncWith(s string, w int, ellipsis string) string {
 	if w <= 0 {
 		return ""
 	}
@@ -31,9 +36,9 @@ func Trunc(s string, w int) string {
 		return s
 	}
 	if w == 1 {
-		return Ellipsis
+		return ellipsis
 	}
-	return ansi.Truncate(s, w, Ellipsis)
+	return ansi.Truncate(s, w, ellipsis)
 }
 
 // Pad right-pads s with spaces to exactly w cells. It does nothing when s is
@@ -48,11 +53,14 @@ func Pad(s string, w int) string {
 // Fit makes s exactly w cells wide, truncating with [Ellipsis] or padding with
 // spaces. It is the last thing every row should pass through. A non-positive w
 // yields the empty string.
-func Fit(s string, w int) string {
+func Fit(s string, w int) string { return FitWith(s, w, Ellipsis) }
+
+// FitWith is [Fit] with a caller-chosen ellipsis; see [TruncWith].
+func FitWith(s string, w int, ellipsis string) string {
 	if w <= 0 {
 		return ""
 	}
-	return Pad(Trunc(s, w), w)
+	return Pad(TruncWith(s, w, ellipsis), w)
 }
 
 // Center pads s on both sides so that it sits in the middle of w cells. Text

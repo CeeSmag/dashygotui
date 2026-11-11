@@ -27,7 +27,7 @@ func newInput(th *theme.Theme, value string, limit int, secret bool) textinput.M
 	in.CharLimit = limit
 	if secret {
 		in.EchoMode = textinput.EchoPassword
-		in.EchoCharacter = '•'
+		in.EchoCharacter = []rune(th.G.EchoChar)[0]
 	}
 	in.SetStyles(inputStyles(th))
 	in.SetValue(value)
@@ -172,15 +172,15 @@ func (e *Edit[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []str
 		body = append(body, text.Wrap(e.Help, inner)...)
 	}
 	if e.Current != "" && !e.Secret {
-		body = append(body, "", th.Muted.Render("Current: ")+text.Trunc(e.Current, max(inner-9, 1)))
+		body = append(body, "", th.Muted.Render("Current: ")+th.Trunc(e.Current, max(inner-9, 1)))
 	}
 	e.input.SetWidth(max(inner-2, 1))
-	body = append(body, "", th.Key.Render("› ")+e.input.View())
+	body = append(body, "", th.Key.Render(th.G.Prompt+" ")+e.input.View())
 	switch {
 	case e.errText != "":
-		body = append(body, "", th.Red.Render(text.Trunc("✗ "+e.errText, inner)))
+		body = append(body, "", th.Red.Render(th.Trunc(th.G.Cross+" "+e.errText, inner)))
 	case e.saving:
-		body = append(body, "", th.Muted.Render("Saving…"))
+		body = append(body, "", th.Muted.Render("Saving..."))
 	}
 	body = append(body, "", keys(th, "Enter", "Save", "Esc", "Cancel"))
 	return popup(th, e.Title, "", w, size.Rows, body)
@@ -252,10 +252,10 @@ func (t *Typed[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []st
 	inner := w - 4
 	body := wrapAll(t.Lines, inner)
 	t.input.SetWidth(max(inner-2, 1))
-	body = append(body, "", th.Amber.Render(text.Trunc(t.Prompt, inner)))
-	body = append(body, th.Key.Render("› ")+t.input.View())
+	body = append(body, "", th.Amber.Render(th.Trunc(t.Prompt, inner)))
+	body = append(body, th.Key.Render(th.G.Prompt+" ")+t.input.View())
 	if t.errText != "" {
-		body = append(body, "", th.Red.Render(text.Trunc("✗ "+t.errText, inner)))
+		body = append(body, "", th.Red.Render(th.Trunc(th.G.Cross+" "+t.errText, inner)))
 	}
 	body = append(body, "", keys(th, "Esc", "Cancel"))
 	return popup(th, t.Title, "", w, size.Rows, body)

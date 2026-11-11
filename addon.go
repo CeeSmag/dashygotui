@@ -19,6 +19,12 @@ type Option[S any] struct {
 	Order int
 	// Label is the row text. Required.
 	Label string
+	// Hotkey is an optional key that runs the option directly from any
+	// dashboard page, without selecting it first: "l" to open the logs, say. It
+	// is shown after the label as "(l)". It must not clash with a navigation key,
+	// a digit, a shortcut or another option's hotkey. Inside a view's own
+	// options it works only in that view.
+	Hotkey string
 	// Badge returns the row's current state, already styled, such as "[ON ✓]".
 	// Optional.
 	Badge func(*Context[S]) string

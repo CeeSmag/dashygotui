@@ -51,7 +51,7 @@ func (m *model[S]) tabBar(cols int) string {
 		num := strconv.Itoa(i + 1)
 		label := m.tabLabel(p.page, cols, i == m.page)
 		if i == m.page {
-			parts = append(parts, th.Border.Render("[")+th.White.Render(num)+" "+th.Green.Render("●")+" "+th.Title.Render(label)+th.Border.Render("]"))
+			parts = append(parts, th.Border.Render("[")+th.White.Render(num)+" "+th.Green.Render(th.G.Bullet)+" "+th.Title.Render(label)+th.Border.Render("]"))
 		} else {
 			parts = append(parts, th.Muted.Render(num+" "+label))
 		}
@@ -105,7 +105,7 @@ func (m *model[S]) footer(cols int, mode string, hints []panel.Hint) string {
 		if m.flashBad {
 			style = th.Amber
 		}
-		body = style.Render(text.Trunc(m.flash, max(budget, 0)))
+		body = style.Render(th.Trunc(m.flash, max(budget, 0)))
 	}
 	row := left + th.Border.Render(" │ ") + body
 	return text.Fit(text.Pad(row, cols-text.Width(right))+right, cols)
@@ -121,16 +121,16 @@ func (m *model[S]) autoHints() []panel.Hint {
 	menus := m.menus()
 	var hints []panel.Hint
 	if len(menus) >= 1 {
-		hints = append(hints, m.hint("↑↓", "Move", th.Key, 60), m.hint("↵", "Open", th.Key, 55))
+		hints = append(hints, m.hint(th.G.UpDown, "Move", th.Key, 60), m.hint(th.G.Enter, "Open", th.Key, 55))
 	}
 	if len(menus) >= 2 {
-		hints = append(hints, m.hint("←→", "Panel", th.Key, 50))
+		hints = append(hints, m.hint(th.G.LeftRight, "Panel", th.Key, 50))
 	}
 	if n := len(m.d.pages); n > 1 {
 		hints = append(hints, m.hint("Tab", fmt.Sprintf("Page %d/%d", (m.page+1)%n+1, n), th.Key, 70))
 	}
 	for _, s := range m.d.reg.shortcuts {
-		if s.Label != "" {
+		if s.Label != "" { // pages-scope and everywhere-scope shortcuts both work here
 			prio := s.Prio
 			if prio == 0 {
 				prio = 30
@@ -284,9 +284,17 @@ func numTagWidth[S any](opts []Option[S]) int {
 func labelWidth[S any](opts []Option[S]) int {
 	w := 0
 	for _, o := range opts {
-		w = max(w, text.Width(o.Label))
+		w = max(w, text.Width(optionText(o)))
 	}
 	return w
+}
+
+// optionText is the label as drawn, with the hotkey after it: "Open Logs (l)".
+func optionText[S any](o Option[S]) string {
+	if o.Hotkey == "" {
+		return o.Label
+	}
+	return o.Label + " (" + o.Hotkey + ")"
 }
 
 // menuRow draws one option w cells wide: the cursor, the number, the label, and
@@ -310,7 +318,7 @@ func (m *model[S]) menuRow(o Option[S], w, numW, labelW int, selected bool) stri
 		return text.Fit(head, w)
 	}
 	label := func(width int) string {
-		s := text.Pad(text.Trunc(o.Label, width), width)
+		s := text.Pad(th.Trunc(optionText(o), width), width)
 		if selected {
 			return th.White.Render(s)
 		}

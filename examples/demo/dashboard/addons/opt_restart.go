@@ -2,6 +2,7 @@ package addons
 
 import (
 	"context"
+	"log"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -21,12 +22,13 @@ func init() {
 				Lines:  []string{"Connections are dropped for a moment while it restarts."},
 				Accept: "Restart",
 				OnAccept: func(c *dashboard.Ctx) tea.Cmd {
-					return c.RunTask("restart", "Restarting…", func(ctx context.Context) (string, error) {
+					return c.RunTask("restart", "Restarting...", func(ctx context.Context) (string, error) {
 						select {
 						case <-time.After(800 * time.Millisecond):
 						case <-ctx.Done():
 							return "", ctx.Err()
 						}
+						log.Print("[WARN] service restarted by the operator")
 						return "Service restarted.", nil
 					})
 				},

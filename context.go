@@ -54,7 +54,9 @@ func (c *Context[S]) Store() Store { return c.m.store }
 func (c *Context[S]) Flash(msg string) { c.m.setFlash(msg, false, FlashHint) }
 
 // FlashError shows an error message in the footer.
-func (c *Context[S]) FlashError(msg string) { c.m.setFlash("✗ "+msg, true, FlashResult) }
+func (c *Context[S]) FlashError(msg string) {
+	c.m.setFlash(c.m.th.G.Cross+" "+msg, true, FlashResult)
+}
 
 // FlashResult shows the outcome of an action in the footer: a tick and the
 // text on success, a cross and the reason on failure.
@@ -151,13 +153,35 @@ func (c *Context[S]) PreviewPalette(id string) bool {
 	return true
 }
 
+// GlyphMode returns the chosen glyph mode: auto, Unicode or TTY.
+func (c *Context[S]) GlyphMode() GlyphMode { return c.m.glyphMode }
+
+// TTY reports whether the TTY glyph set is in use, whether chosen or detected.
+func (c *Context[S]) TTY() bool { return c.m.tty }
+
+// SetGlyphMode switches the symbol set immediately and saves the choice. On a
+// TTY, with no palette chosen, the 16-colour palette follows along.
+func (c *Context[S]) SetGlyphMode(mode GlyphMode) {
+	c.m.glyphMode = mode
+	c.m.rebuildTheme()
+	c.m.persist(storeKeyGlyphs, mode.String())
+}
+
+// PreviewGlyphMode applies mode for this run without saving it, so a picker can
+// show its effect live. Follow it with [Context.SetGlyphMode] to keep the
+// choice, or with PreviewGlyphMode of the original to undo.
+func (c *Context[S]) PreviewGlyphMode(mode GlyphMode) {
+	c.m.glyphMode = mode
+	c.m.rebuildTheme()
+}
+
 // Palettes lists the colour palettes the user can choose from.
 func (c *Context[S]) Palettes() []theme.Palette {
 	return append([]theme.Palette(nil), c.m.d.palettes...)
 }
 
 // PaletteID returns the ID of the active palette.
-func (c *Context[S]) PaletteID() string { return c.m.palette }
+func (c *Context[S]) PaletteID() string { return c.m.th.Palette.ID }
 
 // SetPalette applies the palette with the given ID immediately and saves the
 // choice. It reports whether the palette exists; if it does not, nothing
@@ -166,6 +190,7 @@ func (c *Context[S]) SetPalette(id string) bool {
 	if _, ok := theme.Lookup(c.m.d.palettes, id); !ok {
 		return false
 	}
+	c.m.paletteChosen = true
 	c.m.applyPalette(id)
 	c.m.persist(storeKeyPalette, c.m.palette)
 	return true
@@ -187,9 +212,9 @@ func (c *Context[S]) SetRefreshInterval(d time.Duration) {
 // OnOff returns a styled "[ON ✓]" or "[OFF ✗]" badge.
 func (c *Context[S]) OnOff(on bool) string {
 	if on {
-		return c.m.th.Green.Render("[ON ✓]")
+		return c.m.th.Green.Render("[ON " + c.m.th.G.Check + "]")
 	}
-	return c.m.th.Red.Render("[OFF ✗]")
+	return c.m.th.Red.Render("[OFF " + c.m.th.G.Cross + "]")
 }
 
 // Badge returns a plain styled state badge: "[text]".
@@ -204,6 +229,6 @@ func (c *Context[S]) Count(n int, what string) string {
 // setting that cannot be saved is still applied for this run.
 func (m *model[S]) persist(key string, v any) {
 	if err := m.store.Set(key, v); err != nil {
-		m.setFlash("✗ setting not saved: "+err.Error(), true, FlashResult)
+		m.setFlash(m.th.G.Cross+" setting not saved: "+err.Error(), true, FlashResult)
 	}
 }

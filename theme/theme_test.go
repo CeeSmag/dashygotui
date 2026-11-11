@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/CeeSmag/dashygotui/text"
 	"github.com/CeeSmag/dashygotui/theme"
 )
 
@@ -137,7 +138,7 @@ func TestSwatchContainsBrackets(t *testing.T) {
 	}
 }
 
-func TestDetectASCII(t *testing.T) {
+func TestDetectTTY(t *testing.T) {
 	env := func(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
 	tests := []struct {
 		name string
@@ -149,14 +150,154 @@ func TestDetectASCII(t *testing.T) {
 		{"linux console", map[string]string{"TERM": "linux"}, true},
 		{"linux console, odd case", map[string]string{"TERM": " Linux "}, true},
 		{"explicit 1", map[string]string{"DASHYGOTUI_ASCII": "1"}, true},
+		{"explicit tty", map[string]string{"DASHYGOTUI_TTY": "yes"}, true},
 		{"explicit true", map[string]string{"DASHYGOTUI_ASCII": "TRUE"}, true},
 		{"explicit 0", map[string]string{"DASHYGOTUI_ASCII": "0", "TERM": "xterm"}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := theme.DetectASCII(env(tt.env)); got != tt.want {
+			if got := theme.DetectTTY(env(tt.env)); got != tt.want {
 				t.Errorf("DetectASCII = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestGlyphSetsAreSingleCellAndComplete(t *testing.T) {
+	for name, g := range map[string]theme.Glyphs{"unicode": theme.UnicodeGlyphs(), "tty": theme.TTYGlyphs()} {
+		t.Run(name, func(t *testing.T) {
+			single := map[string]string{
+				"CornerTL": g.CornerTL, "CornerTR": g.CornerTR, "CornerBL": g.CornerBL, "CornerBR": g.CornerBR,
+				"Pointer": g.Pointer, "Prompt": g.Prompt, "Bullet": g.Bullet, "Dot": g.Dot, "Sep": g.Sep,
+				"Check": g.Check, "Cross": g.Cross, "Up": g.Up, "Down": g.Down, "Ellipsis": g.Ellipsis,
+				"EchoChar": g.EchoChar, "MeterFill": g.MeterFill, "MeterEmpty": g.MeterEmpty,
+				"SliderKnob": g.SliderKnob, "SliderFill": g.SliderFill, "SliderRail": g.SliderRail,
+			}
+			for field, v := range single {
+				if text.Width(v) != 1 {
+					t.Errorf("%s = %q is %d cells wide, want exactly 1", field, v, text.Width(v))
+				}
+			}
+			for field, v := range map[string]string{"UpDown": g.UpDown, "LeftRight": g.LeftRight, "Enter": g.Enter, "Both": g.Both} {
+				if v == "" {
+					t.Errorf("%s is empty", field)
+				}
+			}
+			if len(g.Ramp) != 8 {
+				t.Errorf("Ramp has %d entries, want 8", len(g.Ramp))
+			}
+			for _, r := range g.Ramp {
+				if text.Width(r) != 1 {
+					t.Errorf("ramp glyph %q is not one cell wide", r)
+				}
+			}
+			if len(g.Spinner) == 0 {
+				t.Error("no spinner frames")
+			}
+			for _, f := range g.Spinner {
+				if text.Width(f) != 1 {
+					t.Errorf("spinner frame %q is not one cell wide", f)
+				}
+			}
+		})
+	}
+}
+
+func TestTTYGlyphsStayInsideTheConsoleFont(t *testing.T) {
+	g := theme.TTYGlyphs()
+	all := strings.Join([]string{
+		g.CornerTL, g.CornerTR, g.CornerBL, g.CornerBR, g.Pointer, g.Prompt, g.Bullet, g.Dot, g.Sep,
+		g.Check, g.Cross, g.Up, g.Down, g.Both, g.Ellipsis, g.UpDown, g.LeftRight, g.Enter, g.EchoChar,
+		g.MeterFill, g.MeterEmpty, g.SliderKnob, g.SliderFill, g.SliderRail,
+		strings.Join(g.Spinner, ""), strings.Join(g.Ramp, ""),
+	}, "")
+	// ASCII plus the straight line-drawing corners.
+	for _, r := range all {
+		if r > 0x7e && !strings.ContainsRune("┌┐└┘", r) {
+			t.Errorf("TTY glyph %q (U+%04X) is outside ASCII and the corner set", r, r)
+		}
+	}
+}
+
+func TestNewChoosesTheGlyphSet(t *testing.T) {
+	if th := theme.New(theme.Default(), false); th.G.CornerTL != "╭" || th.ASCII {
+		t.Errorf("unicode theme = %+v", th.G)
+	}
+	if th := theme.New(theme.Default(), true); th.G.CornerTL != "┌" || !th.ASCII {
+		t.Errorf("tty theme = %+v", th.G)
+	}
+	custom := theme.UnicodeGlyphs()
+	custom.Pointer = "=>"
+	if th := theme.NewWithGlyphs(theme.Default(), custom); th.Pointer() != "=>" {
+		t.Error("NewWithGlyphs must use the glyphs it is given")
+	}
+}
+
+func TestThemeEllipsisFollowsTheGlyphs(t *testing.T) {
+	long := "a very long label"
+	if got := theme.New(theme.Default(), false).Trunc(long, 6); got != "a ver…" {
+		t.Errorf("unicode Trunc = %q", got)
+	}
+	if got := theme.New(theme.Default(), true).Trunc(long, 6); got != "a ver~" {
+		t.Errorf("tty Trunc = %q", got)
+	}
+	if got := text.Width(theme.New(theme.Default(), true).Fit(long, 9)); got != 9 {
+		t.Errorf("Fit width = %d", got)
+	}
+}
+
+func TestBackdrop(t *testing.T) {
+	nord, _ := theme.Lookup(theme.Builtins(), "nord")
+	bg, fg, ok := theme.New(nord, false).Backdrop()
+	if !ok || bg == nil || fg == nil {
+		t.Fatalf("nord should have a backdrop: %v %v %v", bg, fg, ok)
+	}
+	r, g, b, _ := bg.RGBA()
+	if r>>8 != 0x2E || g>>8 != 0x34 || b>>8 != 0x40 {
+		t.Errorf("background = #%02X%02X%02X, want #2E3440", r>>8, g>>8, b>>8)
+	}
+	if _, _, ok := theme.New(theme.Default(), false).Backdrop(); ok {
+		t.Error("the default palette keeps the terminal's own colours")
+	}
+	if _, _, ok := theme.New(nord, true).Backdrop(); ok {
+		t.Error("TTY mode must not set a background")
+	}
+	bad := nord
+	bad.Background = "blue"
+	if _, _, ok := theme.New(bad, false).Backdrop(); ok {
+		t.Error("only #RRGGBB is accepted")
+	}
+}
+
+func TestPaintSurvivesStyleResetsAndKeepsWidth(t *testing.T) {
+	nord, _ := theme.Lookup(theme.Builtins(), "nord")
+	th := theme.New(nord, false)
+	lines := []string{
+		th.Green.Render("ok") + " plain " + th.Red.Render("bad") + " tail",
+		"unstyled",
+		"",
+	}
+	got := th.Paint(lines)
+	if len(got) != len(lines) {
+		t.Fatalf("%d lines, want %d", len(got), len(lines))
+	}
+	const bg = "\x1b[48;2;46;52;64m"
+	for i, l := range got {
+		if !strings.HasPrefix(l, bg) {
+			t.Errorf("line %d does not start with the background: %q", i, l)
+		}
+		if text.Width(l) != text.Width(lines[i]) {
+			t.Errorf("line %d changed width: %d -> %d", i, text.Width(lines[i]), text.Width(l))
+		}
+		if strings.HasSuffix(l, bg) {
+			t.Errorf("line %d ends by re-opening the background, leaking it past the line", i)
+		}
+	}
+	// Every reset in the first line is followed by the background again.
+	if n, m := strings.Count(got[0], "\x1b[m"), strings.Count(got[0], "\x1b[m"+bg); n-1 > m {
+		t.Errorf("only %d of %d resets re-apply the background: %q", m, n, got[0])
+	}
+	if same := theme.New(theme.Default(), false).Paint(lines); strings.Join(same, "") != strings.Join(lines, "") {
+		t.Error("a palette without a background must leave lines untouched")
 	}
 }

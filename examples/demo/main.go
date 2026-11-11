@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 
@@ -38,6 +39,12 @@ func run() error {
 	} else {
 		fmt.Fprintln(os.Stderr, "demo: settings will not be saved:", err)
 	}
+
+	// A full-screen UI cannot share the terminal with the standard logger: send
+	// its output to the buffer the Logs view shows.
+	restoreLog := dashboard.Logs.Divert(log.Default())
+	defer restoreLog()
+	log.Print("[INFO] demo started")
 
 	info, err := dashboard.Run(ctx, st)
 	if err != nil {

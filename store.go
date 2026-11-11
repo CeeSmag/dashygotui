@@ -21,4 +21,5 @@ const (
 	storeKeySpacing  = "dashygotui.spacing"
 	storeKeyPalette  = "dashygotui.palette"
 	storeKeyInterval = "dashygotui.interval_ms"
+	storeKeyGlyphs   = "dashygotui.glyphs"
 )

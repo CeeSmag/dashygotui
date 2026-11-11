@@ -36,7 +36,7 @@ func init() {
 		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
 			th := c.Theme()
 			if len(lines) == 0 {
-				return []string{th.Muted.Render("waiting for traffic…")}
+				return []string{th.Muted.Render("waiting for traffic...")}
 			}
 			shown := lines[max(len(lines)-size.Rows, 0):]
 			out := make([]string, len(shown))

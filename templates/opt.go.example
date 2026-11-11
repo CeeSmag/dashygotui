@@ -21,6 +21,7 @@ func init() {
 		Key:     "my_feature", // unique and stable; also the prefix for any Store keys
 		Section: "settings",   // a section declared in the dashboard file
 		Number:  42,           // typed on the keyboard to jump here; unique across the dashboard
+		Hotkey:  "y",          // optional: runs this option from any page; shown as "(y)"
 		Label:   "My Feature",
 		// Badge is the row's current state, shown after the label. Optional.
 		Badge: func(c *dashboard.Ctx) string { return c.OnOff(true) },

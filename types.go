@@ -47,6 +47,74 @@ const (
 // DefaultSpacing is the spacing a dashboard starts with.
 func DefaultSpacing() Spacing { return layout.DefaultSpacing() }
 
+// GlyphMode selects the symbol set the dashboard draws with.
+type GlyphMode int
+
+// The glyph modes. GlyphsAuto is the zero value: use the TTY set when the
+// environment looks like the Linux console (see [theme.DetectTTY]), otherwise
+// the Unicode set.
+const (
+	GlyphsAuto GlyphMode = iota
+	// GlyphsUnicode forces the rich Unicode symbol set.
+	GlyphsUnicode
+	// GlyphsTTY forces the conservative set for terminals with a small font:
+	// ASCII plus straight line-drawing, shade-block graphs and the 16-colour
+	// palette.
+	GlyphsTTY
+)
+
+// String returns "auto", "unicode" or "tty".
+func (g GlyphMode) String() string {
+	switch g {
+	case GlyphsUnicode:
+		return "unicode"
+	case GlyphsTTY:
+		return "tty"
+	default:
+		return "auto"
+	}
+}
+
+func parseGlyphMode(s string) GlyphMode {
+	switch s {
+	case "unicode":
+		return GlyphsUnicode
+	case "tty":
+		return GlyphsTTY
+	default:
+		return GlyphsAuto
+	}
+}
+
+// BackgroundMode says how a palette's background colour reaches the terminal.
+type BackgroundMode int
+
+// The background modes. BackgroundTerminal is the zero value.
+const (
+	// BackgroundTerminal sets the terminal's own background and foreground
+	// colours (restored when the dashboard exits) when the active palette has
+	// them. Terminals that ignore the request keep their own colours.
+	BackgroundTerminal BackgroundMode = iota
+	// BackgroundPaint additionally paints every cell with the palette
+	// background, for terminals that ignore the request. It costs more output.
+	BackgroundPaint
+	// BackgroundOff never applies a background; the terminal keeps its colours.
+	BackgroundOff
+)
+
+// Scope says where a [Shortcut] is active.
+type Scope int
+
+// The shortcut scopes. ScopePages is the zero value.
+const (
+	// ScopePages makes the shortcut work on the dashboard pages only.
+	ScopePages Scope = iota
+	// ScopeEverywhere makes the shortcut work on pages, in views and over
+	// pop-ups, taking precedence over everything else, including the force-quit
+	// keys.
+	ScopeEverywhere
+)
+
 // ExitInfo says why and how the dashboard ended. The application decides what
 // to do about it after [Dashboard.Run] returns.
 type ExitInfo struct {
@@ -95,6 +163,11 @@ type Shortcut[S any] struct {
 	Label string
 	// Prio is the hint's priority; lower is dropped first. Default 30.
 	Prio int
+	// Scope says where the shortcut is active. The default is the dashboard
+	// pages. An [ScopeEverywhere] shortcut may use a force-quit key such as
+	// "ctrl+q" to replace the default quit; make sure the application still has
+	// a way out.
+	Scope Scope
 	// Run is called when the key is pressed.
 	Run func(*Context[S]) tea.Cmd
 }

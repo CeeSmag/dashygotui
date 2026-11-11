@@ -108,9 +108,9 @@ func (s *Slider[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []s
 	body = append(body,
 		chart.Slider(th, s.Value, s.Min, s.Max, inner),
 		"",
-		th.White.Render(text.Trunc(value, inner)),
+		th.White.Render(th.Trunc(value, inner)),
 		"",
-		keys(th, "←→", "Adjust", "Enter", "Keep", "Esc", "Restore"),
+		keys(th, th.G.LeftRight, "Adjust", "Enter", "Keep", "Esc", "Restore"),
 	)
 	return popup(th, s.Title, "", w, size.Rows, body)
 }

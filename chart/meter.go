@@ -32,10 +32,10 @@ func Meter(th *theme.Theme, pct float64, w int) string {
 	sb.WriteString(th.Border.Render("["))
 	for i := range w {
 		if i < filled {
-			sb.WriteString(th.Gradient(float64(i) / float64(w)).Render("■"))
+			sb.WriteString(th.Gradient(float64(i) / float64(w)).Render(th.G.MeterFill))
 			continue
 		}
-		sb.WriteString(th.Track.Render("■"))
+		sb.WriteString(th.Track.Render(th.G.MeterEmpty))
 	}
 	sb.WriteString(th.Border.Render("]"))
 	return sb.String()
@@ -53,7 +53,7 @@ func MeterWidth(inner int) int {
 func Slider(th *theme.Theme, val, minVal, maxVal, maxWidth int) string {
 	steps := maxVal - minVal
 	if steps <= 0 {
-		return th.Border.Render("[") + th.Key.Render("●") + th.Border.Render("]")
+		return th.Border.Render("[") + th.Key.Render(th.G.SliderKnob) + th.Border.Render("]")
 	}
 	minLabel := fmt.Sprintf("%d (min) ", minVal)
 	maxLabel := fmt.Sprintf(" %d (max)", maxVal)
@@ -68,14 +68,14 @@ func Slider(th *theme.Theme, val, minVal, maxVal, maxWidth int) string {
 	for i := minVal; i <= maxVal; i++ {
 		switch {
 		case i == val:
-			track.WriteString(th.Key.Render("●"))
+			track.WriteString(th.Key.Render(th.G.SliderKnob))
 		case i < val:
-			track.WriteString(th.Green.Render("■"))
+			track.WriteString(th.Green.Render(th.G.SliderFill))
 		default:
-			track.WriteString(th.Track.Render("─"))
+			track.WriteString(th.Track.Render(th.G.SliderRail))
 		}
 		if i < maxVal && segW > 1 {
-			fill := strings.Repeat("─", segW-1)
+			fill := strings.Repeat(th.G.SliderRail, segW-1)
 			if i < val {
 				track.WriteString(th.Green.Render(fill))
 			} else {
@@ -92,7 +92,7 @@ func Slider(th *theme.Theme, val, minVal, maxVal, maxWidth int) string {
 	if text.Width(track.String()) <= maxWidth {
 		return track.String()
 	}
-	return text.Trunc(track.String(), maxWidth)
+	return th.Trunc(track.String(), maxWidth)
 }
 
 // ChoiceRows renders one numbered choice of a pop-up as two rows: the choice
@@ -110,5 +110,5 @@ func ChoiceRows(th *theme.Theme, num int, label, badge, detail string, inner int
 	if badge != "" && text.Width(line)+1+text.Width(badge) <= inner {
 		line += " " + badge
 	}
-	return []string{text.Trunc(line, inner), th.Muted.Render(text.Trunc("      "+detail, inner))}
+	return []string{th.Trunc(line, inner), th.Muted.Render(th.Trunc("      "+detail, inner))}
 }

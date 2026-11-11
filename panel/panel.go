@@ -10,6 +10,9 @@
 //	│ Net     ▲ 340.0 KB/s   ▼ 1.2 MB/s                    │
 //	╰─┘ app.service └─────────────────────────────────────╯
 //
+// Corners and other symbols come from the theme's glyph set, so the same panel
+// is drawn with straight corners in TTY mode.
+//
 // Every panel is exactly w cells wide and h rows tall, whatever it is given: a
 // long title is truncated, then dropped in favour of the badge, and a box too
 // narrow for a tab falls back to a plain rule. Callers pass body rows already
@@ -70,14 +73,14 @@ func row(th *theme.Theme, content string, w int) string {
 	case w == 3:
 		return th.Border.Render("│") + " " + th.Border.Render("│")
 	}
-	return th.Border.Render("│") + " " + text.Fit(content, w-4) + " " + th.Border.Render("│")
+	return th.Border.Render("│") + " " + th.Fit(content, w-4) + " " + th.Border.Render("│")
 }
 
 // top draws the top border, degrading in four steps: title and badge,
 // truncated title and badge, badge or title alone, then a plain rule.
 func top(th *theme.Theme, title, badge string, w int) string {
 	if w < 4 {
-		return th.Border.Render(corners("╭", "╮", w))
+		return th.Border.Render(corners(th.G.CornerTL, th.G.CornerTR, w))
 	}
 	tw, bw := text.Width(title), text.Width(badge)
 	if title != "" && badge != "" {
@@ -87,7 +90,7 @@ func top(th *theme.Theme, title, badge string, w int) string {
 		// Keep the badge and shorten the title, but only while the title is
 		// still worth reading.
 		if avail := w - 15 - bw; avail >= 4 {
-			t := text.Trunc(title, avail)
+			t := th.Trunc(title, avail)
 			return tabTop(th, t, badge, w-14-text.Width(t)-bw)
 		}
 	}
@@ -101,18 +104,18 @@ func top(th *theme.Theme, title, badge string, w int) string {
 			return soloTop(th, title, fill, true)
 		}
 		if avail := w - 8; avail >= 1 {
-			t := text.Trunc(title, avail)
+			t := th.Trunc(title, avail)
 			return soloTop(th, t, w-7-text.Width(t), true)
 		}
 	}
-	return th.Border.Render("╭" + strings.Repeat("─", w-2) + "╮")
+	return th.Border.Render(th.G.CornerTL + strings.Repeat("─", w-2) + th.G.CornerTR)
 }
 
 // tabTop is the full tab: ╭─┐ Title ┌───┐ Badge ┌──╮.
 func tabTop(th *theme.Theme, title, badge string, fill int) string {
-	return th.Border.Render("╭─┐ ") + th.Title.Render(title) +
+	return th.Border.Render(th.G.CornerTL+"─┐ ") + th.Title.Render(title) +
 		th.Border.Render(" ┌───┐ ") + badge +
-		th.Border.Render(" ┌"+strings.Repeat("─", fill)+"╮")
+		th.Border.Render(" ┌"+strings.Repeat("─", fill)+th.G.CornerTR)
 }
 
 // soloTop is the tab with one label: ╭─┐ Label ┌──╮.
@@ -121,29 +124,29 @@ func soloTop(th *theme.Theme, label string, fill int, isTitle bool) string {
 	if isTitle {
 		body = th.Title.Render(label)
 	}
-	return th.Border.Render("╭─┐ ") + body +
-		th.Border.Render(" ┌"+strings.Repeat("─", fill)+"╮")
+	return th.Border.Render(th.G.CornerTL+"─┐ ") + body +
+		th.Border.Render(" ┌"+strings.Repeat("─", fill)+th.G.CornerTR)
 }
 
 // bottom draws the bottom border, with the subtitle in its own tab when it
 // fits: ╰─┘ subtitle └──╯.
 func bottom(th *theme.Theme, subtitle string, w int) string {
 	if w < 4 {
-		return th.Border.Render(corners("╰", "╯", w))
+		return th.Border.Render(corners(th.G.CornerBL, th.G.CornerBR, w))
 	}
 	if subtitle != "" {
 		sw := text.Width(subtitle)
 		if fill := w - 9 - sw; fill >= 1 {
-			return th.Border.Render("╰─┘ ") + th.Muted.Render(subtitle) +
-				th.Border.Render(" └──"+strings.Repeat("─", fill)+"╯")
+			return th.Border.Render(th.G.CornerBL+"─┘ ") + th.Muted.Render(subtitle) +
+				th.Border.Render(" └──"+strings.Repeat("─", fill)+th.G.CornerBR)
 		}
 		if avail := w - 10; avail >= 6 {
-			s := text.Trunc(subtitle, avail)
-			return th.Border.Render("╰─┘ ") + th.Muted.Render(s) +
-				th.Border.Render(" └──"+strings.Repeat("─", w-9-text.Width(s))+"╯")
+			s := th.Trunc(subtitle, avail)
+			return th.Border.Render(th.G.CornerBL+"─┘ ") + th.Muted.Render(s) +
+				th.Border.Render(" └──"+strings.Repeat("─", w-9-text.Width(s))+th.G.CornerBR)
 		}
 	}
-	return th.Border.Render("╰" + strings.Repeat("─", w-2) + "╯")
+	return th.Border.Render(th.G.CornerBL + strings.Repeat("─", w-2) + th.G.CornerBR)
 }
 
 // rule draws a labelled rule across the panel: ├── LABEL ──┤.
@@ -151,7 +154,7 @@ func rule(th *theme.Theme, label string, w int) string {
 	if w < 8 || label == "" {
 		return th.Border.Render(corners("├", "┤", w))
 	}
-	label = text.Trunc(label, w-8)
+	label = th.Trunc(label, w-8)
 	fill := w - 6 - text.Width(label)
 	return th.Border.Render("├── ") + th.Key.Render(label) +
 		th.Border.Render(" "+strings.Repeat("─", fill)+"┤")

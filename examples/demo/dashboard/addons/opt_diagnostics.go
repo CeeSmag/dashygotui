@@ -3,6 +3,7 @@ package addons
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -19,7 +20,7 @@ import (
 func init() {
 	dashboard.Registry.View(dashboard.View{
 		ID: "diagnostics", Title: "Diagnostics", Subtitle: "health of the demo service", Mode: "DIAG",
-		Badge: func(c *dashboard.Ctx) string { return c.Theme().Green.Render("● HEALTHY") },
+		Badge: func(c *dashboard.Ctx) string { return c.Theme().Green.Render(c.Theme().G.Bullet + " HEALTHY") },
 		Status: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
 			th, s := c.Theme(), c.State()
 			return []string{
@@ -31,12 +32,13 @@ func init() {
 		Options: func(*dashboard.Ctx) []dashboard.Option {
 			return []dashboard.Option{
 				{Number: 1, Label: "Run Self-Test", Run: func(c *dashboard.Ctx) tea.Cmd {
-					return c.RunTask("selftest", "Testing…", func(ctx context.Context) (string, error) {
+					return c.RunTask("selftest", "Testing...", func(ctx context.Context) (string, error) {
 						select {
 						case <-time.After(600 * time.Millisecond):
 						case <-ctx.Done():
 							return "", ctx.Err()
 						}
+						log.Print("[INFO] self-test passed")
 						return "Self-test passed: 12 of 12 checks.", nil
 					})
 				}},
