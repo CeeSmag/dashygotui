@@ -84,11 +84,14 @@ to start.
   another page.
 - **Modals**: edit, confirm, type-the-word, notice, choice list, slider
   ([`modal`](modal/)).
-- **Full-screen views**, background **tasks**, tick hooks.
+- **Full-screen views** (with engine-managed scrolling and enter/leave hooks),
+  a compact **fallback** for pages on small terminals, background **tasks**, tick
+  hooks, and `Dashboard.Notify()` for pushing updates in from outside the UI.
 - **Keys**: option hotkeys, global shortcuts (including `ctrl+` combinations that
   work over pop-ups), and an overridable force-quit.
 - **Logs**: capture the standard logger and `slog`, and browse them newest first,
-  scrollable ([`logs`](logs/)).
+  scrollable, with category tabs you switch with a key you choose
+  ([`logs`](logs/)).
 - **TTY mode**: a conservative symbol set and 16-colour palette, auto-detected
   for the Linux console and switchable at run time.
 - **Themes that reach the terminal**: palettes set the terminal's own background

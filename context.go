@@ -101,7 +101,7 @@ func (c *Context[S]) Page() string { return c.m.d.pages[c.m.page].page.ID }
 func (c *Context[S]) GotoPage(id string) bool {
 	for i, p := range c.m.d.pages {
 		if p.page.ID == id {
-			c.m.view, c.m.stack = "", nil
+			c.m.leaveViews()
 			c.m.gotoPage(i, -1, 0)
 			return true
 		}

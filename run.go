@@ -33,7 +33,10 @@ func (d *Dashboard[S]) Run(ctx context.Context) (ExitInfo, error) {
 	}
 
 	m := newModel(ctx, d)
-	final, err := tea.NewProgram(m, tea.WithContext(ctx)).Run()
+	prog := tea.NewProgram(m, tea.WithContext(ctx))
+	detach := d.Attach(prog)
+	defer detach()
+	final, err := prog.Run()
 	cancel()
 
 	last := m

@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -107,7 +108,7 @@ func TestEveryOptionIsListedAndReachableByNumber(t *testing.T) {
 		{"30", "Notice"}, {"31", "Notice (live content)"}, {"32", "Notice (scrolls)"}, {"33", "Confirm"},
 		{"34", "Confirm (acknowledge)"}, {"35", "Type to confirm"}, {"36", "Choice"}, {"37", "Slider"},
 		{"38", "Edit (with validation)"}, {"40", "Dice Roller"}, {"41", "Ping Host"}, {"42", "New Project"},
-		{"50", "Diagnostics"}, {"51", "Processes"}, {"52", "Logs"},
+		{"50", "Diagnostics"}, {"51", "Processes"}, {"52", "Logs"}, {"53", "Release Notes"},
 		{"60", "Jump to Charts"}, {"61", "Jump to Theme"}, {"62", "Jump to Monitor"},
 		{"70", "Simulate Alert"}, {"71", "Simulate Outage"}, {"72", "Run External Command"},
 		{"73", "Write Log Entries"},
@@ -161,7 +162,7 @@ func TestEveryOptionDoesSomethingVisible(t *testing.T) {
 		{"51", []string{"Processes", "api-gateway", "PID", "PROCS"}},
 		{"52", []string{"Logs", "LIVE", "LOGS"}},
 		{"70", []string{"Alert #1"}},
-		{"73", []string{"Wrote 10 log entries"}},
+		{"73", []string{"Wrote 16 log entries"}},
 		{"20", []string{"Color Theme", "Solarized Dark", "Console (16 colours)"}},
 		{"21", []string{"Section Gap", "Terminal"}},
 		{"22", []string{"Refresh Rate", "balanced (default)"}},
@@ -657,6 +658,8 @@ func TestTTYModeIsConsoleSafeEverywhere(t *testing.T) {
 	steps["diagnostics"] = func(d *dashtest.Driver) { d.Press("d") }
 	steps["processes"] = func(d *dashtest.Driver) { d.Press("p") }
 	steps["logs"] = func(d *dashtest.Driver) { open(d, "73"); d.Press("g") }
+	steps["notes"] = func(d *dashtest.Driver) { d.Press("n", "pgdown") }
+	steps["log tabs"] = func(d *dashtest.Driver) { open(d, "73"); d.Press("g", "c", "c") }
 	steps["process details"] = func(d *dashtest.Driver) { d.Press("p", "enter") }
 	for name, step := range steps {
 		t.Run(name, func(t *testing.T) {
@@ -691,7 +694,9 @@ func TestEverythingFitsEverySize(t *testing.T) {
 		"p6":          func(d *dashtest.Driver) { d.Press("tab", "tab", "tab", "tab", "tab") },
 		"diagnostics": func(d *dashtest.Driver) { d.Press("d") },
 		"processes":   func(d *dashtest.Driver) { d.Press("p") },
+		"notes":       func(d *dashtest.Driver) { d.Press("n", "pgdown", "end") },
 		"logs":        func(d *dashtest.Driver) { open(d, "73"); d.Press("g") },
+		"log tabs":    func(d *dashtest.Driver) { open(d, "73"); d.Press("g", "c", "c", "C") },
 		"modal":       func(d *dashtest.Driver) { open(d, "36") },
 		"dice":        func(d *dashtest.Driver) { open(d, "40") },
 		"ping":        func(d *dashtest.Driver) { open(d, "41") },
@@ -783,4 +788,86 @@ func TestTransparentBackgroundHotkeyAndFlag(t *testing.T) {
 	if start.Model().View().BackgroundColor == nil {
 		t.Error("the user can turn the themed background on")
 	}
+}
+
+// openLogs opens the Logs view and puts it in a known state. The view's
+// selection lives in the addon's closure for the whole process, so an earlier
+// test may have left it on another tab or filter.
+func openLogs(d *dashtest.Driver) {
+	d.Press("g")
+	for i := 0; i < 12 && !d.Contains("[All]"); i++ {
+		d.Press("c")
+	}
+	for i := 0; i < 5 && !d.Contains("f filter: debug"); i++ {
+		d.Press("f")
+	}
+	d.Press("home")
+}
+
+func TestLogsHaveCategoryTabsSwitchedByC(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	open(d, "73") // writes entries in several categories
+	openLogs(d)
+	d.RequireContains("[All]", "net", "disk", "auth", "c category")
+	d.RequireContains("write failed", "failed login", "listening") // All shows everything
+
+	d.Press("c")
+	d.RequireContains("[net]", "listening", "slow upstream")
+	d.RequireAbsent("write failed", "failed login", "[All]")
+	d.Press("c")
+	d.RequireContains("[disk]", "write failed", "volume mounted")
+	d.RequireAbsent("listening")
+	d.Press("c")
+	d.RequireContains("[auth]", "failed login")
+	d.RequireAbsent("write failed")
+	for i := 0; i < 12 && !d.Contains("[All]"); i++ {
+		d.Press("c") // the remaining tabs, then round to All
+	}
+	d.RequireContains("[All]", "listening", "write failed")
+	d.Press("C") // the other direction wraps to the last tab
+	d.RequireAbsent("[All]")
+}
+
+func TestReleaseNotesScrollAndCountVisits(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	d.Press("n")
+	d.RequireContains("Release Notes", "Version 0.40.0", "Scroll", "NOTES")
+	d.Press("end")
+	d.RequireContains("Version 0.1.0")
+	d.RequireAbsent("Version 0.40.0")
+	d.Press("esc")
+	d.RequireContains("System") // back on the page the hotkey was pressed on
+
+	// Entering and leaving the view ran its hooks, which log to the "ui" tab.
+	openLogs(d)
+	for i := 0; i < 12 && !d.Contains("[ui]"); i++ {
+		d.Press("c")
+	}
+	d.RequireContains("[ui]", "release notes shown", "release notes hidden")
+}
+
+func TestMonitorFallsBackToASummaryOnASmallTerminal(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	for i := 0; i < 3; i++ {
+		d.Advance(time.Second)
+	}
+	d.RequireContains("TRAFFIC", "CPU Waveforms")
+	d.RequireAbsent("compact view")
+	d.Resize(100, 14)
+	d.RequireContains("compact view", "CPU", "Memory", "Disk", "Traffic")
+	d.RequireAbsent("TRAFFIC", "CPU Waveforms")
+	d.Resize(160, 44)
+	d.RequireContains("TRAFFIC")
+}
+
+func TestPushedEventsReachTheDashboard(t *testing.T) {
+	var events atomic.Int64
+	o := opts(store.NewMemory())
+	o.Events = &events
+	d := newAppWith(t, o)
+	d.Press("d")
+	d.RequireContains("0 events")
+	events.Store(7) // the feed counted something...
+	d.Notify()      // ...and told the dashboard, with no tick needed
+	d.RequireContains("7 events")
 }

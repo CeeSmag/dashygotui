@@ -34,6 +34,7 @@ func init() {
 			rows := []string{
 				panel.Row(th, "Uptime", s.Uptime.Truncate(time.Second).String()),
 				panel.Row(th, "Requests", fmt.Sprintf("%d served", s.Requests)),
+				panel.Row(th, "Pushed", fmt.Sprintf("%d events (Dashboard.Notify)", s.Events)),
 				panel.Row(th, "Traffic", text.Rate(s.NetIn)+" in, "+text.Rate(s.NetOut)+" out"),
 			}
 			if err := c.Err(); err != nil {

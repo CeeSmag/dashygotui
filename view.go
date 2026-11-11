@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/CeeSmag/dashygotui/panel"
+	"github.com/CeeSmag/dashygotui/text"
 )
 
 // viewKey handles a key press in a full-screen view: the view's own keys first,
@@ -28,6 +29,9 @@ func (m *model[S]) viewKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 	}
 	k := m.d.keys
+	if v.Scroll && m.scrollViewKey(v, msg) {
+		return nil
+	}
 	if key.Matches(msg, k.Back) {
 		m.back()
 		return nil
@@ -51,7 +55,12 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	size := Size{Cols: cols, Rows: body}
 
 	var lines []string
+	scrollable := false
 	switch {
+	case v.Body != nil && v.Scroll:
+		all, bar := m.scrollContent(v, cols, body)
+		scrollable = bar
+		lines = m.scrollWindow(all, cols, body, bar)
 	case v.Body != nil:
 		lines = v.Body(m.ctx, size)
 	default:
@@ -90,6 +99,9 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	if v.Options != nil && v.Body == nil {
 		hints = append(hints, m.hint(th.G.UpDown, "Move", th.Key, 60), m.hint(th.G.Enter, "Open", th.Key, 55))
 	}
+	if scrollable {
+		hints = append(hints, m.hint(th.G.UpDown, "Scroll", th.Key, 60))
+	}
 	for _, s := range m.d.reg.shortcuts {
 		if s.Scope == ScopeEverywhere && s.Label != "" {
 			prio := s.Prio
@@ -111,4 +123,75 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 
 func (m *model[S]) optionsBadge(n int) string {
 	return m.ctx.Count(n, map[bool]string{true: "option", false: "options"}[n == 1])
+}
+
+// scrollContent runs a scrolling view's Body. It is given the full width; when
+// the result does not fit in body rows it is run again one column narrower,
+// leaving room for the scroll bar, and bar is true.
+func (m *model[S]) scrollContent(v View[S], cols, body int) (lines []string, bar bool) {
+	lines = v.Body(m.ctx, Size{Cols: cols, Rows: body})
+	if len(lines) <= body || cols < 2 {
+		return lines, false
+	}
+	return v.Body(m.ctx, Size{Cols: cols - 1, Rows: body}), true
+}
+
+// scrollMax is the furthest a scrolling view can be scrolled at this size.
+func (m *model[S]) scrollMax(v View[S]) int {
+	body := max(m.rows-2, 1)
+	lines, bar := m.scrollContent(v, m.cols, body)
+	if !bar {
+		return 0
+	}
+	return max(len(lines)-body, 0)
+}
+
+// scrollWindow cuts the visible rows out of a scrolling body and, when there
+// is more than fits, draws the scroll bar down the right-hand edge.
+func (m *model[S]) scrollWindow(all []string, cols, body int, bar bool) []string {
+	if !bar {
+		return all
+	}
+	th := m.th
+	total := len(all)
+	off := min(max(m.viewScroll, 0), total-body)
+	thumb := min(max(body*body/total, 1), body)
+	top := 0
+	if total > body {
+		top = off * (body - thumb) / (total - body)
+	}
+	out := make([]string, body)
+	for i := range body {
+		cell := th.Border.Render("│")
+		if i >= top && i < top+thumb {
+			cell = th.Key.Render(th.G.MeterFill)
+		}
+		out[i] = text.Pad(text.Fit(all[off+i], cols-1), cols-1) + cell
+	}
+	return out
+}
+
+// scrollViewKey scrolls the open view and reports whether it used the key.
+func (m *model[S]) scrollViewKey(v View[S], msg tea.KeyPressMsg) bool {
+	k := m.d.keys
+	limit := m.scrollMax(v)
+	page := max(m.rows-3, 1)
+	switch {
+	case key.Matches(msg, k.Up):
+		m.viewScroll--
+	case key.Matches(msg, k.Down):
+		m.viewScroll++
+	case key.Matches(msg, k.PageUp):
+		m.viewScroll -= page
+	case key.Matches(msg, k.PageDown):
+		m.viewScroll += page
+	case key.Matches(msg, k.Home):
+		m.viewScroll = 0
+	case key.Matches(msg, k.End):
+		m.viewScroll = limit
+	default:
+		return false
+	}
+	m.viewScroll = min(max(m.viewScroll, 0), limit)
+	return true
 }

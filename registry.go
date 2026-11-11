@@ -206,6 +206,10 @@ func (r *Registry[S]) View(v View[S]) {
 		r.fail(site, "view %q draws nothing: set Body, Status or Options", v.ID)
 		ok = false
 	}
+	if v.Scroll && v.Body == nil {
+		r.fail(site, "view %q sets Scroll but has no Body to scroll", v.ID)
+		ok = false
+	}
 	if !ok {
 		return
 	}

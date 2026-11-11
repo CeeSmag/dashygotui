@@ -74,6 +74,14 @@ Poll ──(tea.Cmd)──▶ stateMsg[S] ──▶ Update ──▶ model.state
   in `View`, read-only). That is why a `Context` must not leave its callback.
 - One poll is in flight at a time, and one timer pending; `Refresh()` never
   piles up chains.
+- **Pushing in from outside.** `Dashboard.Notify()` hands the running program a
+  `notifyMsg` (through the `Sender` that `Run` attaches), which polls at once; a
+  request made while a poll is in flight sets a flag and one more poll follows,
+  so a change is never lost and requests never pile up. The goroutine that calls
+  `Notify` is the application's; the library starts none of its own.
+- Code running inside `Update` that cannot return a command (the `OnEnter` and
+  `OnLeave` hooks of a view, run by `OpenView` and `Back`) queues it, and
+  `Update` batches the queue with its own result.
 - Time is injectable (`Config.Clock`, `Config.Timer`), which is what lets
   `dashtest` run without sleeping.
 
@@ -138,6 +146,21 @@ entry's sequence number, not a row, which is why new entries do not push the lin
 being read, and why eviction of the anchor degrades gracefully to the oldest
 kept entry. Log text is stripped of control characters before drawing.
 
+Categories are a field on `Entry`, set by `Buffer.In(name)`. The viewer keeps one
+anchor per category, so tabs have independent scroll positions, and one
+"newest seen" sequence number per category, set when you leave it while live, so
+inactive tabs can count what is new. The tab strip is drawn by the viewer and
+is the first row of `Rows`; the switch key is the developer's.
+
+## Scrolling views and compact pages
+
+A `View` with `Scroll` has its `Body` run, then run again one column narrower if
+the result does not fit, so the engine can draw a scroll bar without the body
+knowing. The offset is one integer on the model, reset when the view changes,
+and clamped on every key and every frame. A `Page.Fallback` is decided from the
+page body size, by the same arithmetic the renderer uses, so the key handler and
+the renderer always agree on whether options are on screen.
+
 ## Settings
 
 Theme, spacing, refresh rate and display mode are changeable at run time and
@@ -157,7 +180,7 @@ rather than overwriting it.
 | hand-assigned option numbers could collide silently | collisions are a startup error naming both files |
 | the registry lived in the addons package | the library supplies `Registry[S]`; the app owns one |
 | modal-kind / view / page enums to extend | interface values and string IDs; nothing central to edit |
-| `Updated()` channel from a backend | polling as a command; no data races |
+| `Updated()` channel from a backend | polling as a command, plus `Dashboard.Notify()` to push; no data races |
 | exit-handler registry | `Run` returns `ExitInfo`; `main` acts on it |
 | `/proc` TTY detection, `sudo`, `systemd` in the engine | OS-agnostic core; platform code lives in addons |
 | guard tests grep source for substrings | guard tests parse the AST |

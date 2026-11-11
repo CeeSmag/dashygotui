@@ -24,6 +24,8 @@ type (
 		err   error
 	}
 	taskMsg struct{ res TaskResult }
+	// notifyMsg is what [Dashboard.Notify] sends: the world changed, refresh.
+	notifyMsg struct{}
 )
 
 // RefreshIntervals returns the refresh intervals the +/- keys step through,
@@ -56,6 +58,7 @@ type model[S any] struct {
 	ready    bool // a poll has succeeded at least once
 	polling  bool // a poll is in flight
 	dueSet   bool // a pollDueMsg timer is pending
+	repoll   bool // a refresh was asked for while a poll was in flight
 	interval time.Duration
 	ticks    int
 
@@ -86,6 +89,12 @@ type model[S any] struct {
 	flashBad   bool
 	flashUntil time.Time
 	pending    string // the footer message of the task in flight, cleared when it ends
+
+	// queue holds commands that code running inside Update produced without
+	// being able to return them (view hooks, for one). Update sends them on.
+	queue []tea.Cmd
+
+	viewScroll int // rows scrolled off the top of the open view's body
 
 	token    int
 	quitting bool
@@ -234,6 +243,19 @@ func (m *model[S]) pollCmd() tea.Cmd {
 	}
 }
 
+// refresh polls now. A poll already in flight may have read the data before
+// whatever prompted this, so it is repeated once when it ends.
+func (m *model[S]) refresh() tea.Cmd {
+	if m.d.cfg.Poll == nil {
+		return nil
+	}
+	if m.polling {
+		m.repoll = true
+		return nil
+	}
+	return m.pollCmd()
+}
+
 // scheduleDue arranges the next poll one interval from now, once.
 func (m *model[S]) scheduleDue() tea.Cmd {
 	if m.d.cfg.Poll == nil || m.dueSet {
@@ -246,6 +268,22 @@ func (m *model[S]) scheduleDue() tea.Cmd {
 // Update implements tea.Model. Every state change in the dashboard happens
 // here, on the Bubble Tea loop.
 func (m *model[S]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	next, cmd := m.update(msg)
+	if len(m.queue) > 0 {
+		cmd = tea.Batch(append([]tea.Cmd{cmd}, m.queue...)...)
+		m.queue = nil
+	}
+	return next, cmd
+}
+
+// later queues cmd to be sent with whatever the current Update returns.
+func (m *model[S]) later(cmd tea.Cmd) {
+	if cmd != nil {
+		m.queue = append(m.queue, cmd)
+	}
+}
+
+func (m *model[S]) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.cols, m.rows = msg.Width, msg.Height
@@ -262,7 +300,13 @@ func (m *model[S]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.state, m.stateErr, m.ready = msg.state, nil, true
 		}
+		if m.repoll { // a refresh was asked for mid-poll: the answer may already be stale
+			m.repoll = false
+			return m, tea.Batch(m.pollCmd(), m.scheduleDue())
+		}
 		return m, m.scheduleDue()
+	case notifyMsg:
+		return m, m.refresh()
 	case taskMsg:
 		return m, m.onResult(msg.res)
 	case tea.KeyPressMsg:

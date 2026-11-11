@@ -8,6 +8,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -100,6 +101,9 @@ type Dashboard[S any] struct {
 	views    map[string]View[S]
 	palettes []theme.Palette
 	hotkeys  map[string]Option[S] // option hotkeys, by key name
+
+	link sync.Mutex // guards out
+	out  Sender     // the running program, for Notify
 }
 
 // panelDef is one panel of a page: a section with its options, or a widget.
@@ -218,6 +222,12 @@ func buildPages[S any](cfg Config[S], reg registered[S]) ([]pageDef[S], []error)
 		}
 		if _, dup := pageIdx[p.ID]; dup {
 			errs = append(errs, fmt.Errorf("duplicate page ID %q", p.ID))
+		}
+		switch {
+		case p.Fallback != nil && p.FallbackBelow.Cols <= 0 && p.FallbackBelow.Rows <= 0:
+			errs = append(errs, fmt.Errorf("page %q has a Fallback but no FallbackBelow size", p.ID))
+		case p.Fallback == nil && (p.FallbackBelow.Cols != 0 || p.FallbackBelow.Rows != 0):
+			errs = append(errs, fmt.Errorf("page %q sets FallbackBelow but has no Fallback", p.ID))
 		}
 		pageIdx[p.ID] = i
 		pages[i] = pageDef[S]{page: p}

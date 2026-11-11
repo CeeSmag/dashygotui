@@ -35,6 +35,7 @@ type Driver struct {
 	quit   bool
 	cols   int
 	rows   int
+	notify func()
 }
 
 // New builds the dashboard described by cfg, sized cols x rows, starts it, and
@@ -58,6 +59,8 @@ func New[S any](tb testing.TB, cfg dashygotui.Config[S], cols, rows int) *Driver
 	tb.Cleanup(cancel)
 
 	d.model = dash.Model(ctx)
+	d.notify = dash.Notify
+	tb.Cleanup(dash.Attach(d))
 	d.Send(tea.WindowSizeMsg{Width: cols, Height: rows})
 	d.run(d.model.Init())
 	return d
@@ -97,7 +100,8 @@ func (d *Driver) run(cmd tea.Cmd) {
 
 // Press sends key presses by name: "enter", "tab", "shift+tab", "esc", "up",
 // "down", "left", "right", "pgup", "pgdown", "home", "end", "space",
-// "backspace", "delete", "ctrl+<letter>", or a single character such as "q" or "7".
+// "backspace", "delete", "ctrl+<letter>", "shift+<letter>" (or the capital
+// letter itself), or a single character such as "q" or "7".
 func (d *Driver) Press(keys ...string) {
 	d.tb.Helper()
 	for _, k := range keys {
@@ -120,6 +124,13 @@ func (d *Driver) Type(parts ...string) {
 func (d *Driver) Resize(cols, rows int) {
 	d.tb.Helper()
 	d.Send(tea.WindowSizeMsg{Width: cols, Height: rows})
+}
+
+// Notify calls Dashboard.Notify, as a background goroutine of the application
+// would: the dashboard polls at once.
+func (d *Driver) Notify() {
+	d.tb.Helper()
+	d.notify()
 }
 
 // Tick fires every timer that is waiting, once: a refresh tick, a scheduled
@@ -247,6 +258,11 @@ func KeyPress(name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyBackspace}
 	case "delete":
 		return tea.KeyPressMsg{Code: tea.KeyDelete}
+	}
+	if rest, ok := strings.CutPrefix(name, "shift+"); ok && len([]rune(rest)) == 1 {
+		r := []rune(rest)[0]
+		up := strings.ToUpper(rest)
+		return tea.KeyPressMsg{Code: r, ShiftedCode: []rune(up)[0], Mod: tea.ModShift, Text: up}
 	}
 	if rest, ok := strings.CutPrefix(name, "ctrl+"); ok && len(rest) == 1 {
 		return tea.KeyPressMsg{Code: rune(rest[0]), Mod: tea.ModCtrl}

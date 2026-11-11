@@ -78,14 +78,7 @@ func Inset(cols, rows, gap, minW, minH int, content func(w, h int) []string) []s
 	if cols <= 0 || rows <= 0 {
 		return nil
 	}
-	gap = max(gap, 0)
-	hPad, vPad := gap, gap
-	if cols-2*hPad < minW {
-		hPad = max((cols-minW)/2, 0)
-	}
-	if rows-2*vPad < minH {
-		vPad = max((rows-minH)/2, 0)
-	}
+	hPad, vPad := pads(cols, rows, gap, minW, minH)
 	innerW := max(cols-2*hPad, 1)
 	innerH := max(rows-2*vPad, 1)
 
@@ -109,4 +102,28 @@ func Inset(cols, rows, gap, minW, minH int, content func(w, h int) []string) []s
 		lines = out
 	}
 	return panel.Frame(lines, cols, rows)
+}
+
+// InsetSize returns the size of the content area Inset would offer for the same
+// arguments.
+func InsetSize(cols, rows, gap, minW, minH int) (w, h int) {
+	if cols <= 0 || rows <= 0 {
+		return 0, 0
+	}
+	hPad, vPad := pads(cols, rows, gap, minW, minH)
+	return max(cols-2*hPad, 1), max(rows-2*vPad, 1)
+}
+
+// pads is the horizontal and vertical margin Inset leaves: gap, shrunk
+// whenever it would leave the content less than minW x minH.
+func pads(cols, rows, gap, minW, minH int) (hPad, vPad int) {
+	gap = max(gap, 0)
+	hPad, vPad = gap, gap
+	if cols-2*hPad < minW {
+		hPad = max((cols-minW)/2, 0)
+	}
+	if rows-2*vPad < minH {
+		vPad = max((rows-minH)/2, 0)
+	}
+	return hPad, vPad
 }

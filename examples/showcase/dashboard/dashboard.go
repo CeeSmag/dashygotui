@@ -13,15 +13,19 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/CeeSmag/dashygotui"
+	"github.com/CeeSmag/dashygotui/chart"
 	"github.com/CeeSmag/dashygotui/logs"
 	"github.com/CeeSmag/dashygotui/modal"
 	"github.com/CeeSmag/dashygotui/panel"
+	"github.com/CeeSmag/dashygotui/text"
 	"github.com/CeeSmag/dashygotui/theme"
 )
 
@@ -44,6 +48,7 @@ type State struct {
 	NetOut    float64 // bytes per second
 	Uptime    time.Duration
 	Requests  int
+	Events    int // events pushed in from outside the UI; see feed
 	Processes []Process
 }
 
@@ -57,6 +62,20 @@ var Logs = logs.NewBuffer(5000)
 
 // Slog is a structured logger that writes into Logs, next to the standard one.
 var Slog = slog.New(Logs.Handler(&slog.HandlerOptions{Level: slog.LevelDebug}))
+
+// Per-subsystem loggers. Each files its output under its own category, so the
+// Logs view can show them on separate tabs (press c there).
+var (
+	// NetLog writes to the "net" category.
+	NetLog = slog.New(Logs.In("net").Handler(&slog.HandlerOptions{Level: slog.LevelDebug}))
+	// DiskLog writes to the "disk" category.
+	DiskLog = slog.New(Logs.In("disk").Handler(&slog.HandlerOptions{Level: slog.LevelDebug}))
+	// AuthLog writes to the "auth" category.
+	AuthLog = slog.New(Logs.In("auth").Handler(&slog.HandlerOptions{Level: slog.LevelDebug}))
+	// UILog writes to the "ui" category, which the Logs view does not declare:
+	// its tab appears when the first entry arrives.
+	UILog = slog.New(Logs.In("ui").Handler(&slog.HandlerOptions{Level: slog.LevelDebug}))
+)
 
 // Short names for the generic types, so addon files stay terse.
 type (
@@ -84,6 +103,8 @@ type Options struct {
 	Background dashygotui.BackgroundMode
 	Palette    string
 	AltScroll  bool
+	// Events counts the events the feed has pushed; Poll reports it. Optional.
+	Events *atomic.Int64
 }
 
 // Solarized is a palette this application adds to the built-in ones. It sets a
@@ -110,7 +131,7 @@ func Config(o Options) dashygotui.Config[State] {
 		Title:    "Showcase",
 		Registry: Registry,
 		Store:    st,
-		Poll:     poll(time.Now(), st),
+		Poll:     poll(time.Now(), st, o.Events),
 		Interval: time.Second,
 
 		Glyphs:     o.Glyphs,
@@ -152,8 +173,12 @@ func Config(o Options) dashygotui.Config[State] {
 
 		Pages: []dashygotui.Page[State]{
 			// Four widgets in a 2x2 grid. The tab shows whether data is flowing.
+			// On a short or narrow terminal it falls back to a one-panel summary
+			// (Page.Fallback): shrink the window to see it.
 			{ID: "monitor", Title: "Monitor", ShortTitle: "Mon", TinyTitle: "M",
-				Layout: dashygotui.LayoutGrid2x2,
+				Layout:        dashygotui.LayoutGrid2x2,
+				Fallback:      monitorSummary,
+				FallbackBelow: dashygotui.Size{Cols: 60, Rows: 15},
 				Badge: func(c *Ctx) string {
 					th := c.Theme()
 					if c.Err() != nil {
@@ -194,18 +219,67 @@ func Config(o Options) dashygotui.Config[State] {
 	}
 }
 
-// Run shows the dashboard and returns why it ended.
+// monitorSummary is the Monitor page's compact fallback: the headline numbers
+// in one panel.
+func monitorSummary(c *Ctx, size dashygotui.Size) []string {
+	th, s := c.Theme(), c.State()
+	w := chart.MeterWidth(size.Cols)
+	meter := func(pct float64) string { return fmt.Sprintf("%s %5.1f%%", chart.Meter(th, pct, w), pct) }
+	rows := []string{
+		panel.Row(th, "CPU", meter(s.CPU)),
+		panel.Row(th, "Memory", meter(s.Mem)),
+		panel.Row(th, "Disk", meter(s.Disk)),
+		panel.Row(th, "Traffic", text.Rate(s.NetIn)+" in, "+text.Rate(s.NetOut)+" out"),
+	}
+	return append(rows, th.Muted.Render("compact view: make the window larger for the full page"))
+}
+
+// Run shows the dashboard and returns why it ended. While it runs, a feed
+// pushes events in from outside the UI.
 func Run(ctx context.Context, o Options) (dashygotui.ExitInfo, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	if o.Events == nil {
+		o.Events = new(atomic.Int64)
+	}
 	d, err := dashygotui.New(Config(o))
 	if err != nil {
 		return dashygotui.ExitInfo{}, fmt.Errorf("building the dashboard: %w", err)
 	}
-	return d.Run(ctx)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		feed(ctx, d, o.Events, 7*time.Second)
+	}()
+	info, err := d.Run(ctx)
+	cancel() // stop the feed
+	wg.Wait()
+	return info, err
+}
+
+// feed stands in for anything outside the UI that learns of changes by itself:
+// a file watcher, a socket reader, another service. Every interval it records
+// an event and calls Notify, so the dashboard polls at once instead of waiting
+// for its next refresh. It returns when ctx is cancelled.
+func feed(ctx context.Context, d *dashygotui.Dashboard[State], events *atomic.Int64, interval time.Duration) {
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			n := events.Add(1)
+			NetLog.Info("pushed event", "n", n)
+			d.Notify()
+		}
+	}
 }
 
 // poll returns a function that produces gently moving synthetic readings. It
 // fails while the simulated outage flag is set in the store.
-func poll(start time.Time, st dashygotui.Store) func(context.Context) (State, error) {
+func poll(start time.Time, st dashygotui.Store, events *atomic.Int64) func(context.Context) (State, error) {
 	requests := 0
 	return func(context.Context) (State, error) {
 		var outage bool
@@ -217,6 +291,10 @@ func poll(start time.Time, st dashygotui.Store) func(context.Context) (State, er
 		}
 		now := time.Now()
 		t := now.Sub(start).Seconds()
+		pushed := 0
+		if events != nil {
+			pushed = int(events.Load())
+		}
 		requests += 3 + int(2*math.Sin(t/3)+2)
 		return State{
 			At:        now,
@@ -227,6 +305,7 @@ func poll(start time.Time, st dashygotui.Store) func(context.Context) (State, er
 			NetOut:    math.Max(0, 120_000+100_000*math.Sin(t/6+1)),
 			Uptime:    now.Sub(start),
 			Requests:  requests,
+			Events:    pushed,
 			Processes: processes(t),
 		}, nil
 	}

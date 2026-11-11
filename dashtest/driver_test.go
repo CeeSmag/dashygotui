@@ -255,3 +255,10 @@ func TestEachDriverHasItsOwnClockAndTimers(t *testing.T) {
 		t.Error("drivers must not share a clock")
 	}
 }
+
+func TestShiftLetterAndCapitalAreTheSameKey(t *testing.T) {
+	a, b := dashtest.KeyPress("shift+c"), dashtest.KeyPress("C")
+	if a.String() != "C" || b.String() != "C" {
+		t.Errorf("shift+c = %q, C = %q; both should read as C", a.String(), b.String())
+	}
+}

@@ -4,7 +4,7 @@ Two applications, both built on the same library and both tested end to end.
 
 | | What it is | Run it |
 | --- | --- | --- |
-| [`showcase`](showcase/) | **Uses every feature.** Six pages, 38 options, 9 widgets, 3 views, 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 43 one-file addons. Start here. | `make run` |
+| [`showcase`](showcase/) | **Uses every feature.** Six pages, 39 options, 9 widgets, 4 views, 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 44 one-file addons. Start here. | `make run` |
 | [`demo`](demo/) | The small quickstart: three pages and a handful of addons. Also the library's integration test. | `make run-demo` |
 
 ## Building
@@ -55,8 +55,12 @@ brackets is the option number: type it anywhere to jump there.
 | **Pop-ups**: `Notice` (static, live, scrolling), `Confirm`, `Typed`, `Edit` (validate, save, submit, secret, empty, limit), `Choice`, `Slider` | `[30]`-`[38]`, `[10]`-`[15]` |
 | **Custom pop-ups**: `Modal`, `ResultModal`, chained flows | `[40]` dice, `[41]` ping, `[42]` three steps |
 | **Views**: status and options, custom body and keys, view-local hotkeys, view opening a view | `[50]` diagnostics, `[51]` processes |
+| **Scrolling view** (`Scroll`) with a scroll bar; `OnEnter` / `OnLeave` hooks | `[53]` release notes (`n`) |
+| **Compact page** (`Page.Fallback`): shrink the window on the Monitor page | `dashboard.go` (`monitorSummary`) |
+| **`Dashboard.Notify`**: events pushed from a goroutine outside the UI (see "Pushed" in Diagnostics) | `dashboard.go` (`feed`) |
 | **Shortcuts**: `ScopeEverywhere` (ctrl+q, ctrl+r, ctrl+l) and `ScopePages` (`?`) | `shortcut_*.go` |
 | **Logs**: standard `log` and `slog` captured, newest first, scroll, filter, escape-safe | `[52]` logs (`g`), `[73]` writes entries |
+| **Log categories**: tabs along the top, switched with `c` (`C` goes back); one logger per category | `[52]`, `[73]`; `NetLog`, `DiskLog`... in `dashboard.go` |
 | **Charts**: `Meter`, `Sparkline`, `HeatStrip`, `BarGraph`, `LineTrace`, `DualWave`, `Braille`, `WaveScaler`, `Series`, `Resample` | Monitor and Charts pages |
 | Panel dividers, `panel.Row`, `text.Rate` | `widget_system.go` |
 | **Theme and display**: palettes, spacing sliders, refresh rate, TTY symbols, live preview | `[20]`-`[23]`; the `Theme` page shows the active glyphs and palette |

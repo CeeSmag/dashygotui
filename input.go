@@ -179,6 +179,9 @@ func (m *model[S]) menus() [][]Option[S] {
 
 // pageMenus returns the menus of the sections on page idx that have options.
 func (m *model[S]) pageMenus(idx int) [][]Option[S] {
+	if m.pageFallback(idx) {
+		return nil // the compact view shows no options, so none can be selected
+	}
 	var out [][]Option[S]
 	for _, p := range m.d.pages[idx].panels {
 		if len(p.opts) > 0 {
@@ -378,9 +381,32 @@ func (m *model[S]) openView(id string) {
 		return
 	}
 	m.saveCursor()
+	m.leave(m.view)
 	m.stack = append(m.stack, m.view)
 	m.view = id
+	m.viewScroll = 0
 	m.resetCursor()
+	m.enter(id)
+}
+
+// enter runs the OnEnter hook of view id, if it has one.
+func (m *model[S]) enter(id string) {
+	if v, ok := m.d.views[id]; ok && v.OnEnter != nil {
+		m.later(v.OnEnter(m.ctx))
+	}
+}
+
+// leave runs the OnLeave hook of view id, if it has one.
+func (m *model[S]) leave(id string) {
+	if v, ok := m.d.views[id]; ok && v.OnLeave != nil {
+		m.later(v.OnLeave(m.ctx))
+	}
+}
+
+// leaveViews closes every open view and returns to the dashboard pages.
+func (m *model[S]) leaveViews() {
+	m.leave(m.view)
+	m.view, m.stack, m.viewScroll = "", nil, 0
 }
 
 // back returns to the view or page the current view was opened from.
@@ -393,12 +419,15 @@ func (m *model[S]) back() {
 		prev = m.stack[n-1]
 		m.stack = m.stack[:n-1]
 	}
+	m.leave(m.view)
 	m.view = prev
+	m.viewScroll = 0
 	if prev == "" {
 		m.restoreCursor()
 		return
 	}
 	m.resetCursor()
+	m.enter(prev)
 }
 
 func absDuration(d time.Duration) time.Duration {

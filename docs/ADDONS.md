@@ -89,7 +89,7 @@ callback**: do not keep it or use it from another goroutine.
 | a pop-up | `c.OpenModal(m)`, `c.CloseModal()` |
 | another screen | `c.OpenView(id)`, `c.Back()`, `c.GotoPage(id)` |
 | work that takes time | `c.RunTask(tag, pending, fn)` |
-| fresh data now | `c.Refresh()` |
+| fresh data now | `c.Refresh()` (from outside the UI: `Dashboard.Notify()`) |
 | a terminal program | `c.Exec(cmd, tag)` |
 | saved settings | `c.Store().Get/Set` (namespace with your `Key`) |
 | end the program | `c.Quit(reason, message)` |
@@ -110,6 +110,30 @@ return c.RunTask("backup", "Backing up…", func(ctx context.Context) (string, e
 To handle results yourself, register `Registry.OnResult` and return
 `handled == true`.
 
+### Updates from outside the UI
+
+Polling covers data you can fetch on a timer. When something else learns of a
+change first (a file watcher, a socket reader, another service), have it call
+`Dashboard.Notify()`. It is safe from any goroutine and any number of times; the
+dashboard polls at once, and requests that arrive during a poll are merged into
+one more poll.
+
+```go
+d, _ := dashygotui.New(cfg)
+go func() { // you own this goroutine: stop it with your context
+	for range changes {
+		d.Notify()
+	}
+}()
+d.Run(ctx)
+```
+
+`Notify` does nothing when the dashboard is not running, and it waits for the
+update loop to take the message, so never call it from an addon callback; return
+`c.Refresh()` there instead. When you embed `Model()` in a program of your own,
+connect it with `Dashboard.Attach(program)`; `dashtest.Driver.Notify` does that
+for tests.
+
 ### Ending the program
 
 `c.Quit("reset", "message")` ends the dashboard; `Run` returns `ExitInfo`. The
@@ -128,6 +152,39 @@ err := c.Store().Set("notifications.enabled", !on)
 
 The `dashygotui.` key prefix belongs to the library (theme, spacing, refresh
 rate).
+
+## Views
+
+A view is a full-screen page opened with `c.OpenView(id)` and left with Back. Its
+body is a `Status` panel above `Options`, or your own `Body`.
+
+- **`Scroll: true`** makes the dashboard scroll a `Body` that returns more rows
+  than fit: arrows, PgUp/PgDn, Home and End, a scroll bar down the right-hand
+  edge and a "Scroll" hint. Your `Body` is given one column less when there is
+  something to scroll, so the bar has room. The position starts at the top each
+  time the view opens.
+- **`OnEnter` / `OnLeave`** run when the view becomes visible and when it stops
+  being: opened, left with Back, covered by another view, uncovered again, or
+  abandoned by `GotoPage`. They return a `tea.Cmd`, so a view can start a probe
+  when it appears and stop it when it goes. They do not run when the dashboard
+  quits; stop long work with the context you gave `Run`.
+- **`Keys`** sees every key first.
+
+## Compact pages
+
+A page can offer a compact version for terminals too small for its layout:
+
+```go
+{ID: "monitor", Title: "Monitor", Layout: dashygotui.LayoutGrid2x2,
+	Fallback:      func(c *Ctx, size dashygotui.Size) []string { ... },
+	FallbackBelow: dashygotui.Size{Cols: 60, Rows: 15}},
+```
+
+When the page body is narrower than `Cols` or shorter than `Rows` (a zero field is
+ignored), the dashboard draws the `Fallback` rows in a panel titled with the page
+instead of its panels. While it shows, the page is read-only: its options cannot
+be selected and number keys skip it. `Fallback` without `FallbackBelow`, or the
+reverse, is a startup error.
 
 ## Modals
 
@@ -192,6 +249,28 @@ defer restore()
 // addons/opt_logs.go
 func init() { stdaddons.Logs(dashboard.Registry, dashboard.Logs, "actions", 4, stdaddons.Setup{Hotkey: "g"}) }
 ```
+
+Entries can carry a **category**, and the view then shows tabs along the top.
+File a logger's output under one with `buf.In("net")`, which gives an
+`io.Writer`, a `Divert` and an slog `Handler`, and register the view with
+`stdaddons.LogsWith`:
+
+```go
+var NetLog = slog.New(Logs.In("net").Handler(nil))
+
+stdaddons.LogsWith(dashboard.Registry, dashboard.Logs, "actions", 4, stdaddons.LogOptions{
+	Categories:  []string{"net", "disk"}, // tabs always shown, in this order
+	CategoryKey: "c",                     // c: next tab, C: previous (wraps)
+}, stdaddons.Setup{Hotkey: "g"})
+```
+
+The strip reads `All  [net]  disk (2)  auth`: exactly one tab, the selected one,
+is in brackets and highlighted; a tab you are not on counts the entries that
+arrived since you left it. Categories nobody declared get their tab when their
+first entry arrives. Each tab keeps its own scroll position, and `f` filters by
+level inside it. The developer chooses the key: without `CategoryKey` the tabs
+are shown but cannot be switched. Entries added without a category are in
+`General`.
 
 The view shows the **newest entry on top**. Scroll with the arrows (or `j`/`k`),
 PgUp/PgDn; **Home** returns to the live top and **End** jumps to the oldest.

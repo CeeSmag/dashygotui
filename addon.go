@@ -92,9 +92,26 @@ type View[S any] struct {
 	// Body draws the whole body itself, replacing Status and Options. It
 	// returns rows for the given body size.
 	Body func(*Context[S], Size) []string
+	// Scroll makes the engine scroll the body. Body may then return more rows
+	// than fit: the dashboard shows a window of them, scrolls it with the
+	// Up/Down, PageUp/PageDown, Home and End keys, and draws a scroll bar down
+	// the right-hand edge (Body is given one column less to leave room for it,
+	// but only when there is something to scroll). It needs Body. The scroll
+	// position starts at the top each time the view is opened.
+	Scroll bool
 	// Keys sees every key press first. Return handled == true to stop the
 	// dashboard from acting on it. Optional.
 	Keys func(ctx *Context[S], msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool)
+	// OnEnter is called when the view becomes the one on screen: when it is
+	// opened, and when the user comes back to it from a view opened over it. Use
+	// it to start work that only matters while the view is visible; return the
+	// command to run, or nil. Optional.
+	OnEnter func(*Context[S]) tea.Cmd
+	// OnLeave is called when the view stops being the one on screen: when the
+	// user goes back, opens another view over it, or moves to a page. It is not
+	// called when the dashboard quits; stop long-running work with the context
+	// given to [Dashboard.Model] or [Dashboard.Run]. Optional.
+	OnLeave func(*Context[S]) tea.Cmd
 }
 
 // SectionSpec declares a section: a bordered panel on a page that holds
@@ -133,4 +150,15 @@ type Page[S any] struct {
 	Layout Layout
 	// Badge is shown after the title on the active tab. Optional.
 	Badge func(*Context[S]) string
+	// Fallback draws a compact version of the page for terminals too small for
+	// the full layout, such as a one-panel summary. It receives the size of the
+	// page body and returns its rows; the dashboard draws them in a panel titled
+	// with the page's Title. While it is shown, the page's options cannot be
+	// selected (the page is read-only) and number keys skip it. Optional;
+	// FallbackBelow says when it applies.
+	Fallback func(*Context[S], Size) []string
+	// FallbackBelow is the page body size under which Fallback is used: when
+	// the body is narrower than Cols or shorter than Rows. A zero field is
+	// ignored. Required when Fallback is set.
+	FallbackBelow Size
 }

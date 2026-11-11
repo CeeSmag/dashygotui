@@ -144,6 +144,9 @@ func (m *model[S]) autoHints() []panel.Hint {
 // renderPage draws a page's panels into body rows, inset by the page-to-section
 // gap and separated by the section gap.
 func (m *model[S]) renderPage(p pageDef[S], cols, body int) []string {
+	if m.useFallback(p.page, cols, body) {
+		return m.fallbackPanel(p.page, cols, body)
+	}
 	if len(p.panels) == 0 {
 		return panel.Blank(cols, body)
 	}
@@ -327,4 +330,31 @@ func (m *model[S]) menuRow(o Option[S], w, numW, labelW int, selected bool) stri
 	}
 	col := min(max(labelW, 1), avail-bw-1)
 	return text.Fit(head+label(col)+" "+badge, w)
+}
+
+// useFallback reports whether page p, drawn into a cols x body area, is shown
+// as its compact fallback.
+func (m *model[S]) useFallback(p Page[S], cols, body int) bool {
+	if p.Fallback == nil {
+		return false
+	}
+	return (p.FallbackBelow.Cols > 0 && cols < p.FallbackBelow.Cols) ||
+		(p.FallbackBelow.Rows > 0 && body < p.FallbackBelow.Rows)
+}
+
+// pageFallback reports whether page idx is shown as its fallback at the
+// current terminal size, by the same arithmetic dashScreen uses.
+func (m *model[S]) pageFallback(idx int) bool {
+	w, h := layout.InsetSize(m.cols, m.rows, m.spacing.TerminalPage, layout.MinCols, layout.MinRows)
+	return m.useFallback(m.d.pages[idx].page, w, max(h-3, 1))
+}
+
+// fallbackPanel draws a page's Fallback rows in a panel titled with the page.
+func (m *model[S]) fallbackPanel(p Page[S], cols, body int) []string {
+	badge := ""
+	if p.Badge != nil {
+		badge = p.Badge(m.ctx)
+	}
+	inner := Size{Cols: max(cols-4, 0), Rows: max(body-2, 0)}
+	return panel.Panel(m.th, p.Title, badge, "", cols, body, p.Fallback(m.ctx, inner))
 }
