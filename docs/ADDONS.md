@@ -221,18 +221,40 @@ shade-block graphs and the 16-colour palette.
 
 ## Themes and backgrounds
 
-A palette may set `Background` and `Foreground` (`#RRGGBB`). When it does, the
-dashboard asks the terminal to use them, so the whole screen matches the theme,
-and Bubble Tea restores the terminal's own colours on exit. Choose how with
-`Config.Background`:
+Every built-in palette except the 16-colour console one sets a `Background` and
+`Foreground` (`#RRGGBB`), the default included, so the app has a background out
+of the box. The dashboard asks the terminal to use them, so the whole screen
+matches the theme, and Bubble Tea restores the terminal's own colours on exit.
+Add your own palettes with `Config.Palettes`; leave `Background` empty to keep
+the terminal's colour.
 
-- `BackgroundTerminal` (default): set the terminal's colours.
-- `BackgroundPaint`: also paint every cell, for terminals that ignore the
-  request. It costs more output.
-- `BackgroundOff`: never touch the terminal's colours.
+**The developer** picks the starting mode with `Config.Background`; **the user**
+can change it any time (saved, and it wins over the config):
 
-Nothing is applied in TTY mode, and the built-in default palette leaves the
-terminal's colours alone. Add your own palettes with `Config.Palettes`.
+| Mode | What it does | Transparent terminal |
+| --- | --- | --- |
+| `BackgroundTerminal` (default) | asks the terminal to use the palette's colours | usually stays transparent |
+| `BackgroundPaint` | does that, and also paints every cell, for terminals that ignore the request | opaque |
+| `BackgroundOff` (`BackgroundTransparent`) | never touches the terminal's colours | always transparent |
+
+Add the pickers as one-line addons:
+
+```go
+func init() { stdaddons.Background(dashboard.Registry, "appearance", 24) }   // choose a mode, with live preview
+func init() { stdaddons.Transparency(dashboard.Registry, "appearance", 25) } // a one-key transparent on/off
+```
+
+`Transparency` flips between Off and the mode that was in use before, and always
+agrees with `Background` because they change the same setting. If you see no
+background at all, try Paint: some terminals, and multiplexers such as tmux, do
+not pass the colour request through.
+
+**Transparent terminals.** Alacritty applies its `window.opacity` to the default
+background, which `BackgroundTerminal` changes, so a transparent window should
+stay transparent. Cells with an explicit colour, which Paint writes, stay opaque
+unless Alacritty's `colors.transparent_background_colors` is on. For a terminal
+that is always see-through, use `BackgroundTransparent`. Nothing is applied in
+TTY mode.
 
 ## Waveforms
 

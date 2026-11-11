@@ -91,8 +91,9 @@ to start.
   scrollable ([`logs`](logs/)).
 - **TTY mode**: a conservative symbol set and 16-colour palette, auto-detected
   for the Linux console and switchable at run time.
-- **Themes that reach the terminal**: palettes can set the terminal's own
-  background and foreground.
+- **Themes that reach the terminal**: palettes set the terminal's own background
+  and foreground, with a switch for the user to turn it off or make it
+  transparent.
 - **Primitives**: panel, meter, slider, six waveform styles (sparkline, bars,
   line trace, mirrored wave, heat strip, Braille) with adaptive scaling, time
   series, ANSI-aware text helpers ([`panel`](panel/), [`chart`](chart/),

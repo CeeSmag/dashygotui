@@ -42,26 +42,29 @@ type Palette struct {
 // DefaultID is the ID of the palette [Default] returns.
 const DefaultID = "default"
 
-// Default is the built-in electric-cyan palette.
+// Default is the built-in electric-cyan palette, on a dark slate background.
 func Default() Palette {
 	return Palette{
-		ID:       DefaultID,
-		Name:     "Teal",
-		Vibe:     "Classic electric cyan frame with Tailwind accents",
-		Border:   "#00B4D8",
-		Cyan:     "#38BDF8",
-		Green:    "#22C55E",
-		Mint:     "#4ADE80",
-		Amber:    "#FBBF24",
-		Orange:   "#F97316",
-		Red:      "#EF4444",
-		Muted:    "#94A3B8",
-		White:    "#F8FAFC",
-		Track:    "#334155",
-		GradLow:  [3]uint8{56, 189, 248},
-		GradMid:  [3]uint8{34, 197, 94},
-		GradWarn: [3]uint8{245, 158, 11},
-		GradPeak: [3]uint8{239, 68, 68},
+		ID:     DefaultID,
+		Name:   "Teal",
+		Vibe:   "Classic electric cyan frame with Tailwind accents",
+		Border: "#00B4D8",
+		Cyan:   "#38BDF8",
+		Green:  "#22C55E",
+		Mint:   "#4ADE80",
+		Amber:  "#FBBF24",
+		Orange: "#F97316",
+		Red:    "#EF4444",
+		Muted:  "#94A3B8",
+		White:  "#F8FAFC",
+		Track:  "#334155",
+		// A dark slate that the accents above were chosen against.
+		Background: "#0F172A",
+		Foreground: "#E2E8F0",
+		GradLow:    [3]uint8{56, 189, 248},
+		GradMid:    [3]uint8{34, 197, 94},
+		GradWarn:   [3]uint8{245, 158, 11},
+		GradPeak:   [3]uint8{239, 68, 68},
 	}
 }
 

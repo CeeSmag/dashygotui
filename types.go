@@ -93,14 +93,52 @@ type BackgroundMode int
 const (
 	// BackgroundTerminal sets the terminal's own background and foreground
 	// colours (restored when the dashboard exits) when the active palette has
-	// them. Terminals that ignore the request keep their own colours.
+	// them. This also colours the window padding, which painting cannot reach.
+	// Terminals that ignore the request keep their own colours; use
+	// [BackgroundPaint] for those.
 	BackgroundTerminal BackgroundMode = iota
-	// BackgroundPaint additionally paints every cell with the palette
-	// background, for terminals that ignore the request. It costs more output.
+	// BackgroundPaint does that and also paints every cell with the palette
+	// background, so it shows even where the request is ignored (the Linux
+	// console excepted: it has no true colour). It costs more output.
 	BackgroundPaint
 	// BackgroundOff never applies a background; the terminal keeps its colours.
+	// This is the transparent mode: nothing covers the terminal's own
+	// background, so a transparent, blurred or wallpapered terminal shows
+	// through. See [BackgroundTransparent].
 	BackgroundOff
 )
+
+// BackgroundTransparent is [BackgroundOff] under the name people look for: the
+// dashboard leaves the background alone so a transparent terminal shows through.
+//
+// Whether [BackgroundTerminal] stays transparent too depends on the terminal:
+// Alacritty applies its window opacity to the default background, which is what
+// that mode changes, but not to cells with an explicit background colour, which
+// is what [BackgroundPaint] writes.
+const BackgroundTransparent = BackgroundOff
+
+// String returns "terminal", "paint" or "off".
+func (b BackgroundMode) String() string {
+	switch b {
+	case BackgroundPaint:
+		return "paint"
+	case BackgroundOff:
+		return "off"
+	default:
+		return "terminal"
+	}
+}
+
+func parseBackgroundMode(s string) BackgroundMode {
+	switch s {
+	case "paint":
+		return BackgroundPaint
+	case "off", "transparent":
+		return BackgroundOff
+	default:
+		return BackgroundTerminal
+	}
+}
 
 // Scope says where a [Shortcut] is active.
 type Scope int

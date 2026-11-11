@@ -60,7 +60,9 @@ type Config[S any] struct {
 	// otherwise; the user's choice, saved in Store, wins over it.
 	Glyphs GlyphMode
 	// Background says how a palette's background colour reaches the terminal.
-	// The default sets the terminal's own colours.
+	// The default sets the terminal's own colours. It is the mode the dashboard
+	// starts in; the user's saved choice (see stdaddons.Background) wins over it.
+	// Use [BackgroundOff] to never touch the terminal's colours.
 	Background BackgroundMode
 	// Getenv reads environment variables for glyph auto-detection. Default
 	// [os.Getenv]; tests inject their own.

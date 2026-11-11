@@ -76,7 +76,7 @@ func TestThemePageHasTheBuiltins(t *testing.T) {
 	d := newDemo(t, store.NewMemory())
 	d.Press("tab", "tab")
 	d.RequireContains("Appearance")
-	requireRows(t, d, "20", "Color Theme", "21", "Section Gap", "22", "Refresh Rate", "23", "Display Mode")
+	requireRows(t, d, "20", "Color Theme", "21", "Section Gap", "22", "Refresh Rate", "23", "Display Mode", "24", "Background")
 }
 
 func TestNetworkGraphFillsAsTimePasses(t *testing.T) {
@@ -237,7 +237,7 @@ func TestEveryPageFitsEverySize(t *testing.T) {
 
 func TestOptionNumbersAreAllReachable(t *testing.T) {
 	// Every number typed on the keyboard must land on its own row.
-	for _, n := range []string{"1", "2", "3", "4", "10", "11", "20", "21", "22", "23", "90"} {
+	for _, n := range []string{"1", "2", "3", "4", "10", "11", "20", "21", "22", "23", "24", "90"} {
 		d := newDemo(t, store.NewMemory())
 		d.Type(n)
 		found := false

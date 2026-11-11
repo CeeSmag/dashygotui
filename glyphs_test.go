@@ -261,18 +261,18 @@ func TestBackgroundFollowsThePalette(t *testing.T) {
 	f := newFixture(t)
 	f.cfg.Getenv = env("TERM", "xterm")
 	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "d", Run: func(c *ctx) tea.Cmd { c.PreviewPalette("dracula"); return nil }})
-	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "t", Run: func(c *ctx) tea.Cmd { c.PreviewPalette("default"); return nil }})
+	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "t", Run: func(c *ctx) tea.Cmd { c.PreviewPalette("console"); return nil }})
 	d := f.driver(120, 40)
-	if bg, _ := backdropOf(t, d); bg {
-		t.Error("the default palette keeps the terminal's colours")
+	if bg, _ := backdropOf(t, d); !bg {
+		t.Error("the default palette sets a background, so the app has one out of the box")
 	}
 	d.Press("d")
 	if bg, _ := backdropOf(t, d); !bg {
-		t.Error("switching to dracula should set a background")
+		t.Error("switching to dracula should set its background")
 	}
 	d.Press("t")
 	if bg, _ := backdropOf(t, d); bg {
-		t.Error("switching back should release it")
+		t.Error("the console palette has no background, so switching to it should release it")
 	}
 }
 
@@ -335,5 +335,151 @@ func TestConsolePaletteIsOffered(t *testing.T) {
 	d.Press("p")
 	if got := strings.Join(ids, ","); got != "default,catppuccin,dracula,nord,"+theme.Console().ID {
 		t.Errorf("palettes = %s", got)
+	}
+}
+
+// --- the background mode the user can switch at run time ---
+
+func TestBackgroundModeDefaultsToTheTerminal(t *testing.T) {
+	f := newFixture(t)
+	f.cfg.Getenv = env("TERM", "xterm")
+	var mode dashygotui.BackgroundMode = -1
+	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "p", Run: func(c *ctx) tea.Cmd { mode = c.BackgroundMode(); return nil }})
+	d := f.driver(120, 40)
+	d.Press("p")
+	if mode != dashygotui.BackgroundTerminal {
+		t.Errorf("mode = %v", mode)
+	}
+	r, g, b, _ := d.Model().View().BackgroundColor.RGBA()
+	if r>>8 != 0x0F || g>>8 != 0x17 || b>>8 != 0x2A {
+		t.Errorf("background = #%02X%02X%02X, want the default palette's #0F172A", r>>8, g>>8, b>>8)
+	}
+	if strings.Contains(d.Raw(), "48;2;15;23;42") {
+		t.Error("terminal mode must not paint cells")
+	}
+}
+
+func TestBackgroundModeSwitchesLiveAndIsRemembered(t *testing.T) {
+	st := store.NewMemory()
+	f := newFixture(t)
+	f.cfg.Store = st
+	f.cfg.Getenv = env("TERM", "xterm")
+	set := func(key string, m dashygotui.BackgroundMode) {
+		f.reg.Shortcut(dashygotui.Shortcut[state]{Key: key, Run: func(c *ctx) tea.Cmd { c.SetBackgroundMode(m); return nil }})
+	}
+	set("o", dashygotui.BackgroundOff)
+	set("a", dashygotui.BackgroundPaint)
+	set("e", dashygotui.BackgroundTerminal)
+	d := f.driver(120, 40)
+
+	d.Press("o")
+	if bg, fg := backdropOf(t, d); bg || fg {
+		t.Error("off must leave the terminal's colours alone")
+	}
+	if strings.Contains(d.Raw(), "48;2;15;23;42") {
+		t.Error("off must not paint")
+	}
+	var saved string
+	if ok, err := st.Get("dashygotui.background", &saved); err != nil || !ok || saved != "off" {
+		t.Errorf("stored mode = %q ok=%v err=%v", saved, ok, err)
+	}
+
+	d.Press("a")
+	if bg, _ := backdropOf(t, d); !bg {
+		t.Error("paint also asks the terminal")
+	}
+	if !strings.Contains(d.Raw(), "48;2;15;23;42") {
+		t.Error("paint should write the background into the cells")
+	}
+
+	d.Press("e")
+	if bg, _ := backdropOf(t, d); !bg || strings.Contains(d.Raw(), "48;2;15;23;42") {
+		t.Error("terminal mode asks the terminal and does not paint")
+	}
+
+	d.Press("o") // and the last choice is remembered by the next run
+	again := newFixture(t)
+	again.cfg.Store = st
+	again.cfg.Getenv = env("TERM", "xterm")
+	if bg, _ := backdropOf(t, again.driver(120, 40)); bg {
+		t.Error("the saved choice (off) should apply on the next run")
+	}
+}
+
+func TestSavedBackgroundModeBeatsTheConfiguredOne(t *testing.T) {
+	st := store.NewMemory()
+	_ = st.Set("dashygotui.background", "off")
+	f := newFixture(t)
+	f.cfg.Store = st
+	f.cfg.Background = dashygotui.BackgroundPaint // the developer's default
+	if bg, _ := backdropOf(t, f.driver(120, 40)); bg {
+		t.Error("the user's saved choice must win over Config.Background")
+	}
+
+	g := newFixture(t) // and without a saved choice the developer's default applies
+	g.cfg.Background = dashygotui.BackgroundOff
+	if bg, _ := backdropOf(t, g.driver(120, 40)); bg {
+		t.Error("Config.Background = Off should start with no background")
+	}
+}
+
+func TestPreviewBackgroundModeIsNotSaved(t *testing.T) {
+	st := store.NewMemory()
+	f := newFixture(t)
+	f.cfg.Store = st
+	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "v", Run: func(c *ctx) tea.Cmd { c.PreviewBackgroundMode(dashygotui.BackgroundOff); return nil }})
+	d := f.driver(120, 40)
+	d.Press("v")
+	if bg, _ := backdropOf(t, d); bg {
+		t.Error("the preview should apply at once")
+	}
+	var saved string
+	if ok, _ := st.Get("dashygotui.background", &saved); ok {
+		t.Errorf("a preview must not be saved: %q", saved)
+	}
+}
+
+func TestBackgroundModeNamesRoundTrip(t *testing.T) {
+	for _, m := range []dashygotui.BackgroundMode{dashygotui.BackgroundTerminal, dashygotui.BackgroundPaint, dashygotui.BackgroundOff} {
+		st := store.NewMemory()
+		f := newFixture(t)
+		f.cfg.Store = st
+		var got dashygotui.BackgroundMode = -1
+		f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "s", Run: func(c *ctx) tea.Cmd { c.SetBackgroundMode(m); return nil }})
+		f.driver(120, 40).Press("s")
+
+		again := newFixture(t)
+		again.cfg.Store = st
+		again.reg.Shortcut(dashygotui.Shortcut[state]{Key: "g", Run: func(c *ctx) tea.Cmd { got = c.BackgroundMode(); return nil }})
+		again.driver(120, 40).Press("g")
+		if got != m {
+			t.Errorf("%v came back as %v", m, got)
+		}
+		if m.String() == "" {
+			t.Errorf("mode %d has no name", m)
+		}
+	}
+	var unknown string
+	st := store.NewMemory()
+	_ = st.Set("dashygotui.background", "sparkly")
+	f := newFixture(t)
+	f.cfg.Store = st
+	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "g", Run: func(c *ctx) tea.Cmd { unknown = c.BackgroundMode().String(); return nil }})
+	f.driver(120, 40).Press("g")
+	if unknown != "terminal" {
+		t.Errorf("an unknown saved value should fall back to terminal, got %q", unknown)
+	}
+}
+
+func TestTransparentIsAnotherNameForOff(t *testing.T) {
+	if dashygotui.BackgroundTransparent != dashygotui.BackgroundOff {
+		t.Fatal("BackgroundTransparent must be BackgroundOff")
+	}
+	st := store.NewMemory()
+	_ = st.Set("dashygotui.background", "transparent") // a hand-edited settings file
+	f := newFixture(t)
+	f.cfg.Store = st
+	if bg, _ := backdropOf(t, f.driver(120, 40)); bg {
+		t.Error(`"transparent" in the store should mean off`)
 	}
 }

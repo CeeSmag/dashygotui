@@ -9,7 +9,7 @@
 //
 // Usage:
 //
-//	showcase [-glyphs auto|unicode|tty] [-background terminal|paint|off]
+//	showcase [-glyphs auto|unicode|tty] [-background terminal|paint|off|transparent]
 //	         [-palette id] [-altscroll] [-ephemeral]
 package main
 
@@ -41,7 +41,7 @@ func main() {
 func run(args []string) error {
 	fs := flag.NewFlagSet("showcase", flag.ContinueOnError)
 	glyphs := fs.String("glyphs", "auto", "symbol set: auto, unicode or tty")
-	background := fs.String("background", "terminal", "palette background: terminal, paint or off")
+	background := fs.String("background", "terminal", "palette background: terminal, paint, or off (alias: transparent)")
 	palette := fs.String("palette", "", "start with this palette id (default, catppuccin, dracula, nord, console, solarized)")
 	altScroll := fs.Bool("altscroll", false, "turn the mouse wheel into arrow keys")
 	ephemeral := fs.Bool("ephemeral", false, "do not save settings between runs")
@@ -62,10 +62,10 @@ func run(args []string) error {
 	case "terminal":
 	case "paint":
 		opts.Background = dashygotui.BackgroundPaint
-	case "off":
-		opts.Background = dashygotui.BackgroundOff
+	case "off", "transparent":
+		opts.Background = dashygotui.BackgroundTransparent
 	default:
-		return fmt.Errorf("unknown -background %q (want terminal, paint or off)", *background)
+		return fmt.Errorf("unknown -background %q (want terminal, paint, off or transparent)", *background)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

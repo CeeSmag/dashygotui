@@ -21,6 +21,8 @@ func extras(buf *logs.Buffer, st dashygotui.Store, term string) dashygotui.Confi
 	r := dashygotui.NewRegistry[state]()
 	stdaddons.Theme(r, "look", 20, stdaddons.Setup{Hotkey: "m"})
 	stdaddons.Display(r, "look", 23)
+	stdaddons.Background(r, "look", 25)
+	stdaddons.Transparency(r, "look", 26, stdaddons.Setup{Hotkey: "y"})
 	stdaddons.Logs(r, buf, "look", 24, stdaddons.Setup{Hotkey: "g"})
 	return dashygotui.Config[state]{
 		Title:    "T",
@@ -200,4 +202,108 @@ func TestLogsViewFitsEverySize(t *testing.T) {
 			t.Fatalf("%dx%d: %d rows", sz[0], sz[1], len(lines))
 		}
 	}
+}
+
+func TestBackgroundPicker(t *testing.T) {
+	st := store.NewMemory()
+	d := dashtest.New(t, extras(logs.NewBuffer(10), st, "xterm"), 140, 40)
+	hasBG := func() bool { return d.Model().View().BackgroundColor != nil }
+	d.RequireContains("[terminal]")
+	if !hasBG() {
+		t.Fatal("the default is to set the terminal's background")
+	}
+
+	d.Type("25")
+	d.Press("enter")
+	d.RequireContains("Background", "Terminal", "Paint", "Off", "try Paint")
+	d.Press("down", "down") // preview Off
+	if hasBG() {
+		t.Error("previewing Off should release the terminal's background")
+	}
+	var saved string
+	if ok, _ := st.Get("dashygotui.background", &saved); ok {
+		t.Errorf("a preview must not be saved: %q", saved)
+	}
+	d.Press("esc") // cancelling restores it
+	if !hasBG() {
+		t.Error("Esc should restore the original mode")
+	}
+	d.RequireContains("[terminal]")
+
+	d.Press("enter", "end", "enter") // choose Off
+	d.RequireContains("Background: off", "[off]")
+	if hasBG() {
+		t.Error("Off should leave the terminal's colours alone")
+	}
+	if ok, err := st.Get("dashygotui.background", &saved); err != nil || !ok || saved != "off" {
+		t.Errorf("stored mode = %q ok=%v err=%v", saved, ok, err)
+	}
+
+	d.Press("enter", "up", "enter") // and choose Paint
+	if !strings.Contains(d.Raw(), "48;2;15;23;42") {
+		t.Error("Paint should write the background into the cells")
+	}
+}
+
+func TestTransparencySwitch(t *testing.T) {
+	st := store.NewMemory()
+	d := dashtest.New(t, extras(logs.NewBuffer(10), st, "xterm"), 140, 40)
+	themed := func() bool { return d.Model().View().BackgroundColor != nil }
+	d.RequireContains("Transparent Background (y)", "[OFF ✗]")
+	if !themed() {
+		t.Fatal("the default is a themed background")
+	}
+
+	d.Press("y") // by hotkey, from the page
+	d.RequireContains("Transparent background on", "[ON ✓]", "[off]")
+	if themed() {
+		t.Error("transparent must leave the terminal's background alone")
+	}
+	var saved string
+	if ok, _ := st.Get("dashygotui.background", &saved); !ok || saved != "off" {
+		t.Errorf("stored mode = %q", saved)
+	}
+
+	d.Press("y")
+	d.RequireContains("Transparent background off", "[OFF ✗]", "[terminal]")
+	if !themed() {
+		t.Error("turning transparency off brings the themed background back")
+	}
+}
+
+func TestTransparencyRestoresPaintMode(t *testing.T) {
+	d := dashtest.New(t, extras(logs.NewBuffer(10), store.NewMemory(), "xterm"), 140, 40)
+	d.Type("25")
+	d.Press("enter", "down", "enter") // Background picker: Paint
+	d.RequireContains("[paint]")
+
+	d.Press("y")
+	d.RequireContains("[off]")
+	if strings.Contains(d.Raw(), "48;2;15;23;42") {
+		t.Error("transparent must not paint")
+	}
+	d.Press("y")
+	d.RequireContains("[paint]") // not just Terminal: the previous mode comes back
+	if !strings.Contains(d.Raw(), "48;2;15;23;42") {
+		t.Error("the painted background should be back")
+	}
+}
+
+func TestTransparencyAndBackgroundAgree(t *testing.T) {
+	d := dashtest.New(t, extras(logs.NewBuffer(10), store.NewMemory(), "xterm"), 140, 40)
+	d.Type("25")
+	d.Press("enter", "end", "enter") // Off (transparent), chosen in the picker
+	d.RequireContains("[ON ✓]")      // the switch shows it
+	d.Press("y")
+	d.RequireContains("[terminal]") // and the switch is reflected in the picker's badge
+}
+
+func TestTransparencyStartsFromACleanStore(t *testing.T) {
+	// With nothing remembered, turning it off falls back to Terminal.
+	st := store.NewMemory()
+	_ = st.Set("dashygotui.background", "off")
+	d := dashtest.New(t, extras(logs.NewBuffer(10), st, "xterm"), 140, 40)
+	d.RequireContains("[ON ✓]")
+	d.Press("y")
+	d.RequireContains("[terminal]")
 }

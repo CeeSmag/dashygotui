@@ -112,6 +112,7 @@ func TestEveryOptionIsListedAndReachableByNumber(t *testing.T) {
 		{"70", "Simulate Alert"}, {"71", "Simulate Outage"}, {"72", "Run External Command"},
 		{"73", "Write Log Entries"},
 		{"20", "Color Theme"}, {"21", "Section Gap"}, {"22", "Refresh Rate"}, {"23", "Display Mode"},
+		{"24", "Background"}, {"25", "Transparent Background"},
 	}
 	for _, o := range numbers {
 		d := newApp(t, store.NewMemory())
@@ -165,6 +166,8 @@ func TestEveryOptionDoesSomethingVisible(t *testing.T) {
 		{"21", []string{"Section Gap", "Terminal"}},
 		{"22", []string{"Refresh Rate", "balanced (default)"}},
 		{"23", []string{"Display Mode", "Linux console"}},
+		{"24", []string{"Background", "Terminal", "Paint", "Off (transparent)"}},
+		{"25", []string{"Transparent background on", "[ON"}},
 	}
 	for _, tt := range tests {
 		t.Run("option_"+tt.number, func(t *testing.T) {
@@ -715,5 +718,69 @@ func TestEverythingFitsEverySize(t *testing.T) {
 				d.Press("down", "up", "pgdown", "home", "end") // keys at this size must not panic
 			})
 		}
+	}
+}
+
+func TestTheBackgroundCanBeTurnedOffAndOnByTheUser(t *testing.T) {
+	st := store.NewMemory()
+	d := newApp(t, st)
+	view := func() (bg bool) { return d.Model().View().BackgroundColor != nil }
+	if !view() {
+		t.Fatal("the default palette has a background, so the app has one out of the box")
+	}
+	open(d, "24")
+	d.Press("end", "enter") // Off
+	if view() {
+		t.Error("Off must leave the terminal's colours alone")
+	}
+	d.RequireContains("[off]")
+
+	again := newApp(t, st) // remembered
+	if again.Model().View().BackgroundColor != nil {
+		t.Error("the saved choice should apply on the next run")
+	}
+	open(again, "24")
+	again.Press("home", "enter") // back to Terminal
+	if again.Model().View().BackgroundColor == nil {
+		t.Error("choosing Terminal should turn the background back on")
+	}
+}
+
+func TestEveryPaletteHasABackgroundExceptTheConsole(t *testing.T) {
+	for _, id := range []string{"default", "catppuccin", "dracula", "nord", "solarized"} {
+		d := newAppWith(t, dashboard.Options{Store: store.NewMemory(), Palette: id})
+		if d.Model().View().BackgroundColor == nil {
+			t.Errorf("%s sets no background", id)
+		}
+	}
+	d := newAppWith(t, dashboard.Options{Store: store.NewMemory(), Palette: "console"})
+	if d.Model().View().BackgroundColor != nil {
+		t.Error("the 16-colour console palette cannot take a background")
+	}
+}
+
+func TestTransparentBackgroundHotkeyAndFlag(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	if d.Model().View().BackgroundColor == nil {
+		t.Fatal("themed by default")
+	}
+	d.Press("t") // the option's hotkey, from the Monitor page
+	d.RequireContains("Transparent background on")
+	if d.Model().View().BackgroundColor != nil {
+		t.Error("transparent: the terminal's own background must show through")
+	}
+	d.Press("t")
+	if d.Model().View().BackgroundColor == nil {
+		t.Error("and back")
+	}
+
+	// A developer starts transparent with Config.Background; a user can still switch it.
+	start := newAppWith(t, dashboard.Options{Store: store.NewMemory(), Background: dashygotui.BackgroundTransparent})
+	if start.Model().View().BackgroundColor != nil {
+		t.Error("starting transparent")
+	}
+	start.Press("t")
+	if start.Model().View().BackgroundColor == nil {
+		t.Error("the user can turn the themed background on")
 	}
 }

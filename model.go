@@ -63,6 +63,7 @@ type model[S any] struct {
 	palette       string
 	paletteChosen bool // the user or the config picked a palette; no TTY default
 	glyphMode     GlyphMode
+	bgMode        BackgroundMode
 	tty           bool // the TTY glyph set is in use
 	spacing       Spacing
 	store         Store
@@ -111,6 +112,7 @@ func newModel[S any](run context.Context, d *Dashboard[S]) *model[S] {
 		m.palette, m.paletteChosen = id, true
 	}
 	m.glyphMode = d.cfg.Glyphs
+	m.bgMode = d.cfg.Background
 	m.loadSettings()
 	m.rebuildTheme()
 	m.resetCursor()
@@ -137,6 +139,12 @@ func (m *model[S]) loadSettings() {
 		m.startErr = err
 	} else if ok {
 		m.glyphMode = parseGlyphMode(gm)
+	}
+	var bm string
+	if ok, err := m.store.Get(storeKeyBG, &bm); err != nil {
+		m.startErr = err
+	} else if ok {
+		m.bgMode = parseBackgroundMode(bm)
 	}
 	var ms int
 	if ok, err := m.store.Get(storeKeyInterval, &ms); err != nil {
@@ -362,7 +370,7 @@ func (m *model[S]) View() tea.View {
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeNone
 	v.WindowTitle = m.title()
-	if m.d.cfg.Background != BackgroundOff {
+	if m.bgMode != BackgroundOff {
 		if bg, fg, ok := m.th.Backdrop(); ok {
 			v.BackgroundColor, v.ForegroundColor = bg, fg
 		}
@@ -377,7 +385,7 @@ func (m *model[S]) render(cols, rows int) string {
 		return ""
 	}
 	frame := panel.Frame(m.screen(cols, rows), cols, rows)
-	if m.d.cfg.Background == BackgroundPaint {
+	if m.bgMode == BackgroundPaint {
 		frame = m.th.Paint(frame)
 	}
 	return strings.Join(frame, "\n")

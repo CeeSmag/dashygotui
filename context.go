@@ -175,6 +175,22 @@ func (c *Context[S]) PreviewGlyphMode(mode GlyphMode) {
 	c.m.rebuildTheme()
 }
 
+// BackgroundMode returns how the palette's background reaches the terminal.
+func (c *Context[S]) BackgroundMode() BackgroundMode { return c.m.bgMode }
+
+// SetBackgroundMode switches how the palette's background is applied (the
+// terminal's own colours, painted cells, or none) immediately and saves the
+// choice.
+func (c *Context[S]) SetBackgroundMode(mode BackgroundMode) {
+	c.m.bgMode = mode
+	c.m.persist(storeKeyBG, mode.String())
+}
+
+// PreviewBackgroundMode applies mode for this run without saving it, so a
+// picker can show its effect live. Follow it with [Context.SetBackgroundMode] to
+// keep the choice, or with PreviewBackgroundMode of the original to undo.
+func (c *Context[S]) PreviewBackgroundMode(mode BackgroundMode) { c.m.bgMode = mode }
+
 // Palettes lists the colour palettes the user can choose from.
 func (c *Context[S]) Palettes() []theme.Palette {
 	return append([]theme.Palette(nil), c.m.d.palettes...)

@@ -256,8 +256,8 @@ func TestBackdrop(t *testing.T) {
 	if r>>8 != 0x2E || g>>8 != 0x34 || b>>8 != 0x40 {
 		t.Errorf("background = #%02X%02X%02X, want #2E3440", r>>8, g>>8, b>>8)
 	}
-	if _, _, ok := theme.New(theme.Default(), false).Backdrop(); ok {
-		t.Error("the default palette keeps the terminal's own colours")
+	if _, _, ok := theme.New(plainPalette(), false).Backdrop(); ok {
+		t.Error("a palette without a background keeps the terminal's own colours")
 	}
 	if _, _, ok := theme.New(nord, true).Backdrop(); ok {
 		t.Error("TTY mode must not set a background")
@@ -297,7 +297,46 @@ func TestPaintSurvivesStyleResetsAndKeepsWidth(t *testing.T) {
 	if n, m := strings.Count(got[0], "\x1b[m"), strings.Count(got[0], "\x1b[m"+bg); n-1 > m {
 		t.Errorf("only %d of %d resets re-apply the background: %q", m, n, got[0])
 	}
-	if same := theme.New(theme.Default(), false).Paint(lines); strings.Join(same, "") != strings.Join(lines, "") {
+	if same := theme.New(plainPalette(), false).Paint(lines); strings.Join(same, "") != strings.Join(lines, "") {
 		t.Error("a palette without a background must leave lines untouched")
+	}
+}
+
+// plainPalette is the default palette with no background, like an application's
+// own palette that leaves the terminal's colours alone.
+func plainPalette() theme.Palette {
+	p := theme.Default()
+	p.Background, p.Foreground = "", ""
+	return p
+}
+
+func TestEveryPaletteExceptTheConsoleSetsABackground(t *testing.T) {
+	for _, p := range theme.Builtins() {
+		if p.Background == "" || p.Foreground == "" {
+			t.Errorf("%s has no background and foreground: the app would have none out of the box", p.ID)
+		}
+		if _, _, ok := theme.New(p, false).Backdrop(); !ok {
+			t.Errorf("%s: Backdrop rejects its own colours (%q, %q)", p.ID, p.Background, p.Foreground)
+		}
+		if p.Background == p.Foreground {
+			t.Errorf("%s: text would be invisible", p.ID)
+		}
+	}
+	if c := theme.Console(); c.Background != "" || c.Foreground != "" {
+		t.Error("the 16-colour console palette cannot take a background")
+	}
+}
+
+func TestTheDefaultBackgroundIsDark(t *testing.T) {
+	bg, fg, ok := theme.New(theme.Default(), false).Backdrop()
+	if !ok {
+		t.Fatal("the default palette sets a background")
+	}
+	lum := func(c interface{ RGBA() (r, g, b, a uint32) }) uint32 {
+		r, g, b, _ := c.RGBA()
+		return (2126*(r>>8) + 7152*(g>>8) + 722*(b>>8)) / 10000
+	}
+	if lum(bg) > 60 || lum(fg) < 180 {
+		t.Errorf("want a dark background and a light foreground, got luminance %d and %d", lum(bg), lum(fg))
 	}
 }
