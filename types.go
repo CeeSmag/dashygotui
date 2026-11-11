@@ -4,8 +4,10 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/CeeSmag/dashygotui/layout"
+	"github.com/CeeSmag/dashygotui/theme"
 )
 
 // Size is a width and height in terminal cells.
@@ -184,6 +186,57 @@ const (
 	FlashResult = 6 * time.Second
 )
 
+// Tone is a semantic colour for a footer hint or a hotkey. The theme decides
+// what each tone looks like, so tones follow the palette.
+type Tone int
+
+// The tones. ToneDefault is the zero value: the ordinary key style.
+const (
+	ToneDefault Tone = iota
+	// ToneDanger is for actions that stop or destroy something.
+	ToneDanger
+	// ToneWarn is for actions that interrupt, such as a restart.
+	ToneWarn
+	// ToneInfo is for actions that open something, such as a web page. It is
+	// drawn in the palette's frame colour, which differs from the key style.
+	ToneInfo
+	// ToneGood is for actions that are safe and positive.
+	ToneGood
+	// ToneMuted is for actions that should not draw the eye.
+	ToneMuted
+)
+
+// style is the theme's style for the tone.
+func (t Tone) style(th *theme.Theme) lipgloss.Style {
+	switch t {
+	case ToneDanger:
+		return th.Red
+	case ToneWarn:
+		return th.Orange.Bold(true)
+	case ToneInfo:
+		return th.Border.Bold(true)
+	case ToneGood:
+		return th.Green
+	case ToneMuted:
+		return th.Muted
+	default:
+		return th.Key
+	}
+}
+
+// Hint is one entry of the footer's key strip: "[Key] Label".
+type Hint struct {
+	// Key is the key as it is written, such as "Ctrl+Q" or "F5".
+	Key string
+	// Label says what the key does.
+	Label string
+	// Tone colours the hint. The default is the plain key style.
+	Tone Tone
+	// Prio is the priority; lower is dropped first when the strip does not fit.
+	// Default 30.
+	Prio int
+}
+
 // Shortcut is a global key binding on the dashboard pages.
 type Shortcut[S any] struct {
 	// Key is the key name as Bubble Tea reports it, e.g. "d" or "ctrl+r". It
@@ -191,6 +244,12 @@ type Shortcut[S any] struct {
 	Key string
 	// Label is the footer hint text. Leave it empty for no hint.
 	Label string
+	// Display is how the key is written in the footer hint, such as "Ctrl+Q"
+	// for the key "ctrl+q". It defaults to Key.
+	Display string
+	// Tone colours the hint, key and label together, so a dangerous shortcut can
+	// look dangerous. The default is the plain key style.
+	Tone Tone
 	// Prio is the hint's priority; lower is dropped first. Default 30.
 	Prio int
 	// Scope says where the shortcut is active. The default is the dashboard

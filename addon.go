@@ -1,6 +1,10 @@
 package dashygotui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/CeeSmag/dashygotui/panel"
+)
 
 // Option is one numbered, selectable row in a section: the thing an addon adds
 // to a menu. Register it with [Registry.Option].
@@ -25,6 +29,12 @@ type Option[S any] struct {
 	// a digit, a shortcut or another option's hotkey. Inside a view's own
 	// options it works only in that view.
 	Hotkey string
+	// HotkeyDisplay is how the hotkey is written after the label, such as
+	// "Ctrl+L". It defaults to Hotkey.
+	HotkeyDisplay string
+	// HotkeyTone colours the hotkey after the label. The default is the label's
+	// own colour.
+	HotkeyTone Tone
 	// Badge returns the row's current state, already styled, such as "[ON ✓]".
 	// Optional.
 	Badge func(*Context[S]) string
@@ -82,6 +92,17 @@ type View[S any] struct {
 	Badge func(*Context[S]) string
 	// Subtitle is shown in the bottom border of the status panel. Optional.
 	Subtitle string
+	// OptionsTitle names the options panel. It defaults to "Options".
+	OptionsTitle string
+	// OptionsSubtitle is shown in the bottom border of the options panel.
+	// Optional.
+	OptionsSubtitle string
+	// Header returns extra header segments, shown after the view title and
+	// before the clock, such as "Mode: ON". They are dropped before the title
+	// when the terminal is narrow. Optional.
+	Header func(*Context[S]) []panel.Segment
+	// Hints returns extra footer hints, shown with the view's own. Optional.
+	Hints func(*Context[S]) []Hint
 	// Mode is the footer's left-hand label, such as "LIVE". Optional.
 	Mode string
 	// Status returns the rows of the status panel. Optional.
@@ -92,6 +113,11 @@ type View[S any] struct {
 	// Body draws the whole body itself, replacing Status and Options. It
 	// returns rows for the given body size.
 	Body func(*Context[S], Size) []string
+	// Panel draws the body inside a bordered panel, as the status panel and the
+	// menu are, instead of edge to edge. Body is then given the panel's inner
+	// size, and a scrolling body shows its position in the panel's bottom
+	// border. It needs Body. Optional.
+	Panel *ViewPanel[S]
 	// Scroll makes the engine scroll the body. Body may then return more rows
 	// than fit: the dashboard shows a window of them, scrolls it with the
 	// Up/Down, PageUp/PageDown, Home and End keys, and draws a scroll bar down
@@ -118,6 +144,19 @@ type View[S any] struct {
 	// called when the dashboard quits; stop long-running work with the context
 	// given to [Dashboard.Model] or [Dashboard.Run]. Optional.
 	OnLeave func(*Context[S]) tea.Cmd
+}
+
+// ViewPanel is the frame of a view whose Body is drawn in a panel. See
+// [View.Panel].
+type ViewPanel[S any] struct {
+	// Title is shown in the panel's top border. It defaults to the view's Title.
+	Title string
+	// Badge is shown in the top border, already styled. It defaults to the
+	// view's Badge.
+	Badge func(*Context[S]) string
+	// Subtitle is shown in the bottom border, before the scroll position when
+	// the body scrolls. Optional.
+	Subtitle string
 }
 
 // SectionSpec declares a section: a bordered panel on a page that holds
@@ -165,6 +204,10 @@ type Page[S any] struct {
 	Fallback func(*Context[S], Size) []string
 	// FallbackBelow is the page body size under which Fallback is used: when
 	// the body is narrower than Cols or shorter than Rows. A zero field is
-	// ignored. Required when Fallback is set.
+	// ignored. Fallback needs FallbackBelow or FallbackWhen, not both.
 	FallbackBelow Size
+	// FallbackWhen decides for any rule FallbackBelow cannot say, such as
+	// "narrow and short, or very short". It receives the size of the page body.
+	// Fallback needs FallbackBelow or FallbackWhen, not both.
+	FallbackWhen func(Size) bool
 }

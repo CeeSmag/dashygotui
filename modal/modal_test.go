@@ -146,6 +146,36 @@ func TestEditSave(t *testing.T) {
 			t.Errorf("polls = %d, want one refresh after saving", polls-before)
 		}
 	})
+	t.Run("OnSaved chains a follow-up command with the saved message", func(t *testing.T) {
+		var got string
+		cfg := harness(&modal.Edit[state]{Title: "Save",
+			Save: func(_ context.Context, v string) (string, error) { return "Saved " + v, nil },
+			OnSaved: func(c *ctx, msg string) tea.Cmd {
+				got = msg
+				return c.RunTask("after-save", "Restarting…", func(context.Context) (string, error) { return "Restarted", nil })
+			}})
+		d := dashtest.New(t, cfg, 120, 40)
+		d.Press("o")
+		d.Type("val")
+		d.Press("enter")
+		if got != "Saved val" {
+			t.Errorf("OnSaved got %q, want the message Save returned", got)
+		}
+		d.RequireAbsent("Enter ") // the editor closed
+		d.RequireContains("Restarted")
+	})
+	t.Run("OnSaved does not run when Save fails", func(t *testing.T) {
+		called := false
+		d := open(t, &modal.Edit[state]{Title: "Save",
+			Save:    func(context.Context, string) (string, error) { return "", errors.New("denied") },
+			OnSaved: func(*ctx, string) tea.Cmd { called = true; return nil }})
+		d.Type("val")
+		d.Press("enter")
+		if called {
+			t.Error("OnSaved ran after a failed save")
+		}
+		d.RequireContains("denied")
+	})
 	t.Run("failure stays open with the error", func(t *testing.T) {
 		d := open(t, &modal.Edit[state]{Title: "Save",
 			Save: func(context.Context, string) (string, error) { return "", errors.New("permission denied") }})
@@ -351,6 +381,38 @@ func TestChoice(t *testing.T) {
 			t.Error("the first entry should be highlighted")
 		}
 	})
+	t.Run("badge, intro and footer wording", func(t *testing.T) {
+		d := open(t, &modal.Choice[state]{
+			Title: "Storage", Items: items,
+			Badge:        func(c *ctx) string { return "[10 GB]" },
+			Intro:        func(c *ctx, inner int) []string { return []string{fmt.Sprintf("Used 4 GB, inner %d", inner)} },
+			FooterSelect: "Apply", FooterCancel: "Keep current",
+		})
+		d.RequireContains("Storage", "[10 GB]", "Used 4 GB, inner ", "Enter Apply", "Esc Keep current")
+		d.RequireAbsent("Enter Select", "Esc Cancel")
+	})
+	t.Run("Rows is asked again on every frame and key", func(t *testing.T) {
+		n := 0
+		var picked int
+		d := open(t, &modal.Choice[state]{
+			Title: "Live",
+			Rows: func(*ctx) []modal.Item {
+				n++
+				return []modal.Item{{Label: "One", Badge: fmt.Sprintf("[call %d]", n)}, {Label: "Two"}}
+			},
+			OnSelect: func(c *ctx, i int) tea.Cmd { picked = i; return nil },
+		})
+		d.RequireContains("[1] One")
+		first := n
+		d.Press("down")
+		if n <= first {
+			t.Errorf("Rows was not asked again after a key (calls %d -> %d)", first, n)
+		}
+		d.Press("enter")
+		if picked != 1 {
+			t.Errorf("picked %d, want 1", picked)
+		}
+	})
 	t.Run("cursor starts where it is told", func(t *testing.T) {
 		d := open(t, &modal.Choice[state]{Title: "Pick", Items: items, Cursor: 2})
 		if !strings.Contains(rowOf(d, "Gamma"), "❯") {
@@ -501,6 +563,14 @@ func TestEveryModalRendersAtEverySize(t *testing.T) {
 				items[i] = modal.Item{Label: "Entry", Badge: "[x]", Detail: strings.Repeat("d", 100)}
 			}
 			return &modal.Choice[state]{Title: "Choice", Help: strings.Repeat("h ", 40), Items: items}
+		},
+		"choice_dynamic": func() dashygotui.Modal[state] {
+			return &modal.Choice[state]{Title: "Dynamic",
+				Badge: func(*ctx) string { return "[badge]" },
+				Intro: func(_ *ctx, inner int) []string { return []string{strings.Repeat("i", inner+20)} },
+				Rows: func(*ctx) []modal.Item {
+					return []modal.Item{{Label: "A", Badge: "[x]", Detail: strings.Repeat("d", 100)}, {Label: "B"}}
+				}}
 		},
 		"slider": func() dashygotui.Modal[state] {
 			return &modal.Slider[state]{Title: "Slider", Help: strings.Repeat("h ", 40), Unit: "cells", Min: 0, Max: 10, Value: 3}

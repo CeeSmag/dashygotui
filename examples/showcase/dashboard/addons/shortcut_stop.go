@@ -10,11 +10,13 @@ import (
 
 // Ctrl+Q: stop everything. A ScopeEverywhere shortcut works on every page, in
 // every view and over any pop-up, and may take a force-quit key. ctrl+c still
-// uses the library's force-quit, intercepted by Config.OnForceQuit.
+// uses the library's force-quit, intercepted by Config.OnForceQuit. Display
+// writes the key as "Ctrl+Q" in the footer and Tone draws the hint in the
+// theme's danger colour.
 
 func init() {
 	dashboard.Registry.Shortcut(dashboard.Shortcut{
-		Key: "ctrl+q", Label: "Stop", Scope: dashygotui.ScopeEverywhere, Prio: 25,
+		Key: "ctrl+q", Display: "Ctrl+Q", Tone: dashygotui.ToneDanger, Label: "Stop & Exit", Scope: dashygotui.ScopeEverywhere, Prio: 25,
 		Run: func(c *dashboard.Ctx) tea.Cmd {
 			c.OpenModal(&modal.Confirm[dashboard.State]{
 				Title:  "Stop and exit?",

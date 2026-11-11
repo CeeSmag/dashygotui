@@ -173,6 +173,29 @@ body is a `Status` panel above `Options`, or your own `Body`.
   when it appears and stop it when it goes. They do not run when the dashboard
   quits; stop long work with the context you gave `Run`.
 - **`Keys`** sees every key first.
+- **`Panel`** draws a `Body` in a bordered panel, like the status and options
+  panels, instead of edge to edge: `Panel: &dashygotui.ViewPanel[S]{Title:
+  "Live Logs", Subtitle: "newest first"}`. `Body` is then given the panel's inner
+  size, and a scrolling body shows `rows 12-40 of 310` in the bottom border.
+- **`OptionsTitle`, `OptionsSubtitle`** name the options panel of a view that has
+  both `Status` and `Options` ("Options" by default).
+- **`Header`** returns extra header segments (`panel.Segment`) shown after the
+  view's title and before the clock, such as `Mode: ON`. On a narrow terminal the
+  lowest `Prio` goes first; the app title and view title stay.
+- **`Hints`** returns extra footer hints (`dashygotui.Hint{Key, Label, Tone,
+  Prio}`) for the view's own keys.
+
+To open at a view, or a stack of them, set `Config.StartView` (bottom first); the
+last is on screen and Back walks down the rest. Each is opened as if the user had
+navigated, so `OnEnter` and `OnLeave` run.
+
+### State that outlives a poll
+
+`State` is replaced by every poll, so it is the wrong place for UI state such as
+a pending restart or an open flag. Keep that behind a pointer inside `S`
+(`type State struct { ...; UI *UIState }`, set once in `Poll`) or in the addon's
+closure. The library does not hold app state for you: `S` is yours. The one thing
+it does keep is the scroll position of a `Scroll` view.
 
 ## Live graphs
 
@@ -207,8 +230,17 @@ A page can offer a compact version for terminals too small for its layout:
 When the page body is narrower than `Cols` or shorter than `Rows` (a zero field is
 ignored), the dashboard draws the `Fallback` rows in a panel titled with the page
 instead of its panels. While it shows, the page is read-only: its options cannot
-be selected and number keys skip it. `Fallback` without `FallbackBelow`, or the
-reverse, is a startup error.
+be selected and number keys skip it.
+
+For a rule that is not "narrower or shorter", use `FallbackWhen` instead, which
+receives the page body size:
+
+```go
+FallbackWhen: func(s dashygotui.Size) bool { return (s.Cols < 80 && s.Rows < 22) || s.Rows < 8 },
+```
+
+`Fallback` needs exactly one of `FallbackBelow` and `FallbackWhen`; anything else
+is a startup error.
 
 ## Modals
 
@@ -221,6 +253,12 @@ c.OpenModal(&modal.Confirm[dashboard.State]{
 	OnAccept: func(c *dashboard.Ctx) tea.Cmd { ... },
 })
 ```
+
+`Edit.OnSaved(c, message)` runs, with the pop-up closed, after a background `Save`
+succeeded, and returns the next command: restart a server with the new setting,
+say. `Choice` takes a `Badge` for the top border, an `Intro` for live lines above
+the list, `Rows` (instead of `Items`) to recompute the entries on every frame, and
+`FooterSelect` / `FooterCancel` to reword the footer.
 
 A custom modal implements `Modal[S]` (`HandleKey`, `Render`). Its state lives in
 the modal value, never in a package variable. Return only the box from `Render`;
@@ -247,6 +285,12 @@ dashboard.Registry.Shortcut(dashygotui.Shortcut[dashboard.State]{
 	Run: func(c *dashboard.Ctx) tea.Cmd { return c.Quit("stop", "Stopped.") },
 })
 ```
+
+A shortcut's footer hint can be worded and coloured: `Display: "Ctrl+Q"` writes
+the key as people say it, and `Tone` (`ToneDanger`, `ToneWarn`, `ToneInfo`,
+`ToneGood`, `ToneMuted`) draws the whole hint in a colour the theme chooses, so it
+follows the palette. `Option.HotkeyDisplay` and `Option.HotkeyTone` do the same for
+the `(key)` shown after an option's label.
 
 A shortcut may use any key Bubble Tea reports (`ctrl+r`, `f5`, `d`), except a
 navigation key or a digit. Only an `ScopeEverywhere` shortcut may take over the

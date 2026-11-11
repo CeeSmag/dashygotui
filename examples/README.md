@@ -4,7 +4,7 @@ Two applications, both built on the same library and both tested end to end.
 
 | | What it is | Run it |
 | --- | --- | --- |
-| [`showcase`](showcase/) | **Uses every feature.** Six pages, 40 options, 10 widgets, 5 views, 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 46 one-file addons. Start here. | `make run` |
+| [`showcase`](showcase/) | **Uses every feature.** Six pages, 41 options, 10 widgets, 5 views, 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 47 one-file addons. Start here. | `make run` |
 | [`demo`](demo/) | The small quickstart: three pages and a handful of addons. Also the library's integration test. | `make run-demo` |
 
 ## Building
@@ -28,6 +28,7 @@ The binary takes a few flags:
 ./bin/showcase -palette solarized -background paint   # ...and paint every cell, for terminals that ignore it
 ./bin/showcase -background transparent           # leave the background to the terminal (transparent, blurred...)
 ./bin/showcase -ephemeral                        # remember nothing between runs
+./bin/showcase -view diagnostics,stdaddons.logs   # start inside Diagnostics, then Live Logs
 ```
 
 Settings are kept in `~/.config/dashygotui-showcase/dashboard.json`. **Reset All
@@ -58,7 +59,13 @@ brackets is the option number: type it anywhere to jump there.
 | **Scrolling view** (`Scroll`) with a scroll bar; `OnEnter` / `OnLeave` hooks | `[53]` release notes (`n`) |
 | **Tail view** (`Tail`): starts at the newest row, holds its place while rows arrive, End goes live | `[54]` event stream (`e`) |
 | **Live graphs that keep their own history**: `chart.Stream`, `chart.DualStream` | `widget_chart_streams.go` (Charts page) |
-| **Compact page** (`Page.Fallback`): shrink the window on the Monitor page | `dashboard.go` (`monitorSummary`) |
+| **Compact page** (`Page.Fallback`): shrink the window on the Monitor page (`FallbackBelow`) and the Charts page (`FallbackWhen`, any rule) | `dashboard.go` (`monitorSummary`, `chartsSummary`) |
+| **Coloured, worded hints**: `Shortcut.Display` / `Tone`, `Option.HotkeyDisplay` / `HotkeyTone` | `shortcut_*.go`, `[4]` open web UI (`Ctrl+O`) |
+| **View chrome**: `OptionsTitle`, `OptionsSubtitle`, `Header`, `Hints` | `[50]` diagnostics |
+| **View in a panel** (`View.Panel`) with the scroll position in its border | `[54]` event stream |
+| **`Config.StartView`**: open at a view stack (`-view diagnostics,stdaddons.logs`) | `main.go` |
+| **`Edit.OnSaved`**: chain a follow-up after a save | `[10]` storage limit (reloads the service) |
+| **`Choice`**: `Badge`, `Intro`, `Rows`, `FooterSelect`, `FooterCancel` | `[13]` region |
 | **`Dashboard.Notify`**: events pushed from a goroutine outside the UI (see "Pushed" in Diagnostics) | `dashboard.go` (`feed`) |
 | **Shortcuts**: `ScopeEverywhere` (ctrl+q, ctrl+r, ctrl+l) and `ScopePages` (`?`) | `shortcut_*.go` |
 | **Logs**: standard `log` and `slog` captured, newest first, scroll, filter, escape-safe | `[52]` logs (`g`), `[73]` writes entries |

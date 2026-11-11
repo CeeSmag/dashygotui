@@ -32,6 +32,8 @@ type Hint struct {
 	Label string
 	Style lipgloss.Style // style of the "[Key]" part
 	Prio  int
+	// Tinted draws the label in Style too, instead of the muted style.
+	Tinted bool
 }
 
 // FitSegments joins segs with " │ " separators, dropping the least important
@@ -121,7 +123,11 @@ func joinHints(th *theme.Theme, hints []Hint, keep []bool) string {
 		if sb.Len() > 0 {
 			sb.WriteString(" ")
 		}
-		sb.WriteString(h.Style.Render("["+h.Key+"]") + " " + th.Muted.Render(h.Label))
+		label := th.Muted
+		if h.Tinted {
+			label = h.Style
+		}
+		sb.WriteString(h.Style.Render("["+h.Key+"]") + " " + label.Render(h.Label))
 	}
 	return sb.String()
 }

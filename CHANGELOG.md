@@ -5,6 +5,41 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [0.2.0] - 2026-11-11
+
+Closes the gaps found while moving a real application onto the library. Every
+change is additive; v0.1.0 code builds unchanged.
+
+### Added
+
+- **Footer hints you can word and colour.** `Shortcut.Display` writes the key as
+  `Ctrl+Q`, and `Shortcut.Tone` (`ToneDanger`, `ToneWarn`, `ToneInfo`, `ToneGood`,
+  `ToneMuted`) draws the whole hint in a theme colour. `Option.HotkeyDisplay` and
+  `Option.HotkeyTone` do the same for the `(key)` after an option's label.
+- **`Page.FallbackWhen func(Size) bool`** for any compact-page rule, such as
+  "narrow and short, or very short". `FallbackBelow` stays for the simple case;
+  setting both is a startup error.
+- **View chrome.** `View.OptionsTitle`, `OptionsSubtitle`, `Header` (extra header
+  segments, dropped before the title on narrow terminals) and `Hints` (extra
+  footer hints, as `dashygotui.Hint`).
+- **`View.Panel`** draws a `Body` inside a bordered panel with a title, a badge
+  and a subtitle; a scrolling body shows its position (`rows 12-40 of 310`) in
+  the bottom border. `Body` is given the panel's inner size.
+- **`Config.StartView`**, a stack of views to open at start, with `OnEnter` and
+  `OnLeave` running as if the user had navigated there.
+- **`modal.Edit.OnSaved`** chains a follow-up command after a successful `Save`.
+- **`modal.Choice`** gains `Badge` (top border), `Intro` (live lines above the
+  list), `Rows` (entries recomputed on every frame and key) and `FooterSelect` /
+  `FooterCancel`.
+
+### Notes
+
+- Per-dashboard state that must survive polls (a pending restart, a pop-up flag)
+  belongs behind a pointer inside `S`; see "State that outlives a poll" in
+  `docs/ADDONS.md`.
+- An application that keeps its settings elsewhere implements `Store` as an
+  adapter; see "Persisted settings".
+
 ## [0.1.0] - 2026-11-11
 
 The first release.

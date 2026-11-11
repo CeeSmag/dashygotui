@@ -11,7 +11,7 @@ import (
 
 func init() {
 	dashboard.Registry.Shortcut(dashboard.Shortcut{
-		Key: "ctrl+r", Label: "Refresh", Scope: dashygotui.ScopeEverywhere, Prio: 20,
+		Key: "ctrl+r", Display: "Ctrl+R", Tone: dashygotui.ToneGood, Label: "Refresh", Scope: dashygotui.ScopeEverywhere, Prio: 20,
 		Run: func(c *dashboard.Ctx) tea.Cmd {
 			c.Flash("Refreshing...")
 			return c.Refresh()

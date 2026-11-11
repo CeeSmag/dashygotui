@@ -85,7 +85,7 @@ func TestEveryPageShowsWhatItDemonstrates(t *testing.T) {
 	}{
 		{"monitor", []string{"System", "TRAFFIC", "Network", "Activity", "CPU Waveforms", "ONLINE", "LIVE"}},
 		{"charts", []string{"Area & Sparkline", "Bars & Heat", "Trace & Mirror", "chart.Braille"}},
-		{"actions", []string{"Quick Actions", "[3 actions]", "Settings", "[persisted]", "Danger Zone", "things to do"}},
+		{"actions", []string{"Quick Actions", "[4 actions]", "Settings", "[persisted]", "Danger Zone", "things to do"}},
 		{"popups", []string{"Standard Pop-ups", "Custom Pop-ups", "from the modal package"}},
 		{"views", []string{"Full-screen Views", "Navigation", "Hooks & Tasks"}},
 		{"theme", []string{"Appearance", "Symbols", "Palette", "Solarized Dark", "ALL PALETTES"}},
@@ -516,7 +516,8 @@ func TestLogViewShowsStdlibAndSlogEntries(t *testing.T) {
 
 func TestGlobalShortcuts(t *testing.T) {
 	d := newApp(t, store.NewMemory())
-	d.RequireContains("[ctrl+q] Stop", "[ctrl+r] Refresh", "[?] Help")
+	d.RequireContains("[Ctrl+Q] Stop & Exit", "[Ctrl+R] Refresh", "[?] Help")
+	d.RequireAbsent("[ctrl+q]")
 
 	d.Press("ctrl+r")
 	d.RequireContains("Refreshing...")
@@ -926,4 +927,94 @@ func TestStreamsWidgetShowsTheScale(t *testing.T) {
 	}
 	d.Press("tab")
 	d.RequireContains("Streams", "Load", "Read", "Write", "≤")
+}
+
+func TestShortcutHintsAreWrittenAndColoured(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	raw := d.Raw()
+	colour := func(word string) string {
+		i := strings.Index(raw, word)
+		if i < 0 {
+			t.Fatalf("%q is not on screen", word)
+		}
+		j := strings.LastIndex(raw[:i], "\x1b[")
+		return raw[j:i]
+	}
+	stop, refresh := colour("[Ctrl+Q]"), colour("[Ctrl+R]")
+	if stop == refresh {
+		t.Errorf("Stop (danger) and Refresh (good) must differ, both are %q", stop)
+	}
+	if colour("Stop & Exit") != stop {
+		t.Error("the danger tone colours the whole hint, label included")
+	}
+}
+
+func TestOpenWebHotkeyIsWrittenAsCtrlO(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	d.Press("tab", "tab")
+	d.RequireContains("Open Web UI (Ctrl+O)")
+	d.RequireAbsent("(ctrl+o)")
+	d.Press("ctrl+o")
+	d.RequireContains("Would open http://localhost:8080")
+}
+
+func TestStorageSaveChainsAReload(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	open(d, "10")
+	d.Type("60")
+	d.Press("enter")
+	d.RequireContains("Storage limit set to 60 GB. Service reloaded.") // OnSaved's task ran after the save
+	d.RequireContains("[60 GB]")
+}
+
+func TestDiagnosticsViewChrome(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	d.Press("d")
+	d.RequireContains("Diagnostics", "Mode: ON", "Actions", "Enter runs the highlighted one", "[t] Self-test", "[Esc/b] Back")
+	d.RequireAbsent("Options")
+}
+
+func TestRegionChoiceUsesTheNewChoiceFields(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	open(d, "13")
+	d.RequireContains("now eu-west", "Changing the region moves the service", "[current]", "Enter Save", "Esc Keep current")
+	d.RequireAbsent("Enter Select")
+}
+
+func TestEventStreamIsFramedInAPanel(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	for i := 0; i < 60; i++ {
+		d.Advance(time.Second)
+	}
+	d.Press("e")
+	d.RequireContains("Events", "newest at the bottom")
+	if !strings.Contains(d.Screen(), "of 60") && !strings.Contains(d.Screen(), "rows ") {
+		t.Errorf("the scroll position should be in the panel's border:\n%s", d.Screen())
+	}
+}
+
+func TestChartsPageFallsBackByRule(t *testing.T) {
+	d := newApp(t, store.NewMemory())
+	d.Press("tab") // charts
+	d.RequireAbsent("compact view")
+	d.Resize(70, 30) // narrow but tall
+	d.RequireAbsent("compact view")
+	d.Resize(160, 18) // short but wide
+	d.RequireAbsent("compact view")
+	d.Resize(70, 20) // narrow and short: the rule's first branch
+	d.RequireContains("compact view: the graphs need a larger window")
+	d.Resize(160, 12) // very short: the rule's second branch
+	d.RequireContains("compact view")
+}
+
+func TestStartViewFlagOpensTheStack(t *testing.T) {
+	o := opts(store.NewMemory())
+	o.StartView = []string{"diagnostics", "stdaddons.logs"}
+	d := newAppWith(t, o)
+	d.RequireAbsent("Quick Actions")
+	d.RequireContains("LOGS")
+	d.Press("esc")
+	d.RequireContains("Mode: ON") // the diagnostics view
+	d.Press("esc")
+	d.RequireContains("Monitor", "System")
 }

@@ -76,6 +76,11 @@ type Edit[S any] struct {
 	// Save stores the accepted value in the background and returns a message
 	// for the footer, or an error to show in the editor.
 	Save func(ctx context.Context, value string) (message string, err error)
+	// OnSaved is called, with the modal already closed, after Save succeeded,
+	// with the message Save returned. Return the command to run next, for
+	// example one that restarts a server with the new setting; the dashboard
+	// refreshes and shows the message as well. Optional.
+	OnSaved func(ctx *dashygotui.Context[S], message string) tea.Cmd
 
 	input   textinput.Model
 	ready   bool
@@ -143,7 +148,10 @@ func (e *Edit[S]) OnResult(ctx *dashygotui.Context[S], res dashygotui.TaskResult
 	}
 	ctx.CloseModal()
 	ctx.FlashResult(res.Text, nil)
-	return true, ctx.Refresh()
+	if e.OnSaved == nil {
+		return true, ctx.Refresh()
+	}
+	return true, tea.Batch(ctx.Refresh(), e.OnSaved(ctx, res.Text))
 }
 
 // tag identifies this editor's save among other tasks.

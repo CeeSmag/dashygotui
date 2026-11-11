@@ -225,7 +225,13 @@ func (m *model[S]) Init() tea.Cmd {
 	if m.startErr != nil {
 		m.setFlash("settings not loaded: "+text.OneLine(m.startErr.Error()), true, FlashResult)
 	}
-	return tea.Batch(m.tickCmd(), m.pollCmd())
+	for _, id := range m.d.cfg.StartView {
+		m.openView(id)
+	}
+	cmds := []tea.Cmd{m.tickCmd(), m.pollCmd()}
+	cmds = append(cmds, m.queue...)
+	m.queue = nil
+	return tea.Batch(cmds...)
 }
 
 func (m *model[S]) tickCmd() tea.Cmd {

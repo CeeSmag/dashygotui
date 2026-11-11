@@ -11,7 +11,7 @@ import (
 
 func init() {
 	dashboard.Registry.Shortcut(dashboard.Shortcut{
-		Key: "ctrl+l", Label: "Clear logs", Scope: dashygotui.ScopeEverywhere, Prio: 10,
+		Key: "ctrl+l", Display: "Ctrl+L", Tone: dashygotui.ToneWarn, Label: "Clear logs", Scope: dashygotui.ScopeEverywhere, Prio: 10,
 		Run: func(c *dashboard.Ctx) tea.Cmd {
 			dashboard.Logs.Clear()
 			c.Flash("Logs cleared")

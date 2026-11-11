@@ -33,6 +33,7 @@ func init() {
 					"Ctrl+C                quit (asks first)",
 					"Ctrl+Q                stop the service, from anywhere",
 					"Ctrl+R                refresh now, from anywhere",
+					"Ctrl+O                open the web UI (Actions page)",
 					"Ctrl+L                clear the logs, from anywhere",
 				},
 			})

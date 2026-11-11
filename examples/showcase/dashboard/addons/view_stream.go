@@ -14,7 +14,9 @@ import (
 // at the bottom as they happen; the view starts at the newest, Up goes back in
 // time, and a view scrolled back holds its place while new rows arrive (watch
 // the row numbers stay put). End returns to the live bottom. Tail needs Scroll,
-// which does the scrolling and the scroll bar. The events live in a closure.
+// which does the scrolling and the scroll bar. Panel draws the body in a
+// bordered panel, with the scroll position in its bottom border. The events live
+// in a closure.
 
 func init() {
 	var events []string
@@ -32,6 +34,9 @@ func init() {
 
 	dashboard.Registry.View(dashboard.View{
 		ID: "stream", Title: "Event Stream", Mode: "STREAM", Scroll: true, Tail: true,
+		// Panel frames the body like a status panel, and puts the scroll
+		// position in its bottom border.
+		Panel: &dashygotui.ViewPanel[dashboard.State]{Title: "Events", Subtitle: "newest at the bottom"},
 		Badge: func(c *dashboard.Ctx) string { return c.Count(len(events), "events") },
 		Body: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
 			if len(events) == 0 {

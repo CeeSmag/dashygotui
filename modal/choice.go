@@ -1,6 +1,7 @@
 package modal
 
 import (
+	"cmp"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -27,8 +28,22 @@ type Choice[S any] struct {
 	Title string
 	// Help is explanatory text shown above the list.
 	Help string
-	// Items are the entries. At least one is needed.
+	// Badge is shown in the pop-up's top border, already styled, such as the
+	// current value. Optional.
+	Badge func(ctx *dashygotui.Context[S]) string
+	// Intro returns explanatory lines shown above the list, after Help, for the
+	// given inner width. It is called on every frame, so the lines can show
+	// live state. Optional.
+	Intro func(ctx *dashygotui.Context[S], inner int) []string
+	// Items are the entries. At least one is needed, from here or from Rows.
 	Items []Item
+	// Rows returns the entries instead of Items, called on every frame and key
+	// press, so badges can show live state. Optional.
+	Rows func(ctx *dashygotui.Context[S]) []Item
+	// FooterSelect words the Enter hint; the default is "Select". Optional.
+	FooterSelect string
+	// FooterCancel words the Esc hint; the default is "Cancel". Optional.
+	FooterCancel string
 	// Cursor is the highlighted entry; set it to the current value.
 	Cursor int
 	// OnMove is called whenever the highlight moves, for live previews.
@@ -42,8 +57,16 @@ type Choice[S any] struct {
 	OnCancel func(ctx *dashygotui.Context[S]) tea.Cmd
 }
 
+// items is the current list of entries.
+func (c *Choice[S]) items(ctx *dashygotui.Context[S]) []Item {
+	if c.Rows != nil {
+		return c.Rows(ctx)
+	}
+	return c.Items
+}
+
 func (c *Choice[S]) move(ctx *dashygotui.Context[S], to int) {
-	n := len(c.Items)
+	n := len(c.items(ctx))
 	if n == 0 {
 		return
 	}
@@ -56,6 +79,7 @@ func (c *Choice[S]) move(ctx *dashygotui.Context[S], to int) {
 // HandleKey implements dashygotui.Modal.
 func (c *Choice[S]) HandleKey(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) tea.Cmd {
 	name := strings.ToLower(msg.String())
+	n := len(c.items(ctx))
 	switch name {
 	case "up", "k":
 		c.move(ctx, c.Cursor-1)
@@ -64,9 +88,9 @@ func (c *Choice[S]) HandleKey(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) t
 	case "home":
 		c.move(ctx, 0)
 	case "end":
-		c.move(ctx, len(c.Items)-1)
+		c.move(ctx, n-1)
 	case "enter", "space":
-		if c.Cursor < 0 || c.Cursor >= len(c.Items) {
+		if c.Cursor < 0 || c.Cursor >= n {
 			ctx.CloseModal()
 			return nil
 		}
@@ -83,7 +107,7 @@ func (c *Choice[S]) HandleKey(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) t
 		}
 	default:
 		if len(name) == 1 && name[0] >= '1' && name[0] <= '9' {
-			if i := int(name[0] - '1'); i < len(c.Items) {
+			if i := int(name[0] - '1'); i < n {
 				c.move(ctx, i)
 			}
 		}
@@ -97,33 +121,43 @@ func (c *Choice[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []s
 	w := width(size.Cols, 72)
 	inner := w - 4
 
+	items := c.items(ctx)
 	var head []string
 	if c.Help != "" {
 		head = append(head, text.Wrap(c.Help, inner)...)
 		head = append(head, "")
 	}
-	foot := []string{"", keys(th, th.G.UpDown, "Move", "Enter", "Select", "Esc", "Cancel")}
+	if c.Intro != nil {
+		if lines := c.Intro(ctx, inner); len(lines) > 0 {
+			head = append(head, lines...)
+			head = append(head, "")
+		}
+	}
+	foot := []string{"", keys(th, th.G.UpDown, "Move", "Enter", cmp.Or(c.FooterSelect, "Select"), "Esc", cmp.Or(c.FooterCancel, "Cancel"))}
 
 	// Each entry takes two rows; show a window of them around the cursor when
 	// the terminal cannot hold the whole list.
 	room := size.Rows - 2 - len(head) - len(foot)
 	visible := max(room/2, 1)
 	start := 0
-	if len(c.Items) > visible {
-		start = min(max(c.Cursor-visible/2, 0), len(c.Items)-visible)
+	if len(items) > visible {
+		start = min(max(c.Cursor-visible/2, 0), len(items)-visible)
 	}
-	end := min(start+visible, len(c.Items))
+	end := min(start+visible, len(items))
 
 	body := head
 	for i := start; i < end; i++ {
-		it := c.Items[i]
+		it := items[i]
 		body = append(body, chart.ChoiceRows(th, i+1, it.Label, it.Badge, it.Detail, inner, i == c.Cursor)...)
 	}
 	body = append(body, foot...)
 
 	badge := ""
-	if len(c.Items) > visible {
-		badge = ctx.Count(len(c.Items), "choices")
+	switch {
+	case c.Badge != nil:
+		badge = c.Badge(ctx)
+	case len(items) > visible:
+		badge = ctx.Count(len(items), "choices")
 	}
 	return popup(th, c.Title, badge, w, size.Rows, body)
 }

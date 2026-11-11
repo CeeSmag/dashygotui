@@ -103,6 +103,8 @@ type Options struct {
 	Background dashygotui.BackgroundMode
 	Palette    string
 	AltScroll  bool
+	// StartView is a stack of view IDs to open at start (Config.StartView).
+	StartView []string
 	// Events counts the events the feed has pushed; Poll reports it. Optional.
 	Events *atomic.Int64
 }
@@ -138,6 +140,7 @@ func Config(o Options) dashygotui.Config[State] {
 		Background: o.Background,
 		Palette:    o.Palette,
 		AltScroll:  o.AltScroll,
+		StartView:  o.StartView,
 		Palettes:   []theme.Palette{Solarized()},
 
 		// Backspace goes back too, as well as Esc and b.
@@ -186,8 +189,12 @@ func Config(o Options) dashygotui.Config[State] {
 					}
 					return th.Green.Render("LIVE")
 				}},
-			// Three chart panels stacked.
-			{ID: "charts", Title: "Charts", ShortTitle: "Chrt", TinyTitle: "C", Layout: dashygotui.LayoutRows},
+			// Three chart panels stacked. FallbackWhen says when to show the compact
+			// summary with any rule, here "narrow and short, or very short"; use
+			// FallbackBelow for the simple "narrower or shorter than" case.
+			{ID: "charts", Title: "Charts", ShortTitle: "Chrt", TinyTitle: "C", Layout: dashygotui.LayoutRows,
+				Fallback:     chartsSummary,
+				FallbackWhen: func(s dashygotui.Size) bool { return (s.Cols < 80 && s.Rows < 22) || s.Rows < 10 }},
 			// Three sections: Auto puts one above two.
 			{ID: "actions", Title: "Actions", ShortTitle: "Act", TinyTitle: "A", Layout: dashygotui.LayoutAuto},
 			// Two sections side by side.
@@ -232,6 +239,18 @@ func monitorSummary(c *Ctx, size dashygotui.Size) []string {
 		panel.Row(th, "Traffic", text.Rate(s.NetIn)+" in, "+text.Rate(s.NetOut)+" out"),
 	}
 	return append(rows, th.Muted.Render("compact view: make the window larger for the full page"))
+}
+
+// chartsSummary is the Charts page's compact form: the numbers without the
+// graphs.
+func chartsSummary(c *Ctx, size dashygotui.Size) []string {
+	th, s := c.Theme(), c.State()
+	return []string{
+		panel.Row(th, "CPU", fmt.Sprintf("%5.1f%%", s.CPU)),
+		panel.Row(th, "Memory", fmt.Sprintf("%5.1f%%", s.Mem)),
+		panel.Row(th, "Traffic", text.Rate(s.NetIn)+" in, "+text.Rate(s.NetOut)+" out"),
+		th.Muted.Render(th.Trunc("compact view: the graphs need a larger window", size.Cols)),
+	}
 }
 
 // Run shows the dashboard and returns why it ended. While it runs, a feed

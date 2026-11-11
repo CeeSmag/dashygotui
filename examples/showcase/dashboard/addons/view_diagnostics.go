@@ -17,7 +17,9 @@ import (
 // [50] Diagnostics (hotkey d): a full-screen view with a Status panel above a
 // menu of Options. The view has its own options with their own numbers, and a
 // view-local Hotkey (t) that works only inside it. The view and the option that
-// opens it are one feature, so one file registers both.
+// opens it are one feature, so one file registers both. OptionsTitle and
+// OptionsSubtitle name the menu panel, Header adds a "Mode: ON" segment to the
+// header and Hints adds a footer hint for the view-local hotkey.
 
 func init() {
 	dashboard.Registry.View(dashboard.View{
@@ -28,6 +30,14 @@ func init() {
 				return th.Red.Render(th.G.Cross + " UNREACHABLE")
 			}
 			return th.Green.Render(th.G.Bullet + " HEALTHY")
+		},
+		OptionsTitle:    "Actions",
+		OptionsSubtitle: "Enter runs the highlighted one",
+		Header: func(c *dashboard.Ctx) []panel.Segment {
+			return []panel.Segment{{Text: c.Theme().Green.Render("Mode: ON"), Prio: 85}}
+		},
+		Hints: func(*dashboard.Ctx) []dashygotui.Hint {
+			return []dashygotui.Hint{{Key: "t", Label: "Self-test", Tone: dashygotui.ToneGood, Prio: 58}}
 		},
 		Status: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
 			th, s := c.Theme(), c.State()

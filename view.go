@@ -1,6 +1,8 @@
 package dashygotui
 
 import (
+	"cmp"
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -58,12 +60,25 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	var lines []string
 	scrollable := false
 	switch {
-	case v.Body != nil && v.Scroll:
-		all, bar := m.scrollContent(v, cols, body)
-		scrollable = bar
-		lines = m.scrollWindow(v, all, cols, body, bar)
 	case v.Body != nil:
-		lines = v.Body(m.ctx, size)
+		inner := m.bodySize(v, cols, rows)
+		var rowsOut []string
+		pos := ""
+		if v.Scroll {
+			all, bar := m.scrollContent(v, inner.Cols, inner.Rows)
+			scrollable = bar
+			rowsOut = m.scrollWindow(v, all, inner.Cols, inner.Rows, bar)
+			if bar {
+				off := m.topOffset(v, len(all), inner.Rows)
+				pos = fmt.Sprintf("rows %d-%d of %d", off+1, off+inner.Rows, len(all))
+			}
+		} else {
+			rowsOut = v.Body(m.ctx, inner)
+		}
+		lines = rowsOut
+		if v.Panel != nil {
+			lines = m.viewPanel(v, cols, body, rowsOut, pos)
+		}
 	default:
 		badge := ""
 		if v.Badge != nil {
@@ -80,7 +95,7 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 			menuH := max(body-statusH, 3)
 			lines = panel.VStack(
 				panel.Panel(th, v.Title, badge, v.Subtitle, cols, statusH, status),
-				panel.Panel(th, "Options", m.optionsBadge(len(opts)), "", cols, menuH,
+				panel.Panel(th, cmp.Or(v.OptionsTitle, "Options"), m.optionsBadge(len(opts)), v.OptionsSubtitle, cols, menuH,
 					m.menuBody(opts, 0, cols-4, menuH-2, len(opts)+2 <= menuH)),
 			)
 		case v.Status != nil:
@@ -94,8 +109,11 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	segs := []panel.Segment{
 		{Text: th.White.Render(m.title()), Prio: 100},
 		{Text: th.Title.Render(v.Title), Prio: 90},
-		{Text: th.Muted.Render(m.clock()), Prio: 40},
 	}
+	if v.Header != nil {
+		segs = append(segs, v.Header(m.ctx)...)
+	}
+	segs = append(segs, panel.Segment{Text: th.Muted.Render(m.clock()), Prio: 40})
 	var hints []panel.Hint
 	if v.Options != nil && v.Body == nil {
 		hints = append(hints, m.hint(th.G.UpDown, "Move", th.Key, 60), m.hint(th.G.Enter, "Open", th.Key, 55))
@@ -106,13 +124,14 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 			hints = append(hints, m.hint("End", "Live", th.Key, 58))
 		}
 	}
+	if v.Hints != nil {
+		for _, h := range v.Hints(m.ctx) {
+			hints = append(hints, m.toneHint(h))
+		}
+	}
 	for _, s := range m.d.reg.shortcuts {
 		if s.Scope == ScopeEverywhere && s.Label != "" {
-			prio := s.Prio
-			if prio == 0 {
-				prio = 30
-			}
-			hints = append(hints, m.hint(s.Key, s.Label, th.Key, prio))
+			hints = append(hints, m.shortcutHint(s))
 		}
 	}
 	hints = append(hints, m.hint("Esc/b", "Back", th.Key, 1000), m.hint("q", "Quit", th.Red, 900))
@@ -123,6 +142,34 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	}
 	out := append([]string{panel.Header(th, segs, cols)}, panel.Frame(lines, cols, body)...)
 	return append(out, m.footer(cols, mode, hints))
+}
+
+// bodySize is the size a view's Body is given: the whole body area, or the
+// inside of its panel.
+func (m *model[S]) bodySize(v View[S], cols, rows int) Size {
+	body := max(rows-2, 1) // header and footer
+	if v.Panel != nil {
+		return Size{Cols: max(cols-4, 1), Rows: max(body-2, 1)}
+	}
+	return Size{Cols: cols, Rows: body}
+}
+
+// viewPanel frames a view's body rows in its panel. pos is the scroll position
+// shown after the panel's subtitle, if any.
+func (m *model[S]) viewPanel(v View[S], cols, body int, rows []string, pos string) []string {
+	p := v.Panel
+	badge := ""
+	switch {
+	case p.Badge != nil:
+		badge = p.Badge(m.ctx)
+	case v.Badge != nil:
+		badge = v.Badge(m.ctx)
+	}
+	sub := p.Subtitle
+	if pos != "" {
+		sub = strings.Trim(sub+" · "+pos, " ·")
+	}
+	return panel.Panel(m.th, cmp.Or(p.Title, v.Title), badge, sub, cols, body, rows)
 }
 
 func (m *model[S]) optionsBadge(n int) string {
@@ -142,12 +189,12 @@ func (m *model[S]) scrollContent(v View[S], cols, body int) (lines []string, bar
 
 // scrollMax is the furthest a scrolling view can be scrolled at this size.
 func (m *model[S]) scrollMax(v View[S]) int {
-	body := max(m.rows-2, 1)
-	lines, bar := m.scrollContent(v, m.cols, body)
+	inner := m.bodySize(v, m.cols, m.rows)
+	lines, bar := m.scrollContent(v, inner.Cols, inner.Rows)
 	if !bar {
 		return 0
 	}
-	return max(len(lines)-body, 0)
+	return max(len(lines)-inner.Rows, 0)
 }
 
 // scrollWindow cuts the visible rows out of a scrolling body and, when there
@@ -179,7 +226,7 @@ func (m *model[S]) scrollWindow(v View[S], all []string, cols, body int, bar boo
 func (m *model[S]) scrollViewKey(v View[S], msg tea.KeyPressMsg) bool {
 	k := m.d.keys
 	limit := m.scrollMax(v)
-	page := max(m.rows-3, 1)
+	page := max(m.bodySize(v, m.cols, m.rows).Rows-1, 1)
 	// toward is the sign of "further along the content"; in a Tail view the
 	// offset counts back from the bottom, so down means a smaller offset.
 	toward := 1
@@ -233,7 +280,8 @@ func (m *model[S]) holdTail() {
 	if !v.Tail || !v.Scroll || v.Body == nil || m.cols < layout.MinCols || m.rows < layout.MinRows {
 		return
 	}
-	lines, _ := m.scrollContent(v, m.cols, max(m.rows-2, 1))
+	inner := m.bodySize(v, m.cols, m.rows)
+	lines, _ := m.scrollContent(v, inner.Cols, inner.Rows)
 	if m.viewScroll > 0 && m.viewTotal > 0 && len(lines) > m.viewTotal {
 		m.viewScroll += len(lines) - m.viewTotal
 	}

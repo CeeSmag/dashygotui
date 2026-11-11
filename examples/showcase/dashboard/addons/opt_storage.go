@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -13,7 +14,10 @@ import (
 )
 
 // [10] Storage Limit (hotkey s): modal.Edit with Validate and a background
-// Save. A failed save or validation shows inline and keeps the editor open.
+// Save. A failed save or validation shows inline and keeps the editor open. On
+// success OnSaved chains a follow-up task, here pretending to reload the
+// service with the new limit, the way an application restarts a server after
+// saving one of its settings.
 
 func init() {
 	const limitKey = "storage.limit_gb"
@@ -51,6 +55,17 @@ func init() {
 					}
 					log.Printf("[INFO] storage limit set to %d GB", n)
 					return fmt.Sprintf("Storage limit set to %d GB.", n), nil
+				},
+				OnSaved: func(c *dashboard.Ctx, saved string) tea.Cmd {
+					return c.RunTask("storage.reload", "Reloading the service...", func(ctx context.Context) (string, error) {
+						select {
+						case <-time.After(400 * time.Millisecond):
+						case <-ctx.Done():
+							return "", ctx.Err()
+						}
+						log.Print("[INFO] service reloaded with the new storage limit")
+						return saved + " Service reloaded.", nil
+					})
 				},
 			})
 			return nil

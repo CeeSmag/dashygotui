@@ -112,6 +112,26 @@ func (m *model[S]) hint(key, label string, st lipgloss.Style, prio int) panel.Hi
 	return panel.Hint{Key: key, Label: label, Style: st, Prio: prio}
 }
 
+// toneHint turns a public [Hint] into a footer hint in the theme's colours.
+func (m *model[S]) toneHint(h Hint) panel.Hint {
+	prio := h.Prio
+	if prio == 0 {
+		prio = 30
+	}
+	hint := m.hint(h.Key, h.Label, h.Tone.style(m.th), prio)
+	hint.Tinted = h.Tone != ToneDefault
+	return hint
+}
+
+// shortcutHint is the footer hint of a shortcut.
+func (m *model[S]) shortcutHint(s Shortcut[S]) panel.Hint {
+	k := s.Display
+	if k == "" {
+		k = s.Key
+	}
+	return m.toneHint(Hint{Key: k, Label: s.Label, Tone: s.Tone, Prio: s.Prio})
+}
+
 // autoHints builds the footer hint strip from what the current page offers.
 func (m *model[S]) autoHints() []panel.Hint {
 	th := m.th
@@ -128,11 +148,7 @@ func (m *model[S]) autoHints() []panel.Hint {
 	}
 	for _, s := range m.d.reg.shortcuts {
 		if s.Label != "" { // pages-scope and everywhere-scope shortcuts both work here
-			prio := s.Prio
-			if prio == 0 {
-				prio = 30
-			}
-			hints = append(hints, m.hint(s.Key, s.Label, th.Key, prio))
+			hints = append(hints, m.shortcutHint(s))
 		}
 	}
 	return append(hints,
@@ -294,7 +310,15 @@ func optionText[S any](o Option[S]) string {
 	if o.Hotkey == "" {
 		return o.Label
 	}
-	return o.Label + " (" + o.Hotkey + ")"
+	return o.Label + " (" + hotkeyText(o) + ")"
+}
+
+// hotkeyText is how the option's hotkey is written.
+func hotkeyText[S any](o Option[S]) string {
+	if o.HotkeyDisplay != "" {
+		return o.HotkeyDisplay
+	}
+	return o.Hotkey
 }
 
 // menuRow draws one option w cells wide: the cursor, the number, the label, and
@@ -318,7 +342,12 @@ func (m *model[S]) menuRow(o Option[S], w, numW, labelW int, selected bool) stri
 		return text.Fit(head, w)
 	}
 	label := func(width int) string {
-		s := text.Pad(th.Trunc(optionText(o), width), width)
+		txt := optionText(o)
+		if o.Hotkey != "" && o.HotkeyTone != ToneDefault && !selected && text.Width(txt) <= width {
+			// Colour the "(key)" part; a label that must be truncated stays plain.
+			txt = o.Label + " " + o.HotkeyTone.style(th).Render("("+hotkeyText(o)+")")
+		}
+		s := text.Pad(th.Trunc(txt, width), width)
 		if selected {
 			return th.White.Render(s)
 		}
@@ -337,6 +366,9 @@ func (m *model[S]) menuRow(o Option[S], w, numW, labelW int, selected bool) stri
 func (m *model[S]) useFallback(p Page[S], cols, body int) bool {
 	if p.Fallback == nil {
 		return false
+	}
+	if p.FallbackWhen != nil {
+		return p.FallbackWhen(Size{Cols: cols, Rows: body})
 	}
 	return (p.FallbackBelow.Cols > 0 && cols < p.FallbackBelow.Cols) ||
 		(p.FallbackBelow.Rows > 0 && body < p.FallbackBelow.Rows)

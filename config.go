@@ -48,6 +48,11 @@ type Config[S any] struct {
 	// default shows Title and a clock.
 	Header func(*Context[S]) []panel.Segment
 
+	// StartView is a stack of view IDs to open at start, bottom first: the last
+	// is the one on screen and Back walks down the rest and then to the pages.
+	// Each is opened as if the user had, so OnEnter and OnLeave run. Optional.
+	StartView []string
+
 	// Store keeps settings between runs. The default is in-memory.
 	Store Store
 
@@ -160,6 +165,11 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 		}
 		hotkeys[o.Hotkey] = o
 	}
+	for _, id := range cfg.StartView {
+		if !slices.ContainsFunc(reg.views, func(v View[S]) bool { return v.ID == id }) {
+			errs = append(errs, fmt.Errorf("StartView names unknown view %q", id))
+		}
+	}
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, errors.Join(errs...))
 	}
@@ -228,11 +238,14 @@ func buildPages[S any](cfg Config[S], reg registered[S]) ([]pageDef[S], []error)
 		if _, dup := pageIdx[p.ID]; dup {
 			errs = append(errs, fmt.Errorf("duplicate page ID %q", p.ID))
 		}
+		below := p.FallbackBelow.Cols > 0 || p.FallbackBelow.Rows > 0
 		switch {
-		case p.Fallback != nil && p.FallbackBelow.Cols <= 0 && p.FallbackBelow.Rows <= 0:
-			errs = append(errs, fmt.Errorf("page %q has a Fallback but no FallbackBelow size", p.ID))
-		case p.Fallback == nil && (p.FallbackBelow.Cols != 0 || p.FallbackBelow.Rows != 0):
-			errs = append(errs, fmt.Errorf("page %q sets FallbackBelow but has no Fallback", p.ID))
+		case p.Fallback != nil && !below && p.FallbackWhen == nil:
+			errs = append(errs, fmt.Errorf("page %q has a Fallback but no FallbackBelow size or FallbackWhen", p.ID))
+		case p.Fallback == nil && (below || p.FallbackWhen != nil):
+			errs = append(errs, fmt.Errorf("page %q sets FallbackBelow or FallbackWhen but has no Fallback", p.ID))
+		case below && p.FallbackWhen != nil:
+			errs = append(errs, fmt.Errorf("page %q sets both FallbackBelow and FallbackWhen; use one", p.ID))
 		}
 		pageIdx[p.ID] = i
 		pages[i] = pageDef[S]{page: p}

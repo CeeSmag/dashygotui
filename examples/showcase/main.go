@@ -10,7 +10,7 @@
 // Usage:
 //
 //	showcase [-glyphs auto|unicode|tty] [-background terminal|paint|off|transparent]
-//	         [-palette id] [-altscroll] [-ephemeral]
+//	         [-palette id] [-altscroll] [-ephemeral] [-view id[,id...]]
 package main
 
 import (
@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
@@ -44,11 +45,15 @@ func run(args []string) error {
 	background := fs.String("background", "terminal", "palette background: terminal, paint, or off (alias: transparent)")
 	palette := fs.String("palette", "", "start with this palette id (default, catppuccin, dracula, nord, console, solarized)")
 	altScroll := fs.Bool("altscroll", false, "turn the mouse wheel into arrow keys")
+	startView := fs.String("view", "", "open these views at start, bottom first, e.g. diagnostics,stdaddons.logs")
 	ephemeral := fs.Bool("ephemeral", false, "do not save settings between runs")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	opts := dashboard.Options{Palette: *palette, AltScroll: *altScroll}
+	if *startView != "" {
+		opts.StartView = strings.Split(*startView, ",")
+	}
 	switch *glyphs {
 	case "auto":
 	case "unicode":
