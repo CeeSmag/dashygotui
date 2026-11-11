@@ -1,0 +1,134 @@
+# Architecture
+
+## The idea
+
+A dashboard is a **foundation** plus **addons**. The foundation declares pages
+and sections; each addon is one self-registering file. Getting that to work in Go
+without global magic or code generation drives most of the design.
+
+```
+main.go ──imports──▶ dashboard         pages, sections, the one Registry, Run
+        └─blank────▶ dashboard/addons  opt_*.go widget_*.go view_*.go modal_*.go
+addons ──imports──▶ dashboard ──imports──▶ dashygotui
+dashboard never imports addons
+```
+
+An addon's `init()` runs only if its package is imported, so `main` imports the
+addons package once, blank. Every file in it then registers with the
+`Registry` that `dashboard` declares.
+
+## Packages
+
+| Package | Role |
+| --- | --- |
+| `dashygotui` (root) | `Config`, `Dashboard`, `Registry`, `Context`, the Bubble Tea model, keys, `Run` |
+| `text` | ANSI- and wide-character-aware width, truncation, padding, wrapping |
+| `theme` | `Palette` and the immutable `Theme` of styles built from one |
+| `panel` | bordered panels, stacking, joining, overlay, header and footer fitting |
+| `chart` | meter, slider, Braille graphs, time series, adaptive wave scaler |
+| `modal` | edit, confirm, typed, notice, choice, slider pop-ups |
+| `stdaddons` | opt-in addons: theme picker, spacing sliders, refresh rate |
+| `store` | `Store` implementations: JSON file, in-memory |
+| `dashtest` | terminal-free test driver with a fake clock and timers |
+| `layout` | page arrangement, spacing and edge insets; pure and non-generic (re-exported by the root as `Layout` and `Spacing`) |
+
+Leaf packages (`text`, `theme`, `panel`, `chart`, `layout`) know nothing
+about Bubble Tea or application state and are tested without them.
+
+## Why generics, and where the global lives
+
+`Dashboard[S]` is parameterised by the application's state type `S`, so addons
+receive a typed `*Context[S]` and never type-assert. Go cannot declare a generic
+package-level variable, so the library cannot own a global registry for an
+unknown `S`. The library supplies `Registry[S]`; the **application** declares
+the single instance in its dashboard file. That one variable is the only global
+in an application; the library has none.
+
+Tests inject their own registry, so nothing leaks between them.
+
+## Lifecycle
+
+1. **`init()`**: each addon calls `Registry.Option/Widget/View/Shortcut/On...`.
+   Mistakes are recorded with the caller's `file:line`; nothing panics.
+2. **`New(cfg)`**: freezes the registry, then validates everything together:
+   registration mistakes, unknown pages and sections, duplicate IDs, reserved
+   shortcut keys. All problems are reported at once, wrapped in
+   `ErrInvalidConfig`. Panels are collected and sorted by `Order`.
+3. **`Run(ctx)`**: starts Bubble Tea. Settings load from the `Store`.
+
+Registration order is irrelevant: Go runs `init()` in file-name order, so the
+registry orders panels and options by explicit `Order`, then `Number`/`Key`.
+
+## Data flow
+
+```
+Poll ──(tea.Cmd)──▶ stateMsg[S] ──▶ Update ──▶ model.state ──▶ View ──▶ Render funcs
+                                       ▲
+              key / tick / task result ┘
+```
+
+- Polling is a `tea.Cmd`, not a goroutine with a channel. The result arrives as a
+  message and is applied in `Update`.
+- **All model state changes happen in `Update`.** Addon callbacks run there (or
+  in `View`, read-only). That is why a `Context` must not leave its callback.
+- One poll is in flight at a time, and one timer pending; `Refresh()` never
+  piles up chains.
+- Time is injectable (`Config.Clock`, `Config.Timer`), which is what lets
+  `dashtest` run without sleeping.
+
+## Rendering
+
+`View` builds exactly `rows` lines of exactly `cols` cells, for every size from
+0x0 up:
+
+```
+dashScreen  = Inset(terminal gap)  [ header, tab bar, page, footer ]
+page        = Inset(page gap)      Arrange(panels, layout mode, section gap)
+panel       = section → menu rows  |  widget → its Render rows
+modal       = Overlay(box) centred, clipped (keeps the keys and bottom border)
+```
+
+- Below 40x10 a "terminal too small" notice replaces the frame.
+- `layout.Inset` shrinks a gap whenever it would leave too little room, so no
+  setting can overflow a small terminal.
+- Layout degrades gracefully: side-by-side panels stack on narrow terminals.
+- Width is always measured in cells (`text.Width`), never bytes or runes.
+- The mouse is not captured, so the terminal keeps selection and copy.
+
+## Navigation
+
+- Up/down move within a section; left/right move between sections on a page;
+  Tab/Shift+Tab switch pages; each page remembers its cursor.
+- **Typing a number jumps to that option on any page.** "1" then "2" selects
+  `[12]` (a digit that cannot continue the number starts afresh); Enter opens it.
+  Nothing opens by accident and there is no timer.
+- Numbers are unique across the dashboard, enforced at startup.
+
+## Settings
+
+Theme, spacing and refresh rate are changeable at run time and saved in the
+`Store` under `dashygotui.*` keys. Pickers **preview without saving**
+(`PreviewPalette`, `PreviewSpacing`) and save only on confirm, so a cursor move
+never writes the settings file. The JSON file store writes atomically
+(temp file and rename) with mode 0600, and moves an unreadable file aside
+rather than overwriting it.
+
+## What changed from the original (CloudVault) engine
+
+| Before | Now |
+| --- | --- |
+| engine exposed `Config`, `Snapshot`, `SetStorageLimit`, ... | generic `Dashboard[S]`; no domain types |
+| package-level mutable globals (gaps, palette, TTY mode) | immutable `Theme` and spacing on the dashboard |
+| hand-assigned option numbers could collide silently | collisions are a startup error naming both files |
+| the registry lived in the addons package | the library supplies `Registry[S]`; the app owns one |
+| modal-kind / view / page enums to extend | interface values and string IDs; nothing central to edit |
+| `Updated()` channel from a backend | polling as a command; no data races |
+| exit-handler registry | `Run` returns `ExitInfo`; `main` acts on it |
+| `/proc` TTY detection, `sudo`, `systemd` in the engine | OS-agnostic core; platform code lives in addons |
+| guard tests grep source for substrings | guard tests parse the AST |
+
+## Not in v1
+
+Addon-defined pages (pages are declared in the dashboard file), mouse support,
+and a CloudVault migration. Waveform visualisers beyond the `chart` building
+blocks (`UpCell`, `DownCell`, `WaveScaler`) are left to applications.

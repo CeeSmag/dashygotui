@@ -1,0 +1,61 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - errorlint        # %w and errors.Is/As instead of == and type assertions
+    - gochecknoglobals # RULES.md section 5: no mutable package state in the library
+    - gochecknoinits   # RULES.md section 5: no init() in the library
+    - gocritic
+    - misspell
+    - nilerr
+    - noctx
+    - nolintlint
+    - revive           # exported identifiers must be documented
+    - unconvert
+    - unparam
+    - forbidigo        # RULES.md section 6: the library never prints or logs
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: ^(fmt\.Print(f|ln)?|print|println)$
+          msg: the library must not write to stdout/stderr (RULES.md section 6)
+        - pattern: ^log\.
+          msg: the library must not log (RULES.md section 6)
+        - pattern: ^os\.Exit$
+          msg: the library must not call os.Exit (RULES.md section 6)
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: error-strings
+        - name: error-naming
+        - name: receiver-naming
+        - name: var-naming
+        - name: context-as-argument
+        - name: indent-error-flow
+  exclusions:
+    presets:
+      - comments
+      - std-error-handling
+    rules:
+      # init(), globals and printing are legitimate in applications and tests.
+      - path: (^|/)examples/
+        linters: [gochecknoglobals, gochecknoinits, forbidigo]
+      - path: _test\.go$
+        linters: [gochecknoglobals, gochecknoinits, forbidigo, unparam]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/CeeSmag/dashygotui

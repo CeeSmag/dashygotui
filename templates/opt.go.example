@@ -1,0 +1,34 @@
+package addons
+
+// TEMPLATE: a menu option.
+//
+// To use it:
+//  1. Copy this file to your addons directory as opt_<name>.go.
+//  2. Change the import path of the dashboard package to your own.
+//  3. Pick a Number that no other option uses (a clash is a startup error that
+//     names both files) and the ID of a section declared in your dashboard file.
+//
+// Nothing else is edited: the file registers itself from init().
+
+import (
+	tea "charm.land/bubbletea/v2"
+
+	"example.com/yourapp/dashboard"
+)
+
+func init() {
+	dashboard.Registry.Option(dashboard.Option{
+		Key:     "my_feature", // unique and stable; also the prefix for any Store keys
+		Section: "settings",   // a section declared in the dashboard file
+		Number:  42,           // typed on the keyboard to jump here; unique across the dashboard
+		Label:   "My Feature",
+		// Badge is the row's current state, shown after the label. Optional.
+		Badge: func(c *dashboard.Ctx) string { return c.OnOff(true) },
+		// Run is called on Enter (or Space). Open a modal, start a task, or
+		// change something and flash the result.
+		Run: func(c *dashboard.Ctx) tea.Cmd {
+			c.Flash("My feature ran")
+			return nil
+		},
+	})
+}

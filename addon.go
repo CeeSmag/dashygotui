@@ -1,0 +1,130 @@
+package dashygotui
+
+import tea "charm.land/bubbletea/v2"
+
+// Option is one numbered, selectable row in a section: the thing an addon adds
+// to a menu. Register it with [Registry.Option].
+type Option[S any] struct {
+	// Key is a unique, stable identifier such as "storage". Required.
+	Key string
+	// Section is the ID of the section the option appears in, as declared in
+	// [Config.Sections]. Required.
+	Section string
+	// Number is the number that selects the option from the keyboard: typing it
+	// jumps straight to the row, on any page. It must be positive and unique
+	// across the whole dashboard. Required.
+	Number int
+	// Order sorts the option within its section, ascending. When zero the
+	// Number is used.
+	Order int
+	// Label is the row text. Required.
+	Label string
+	// Badge returns the row's current state, already styled, such as "[ON ✓]".
+	// Optional.
+	Badge func(*Context[S]) string
+	// Run is called when the user opens the row. Required.
+	Run func(*Context[S]) tea.Cmd
+}
+
+func (o Option[S]) order() int {
+	if o.Order != 0 {
+		return o.Order
+	}
+	return o.Number
+}
+
+// Widget is a read-only panel on a page: a chart, a gauge, a status readout.
+// Register it with [Registry.Widget].
+type Widget[S any] struct {
+	// Key is a unique, stable identifier such as "disk_io". Required.
+	Key string
+	// Page is the ID of the page the widget appears on, as declared in
+	// [Config.Pages]. Required.
+	Page string
+	// Order sorts the widget among the page's panels (sections and widgets
+	// together), ascending.
+	Order int
+	// Title is shown in the panel's top border. Required.
+	Title string
+	// Subtitle is shown in the panel's bottom border. Optional.
+	Subtitle string
+	// MinHeight is the height in rows, borders included, the widget would like
+	// when panels are stacked. It defaults to 11.
+	MinHeight int
+	// Badge returns the state shown in the top border, already styled.
+	// Optional.
+	Badge func(*Context[S]) string
+	// Render returns the panel's body rows for the given inner size. Rows wider
+	// than the width are truncated and missing rows are left blank, but
+	// returning exactly the right size is faster and clearer. Required.
+	Render func(*Context[S], Size) []string
+}
+
+// View is a full-screen page opened from an option or a shortcut with
+// [Context.OpenView] and left with the Back key. Register it with
+// [Registry.View].
+//
+// A view draws a header, a body and a footer. The body is, in order of
+// precedence, Body when set, otherwise a status panel (Status) above a menu of
+// numbered rows (Options), either of which may be absent.
+type View[S any] struct {
+	// ID is the unique name passed to [Context.OpenView]. Required.
+	ID string
+	// Title names the view in the header and above the status panel. Required.
+	Title string
+	// Badge is shown beside the title. Optional.
+	Badge func(*Context[S]) string
+	// Subtitle is shown in the bottom border of the status panel. Optional.
+	Subtitle string
+	// Mode is the footer's left-hand label, such as "LIVE". Optional.
+	Mode string
+	// Status returns the rows of the status panel. Optional.
+	Status func(*Context[S], Size) []string
+	// Options returns the menu rows, called afresh on every frame so badges and
+	// availability can change. Numbers need only be unique within the view.
+	Options func(*Context[S]) []Option[S]
+	// Body draws the whole body itself, replacing Status and Options. It
+	// returns rows for the given body size.
+	Body func(*Context[S], Size) []string
+	// Keys sees every key press first. Return handled == true to stop the
+	// dashboard from acting on it. Optional.
+	Keys func(ctx *Context[S], msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool)
+}
+
+// SectionSpec declares a section: a bordered panel on a page that holds
+// options. Sections are declared in the dashboard file; addons fill them with
+// options by section ID.
+type SectionSpec[S any] struct {
+	// ID is the unique name options refer to. Required.
+	ID string
+	// Page is the ID of the page the section appears on. Required.
+	Page string
+	// Order sorts the section among the page's panels, ascending.
+	Order int
+	// Title is shown in the panel's top border. Required.
+	Title string
+	// Subtitle is shown in the panel's bottom border. Optional.
+	Subtitle string
+	// Noun is the word counted in the default badge, "option" by default. The
+	// badge reads "[3 options]".
+	Noun string
+	// Badge overrides the default count badge. Optional.
+	Badge func(*Context[S]) string
+}
+
+// Page declares one tab of the dashboard. Pages appear in the order they are
+// listed in [Config.Pages].
+type Page[S any] struct {
+	// ID is the unique name sections and widgets refer to. Required.
+	ID string
+	// Title is the tab label. Required.
+	Title string
+	// ShortTitle is used when the terminal is narrower than 100 columns.
+	ShortTitle string
+	// TinyTitle is used when the terminal is narrower than 75 columns.
+	TinyTitle string
+	// Layout arranges the page's panels. The zero value is [LayoutAuto].
+	Layout Layout
+	// Badge is shown after the title on the active tab. Optional.
+	Badge func(*Context[S]) string
+}

@@ -1,0 +1,52 @@
+package addons
+
+// TEMPLATE: a full-screen view and the option that opens it.
+//
+// To use it:
+//  1. Copy this file to your addons directory as view_<name>.go.
+//  2. Change the import path of the dashboard package to your own.
+//  3. Pick an unused option Number and a section declared in your dashboard file.
+//
+// The view and the option that opens it are one feature, so one file registers
+// both. A view draws a status panel above a menu of numbered rows; or set Body
+// to draw everything yourself. The Back key (Esc or b) returns to the page.
+
+import (
+	tea "charm.land/bubbletea/v2"
+
+	"example.com/yourapp/dashboard"
+	"github.com/CeeSmag/dashygotui"
+	"github.com/CeeSmag/dashygotui/panel"
+)
+
+func init() {
+	dashboard.Registry.View(dashboard.View{
+		ID:       "my_view",
+		Title:    "My View",
+		Subtitle: "details",
+		Mode:     "VIEW", // footer label
+
+		Status: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
+			return []string{panel.Row(c.Theme(), "Hello", "from my view")}
+		},
+		// Options is called on every frame; numbers need only be unique within the view.
+		Options: func(*dashboard.Ctx) []dashboard.Option {
+			return []dashboard.Option{
+				{Number: 1, Label: "Do Something", Run: func(c *dashboard.Ctx) tea.Cmd {
+					c.Flash("Did something")
+					return nil
+				}},
+			}
+		},
+	})
+
+	dashboard.Registry.Option(dashboard.Option{
+		Key: "my_view", Section: "actions", Number: 43, Label: "My View",
+		Run: func(c *dashboard.Ctx) tea.Cmd {
+			if err := c.OpenView("my_view"); err != nil {
+				c.FlashError(err.Error())
+			}
+			return nil
+		},
+	})
+}

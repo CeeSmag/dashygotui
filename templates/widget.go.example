@@ -1,0 +1,51 @@
+package addons
+
+// TEMPLATE: a widget, a read-only panel on a page.
+//
+// To use it:
+//  1. Copy this file to your addons directory as widget_<name>.go.
+//  2. Change the import path of the dashboard package to your own.
+//  3. Set Page to a page declared in your dashboard file.
+//
+// Nothing else is edited: the file registers itself from init().
+
+import (
+	"fmt"
+
+	"example.com/yourapp/dashboard"
+	"github.com/CeeSmag/dashygotui"
+	"github.com/CeeSmag/dashygotui/panel"
+)
+
+func init() {
+	dashboard.Registry.Widget(dashboard.Widget{
+		Key:       "my_widget", // unique and stable
+		Page:      "monitor",   // a page declared in the dashboard file
+		Order:     50,          // among the page's panels, ascending
+		Title:     "My Widget",
+		Subtitle:  "live readout",
+		MinHeight: 6, // rows, borders included, wanted when panels are stacked
+
+		// Badge is shown in the top border. Optional.
+		Badge: func(c *dashboard.Ctx) string { return c.Theme().Green.Render("● LIVE") },
+
+		// Render returns the body rows for the inner size. It runs on every
+		// frame, so keep it cheap and read data from c.State().
+		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
+			th := c.Theme()
+			return []string{
+				panel.Row(th, "Width", fmt.Sprint(size.Cols)),
+				panel.Row(th, "Height", fmt.Sprint(size.Rows)),
+			}
+		},
+	})
+
+	// A widget that samples over time keeps its history in a variable declared
+	// here, inside init, and feeds it from a tick hook:
+	//
+	//	history := chart.NewSeries(2 * time.Minute)
+	//	dashboard.Registry.OnTick(func(c *dashboard.Ctx, now time.Time) tea.Cmd {
+	//		history.Add(now, c.State().Something)
+	//		return nil
+	//	})
+}

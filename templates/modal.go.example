@@ -1,0 +1,53 @@
+package addons
+
+// TEMPLATE: an option that opens a custom modal.
+//
+// For most needs the modal package already has what you want: Edit, Confirm,
+// Typed, Notice, Choice and Slider. Write your own only for something else.
+//
+// To use it:
+//  1. Copy this file to your addons directory as modal_<name>.go.
+//  2. Change the import path of the dashboard package to your own.
+//  3. Pick an unused option Number and a section declared in your dashboard file.
+//
+// All state lives in the modal value, never in package variables.
+
+import (
+	tea "charm.land/bubbletea/v2"
+
+	"example.com/yourapp/dashboard"
+	"github.com/CeeSmag/dashygotui"
+	"github.com/CeeSmag/dashygotui/panel"
+)
+
+// pickModal counts presses of the space bar until Enter.
+type pickModal struct{ presses int }
+
+// HandleKey implements dashygotui.Modal.
+func (m *pickModal) HandleKey(c *dashboard.Ctx, msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.String() {
+	case "space":
+		m.presses++
+	case "enter", "esc":
+		c.CloseModal()
+		c.Flash("Counted presses")
+	}
+	return nil
+}
+
+// Render implements dashygotui.Modal. Return the box only; the dashboard
+// centres it and clips it to the terminal.
+func (m *pickModal) Render(c *dashboard.Ctx, size dashygotui.Size) []string {
+	body := []string{"Press space, then Enter.", "", panel.Row(c.Theme(), "Count", string(rune('0'+m.presses%10)))}
+	return panel.Panel(c.Theme(), "My Modal", "", "", min(50, size.Cols), len(body)+2, body)
+}
+
+func init() {
+	dashboard.Registry.Option(dashboard.Option{
+		Key: "my_modal", Section: "settings", Number: 44, Label: "My Modal",
+		Run: func(c *dashboard.Ctx) tea.Cmd {
+			c.OpenModal(&pickModal{})
+			return nil
+		},
+	})
+}
