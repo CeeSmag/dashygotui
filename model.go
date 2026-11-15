@@ -2,7 +2,9 @@ package dashygotui
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -88,7 +90,7 @@ type model[S any] struct {
 	flash      string
 	flashBad   bool
 	flashUntil time.Time
-	pending    string // the footer message of the task in flight, cleared when it ends
+	pending    []pendingTask // the footer messages of the tasks in flight, oldest first
 
 	// queue holds commands that code running inside Update produced without
 	// being able to return them (view hooks, for one). Update sends them on.
@@ -251,10 +253,36 @@ func (m *model[S]) pollCmd() tea.Cmd {
 		return nil
 	}
 	m.polling = true
-	run := m.run
+	run, limit := m.run, m.d.cfg.PollTimeout
 	return func() tea.Msg {
-		s, err := poll(run)
-		return stateMsg[S]{state: s, err: err}
+		if limit < 0 {
+			s, err := poll(run)
+			return stateMsg[S]{state: s, err: err}
+		}
+		return pollWithin(run, limit, poll)
+	}
+}
+
+// pollWithin calls poll with a deadline of limit and gives up on it when the
+// deadline passes, even if poll ignores its ctx. An abandoned call keeps running
+// until poll returns; its result goes into a buffered channel nobody reads, so
+// that goroutine always ends.
+func pollWithin[S any](run context.Context, limit time.Duration, poll func(context.Context) (S, error)) stateMsg[S] {
+	ctx, cancel := context.WithTimeout(run, limit)
+	defer cancel()
+	done := make(chan stateMsg[S], 1)
+	go func() {
+		s, err := poll(ctx)
+		done <- stateMsg[S]{state: s, err: err}
+	}()
+	select {
+	case msg := <-done:
+		return msg
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return stateMsg[S]{err: fmt.Errorf("poll took longer than %s: %w", limit, context.DeadlineExceeded)}
+		}
+		return stateMsg[S]{err: ctx.Err()}
 	}
 }
 
@@ -312,6 +340,11 @@ func (m *model[S]) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateMsg[S]:
 		m.polling = false
 		if msg.err != nil {
+			// Say why once, when the data goes stale, unless an addon's own message
+			// is up (it says more); the STALE marker in the footer stays either way.
+			if m.stateErr == nil && (m.flash == "" || m.showingPending()) {
+				m.setFlash(m.th.G.Cross+" poll failed: "+text.OneLine(msg.err.Error()), true, FlashResult)
+			}
 			m.stateErr = msg.err
 		} else {
 			m.state, m.stateErr, m.ready = msg.state, nil, true
@@ -328,12 +361,15 @@ func (m *model[S]) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m, m.onKey(msg)
 	}
+	// Every hook sees every message: hooks run in registration order, which no
+	// addon may rely on, so one hook must not be able to hide a message from another.
+	var cmds []tea.Cmd
 	for _, hook := range m.d.reg.onMsg {
 		if cmd := hook(m.ctx, msg); cmd != nil {
-			return m, cmd
+			cmds = append(cmds, cmd)
 		}
 	}
-	return m, nil
+	return m, tea.Batch(cmds...)
 }
 
 // onTick advances everything that moves on its own.
@@ -341,6 +377,9 @@ func (m *model[S]) onTick(now time.Time) tea.Cmd {
 	m.ticks++
 	if m.flash != "" && now.After(m.flashUntil) {
 		m.flash, m.flashBad = "", false
+	}
+	if m.flash == "" {
+		m.showPending() // a task still running keeps saying so
 	}
 	cmds := []tea.Cmd{m.tickCmd()}
 	for _, hook := range m.d.reg.onTick {
@@ -355,11 +394,20 @@ func (m *model[S]) onTick(now time.Time) tea.Cmd {
 // hooks, then the footer.
 func (m *model[S]) onResult(res TaskResult) tea.Cmd {
 	// A task is over: take its "working..." message off the footer, whoever
-	// handles the result. A handler that has something to say replaces it.
-	if m.pending != "" && m.flash == m.pending {
+	// handles the result, and show the next task still running. A handler that
+	// has something to say replaces it.
+	showing := false
+	m.pending = slices.DeleteFunc(m.pending, func(p pendingTask) bool {
+		if p.token != res.Token {
+			return false
+		}
+		showing = showing || (m.flash == p.text && !m.flashBad)
+		return true
+	})
+	if showing {
 		m.flash, m.flashBad = "", false
+		m.showPending()
 	}
-	m.pending = ""
 	if rm, ok := m.modal.(ResultModal[S]); ok {
 		if handled, cmd := rm.OnResult(m.ctx, res); handled {
 			return cmd
@@ -372,19 +420,41 @@ func (m *model[S]) onResult(res TaskResult) tea.Cmd {
 	}
 	m.flashResult(res.Text, res.Err)
 	if res.Err == nil {
-		return m.pollCmd()
+		return m.refresh() // the task changed something: a poll already in flight may predate it
 	}
 	return nil
 }
 
+// pendingTask is the footer message of one task in flight.
+type pendingTask struct {
+	token int
+	text  string
+}
+
+// pendingFlash is how long a task's message stays up before the next tick
+// puts it back; it is shown for as long as the task runs.
+const pendingFlash = 30 * time.Second
+
+// showingPending reports whether the footer shows a running task's message.
+func (m *model[S]) showingPending() bool {
+	return !m.flashBad && slices.ContainsFunc(m.pending, func(p pendingTask) bool { return p.text == m.flash })
+}
+
+// showPending puts the message of the newest task still running in the footer.
+func (m *model[S]) showPending() {
+	if n := len(m.pending); n > 0 {
+		m.setFlash(m.pending[n-1].text, false, pendingFlash)
+	}
+}
+
 // runTask starts fn in the background and reports its result as a taskMsg.
 func (m *model[S]) runTask(tag, pending string, fn func(context.Context) (string, error)) tea.Cmd {
-	if pending != "" {
-		m.setFlash(pending, false, 30*time.Second)
-		m.pending = pending
-	}
 	m.token++
 	token, run := m.token, m.run
+	if pending != "" {
+		m.pending = append(m.pending, pendingTask{token: token, text: pending})
+		m.showPending()
+	}
 	return func() tea.Msg {
 		out, err := fn(run)
 		return taskMsg{res: TaskResult{Token: token, Tag: tag, Text: out, Err: err}}

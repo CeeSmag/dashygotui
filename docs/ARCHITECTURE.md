@@ -78,7 +78,12 @@ Poll ──(tea.Cmd)──▶ stateMsg[S] ──▶ Update ──▶ model.state
 - **All model state changes happen in `Update`.** Addon callbacks run there (or
   in `View`, read-only). That is why a `Context` must not leave its callback.
 - One poll is in flight at a time, and one timer pending; `Refresh()` never
-  piles up chains.
+  piles up chains. A refresh asked for while a poll is in flight repeats that
+  poll once when it ends.
+- Every poll runs under `Config.PollTimeout`. A poll past its deadline is a failed
+  poll; one that ignores its ctx is abandoned (its goroutine ends when the call
+  returns, into a buffered channel nobody reads). While the latest poll failed the
+  footer shows `STALE`.
 - **Pushing in from outside.** `Dashboard.Notify()` hands the running program a
   `notifyMsg` (through the `Sender` that `Run` attaches), which polls at once; a
   request made while a poll is in flight sets a flag and one more poll follows,

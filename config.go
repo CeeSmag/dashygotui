@@ -42,6 +42,13 @@ type Config[S any] struct {
 	// Interval is how often the dashboard refreshes. Default one second. The
 	// user can change it at run time; the choice is kept in Store.
 	Interval time.Duration
+	// PollTimeout is the deadline of one Poll call. Default ten seconds; a
+	// negative value means no deadline. A poll that runs past it counts as
+	// failed, with an error wrapping [context.DeadlineExceeded], and the next
+	// poll starts on schedule. Poll should return when its ctx is done; a call
+	// that ignores it is abandoned and its result is discarded, so Poll may be
+	// called again while an abandoned call is still running.
+	PollTimeout time.Duration
 
 	// Header returns the segments of the header strip. Lower priorities are
 	// dropped first on narrow terminals and the first is never dropped. The
@@ -101,6 +108,10 @@ type Config[S any] struct {
 	// can fire on demand, so tests never sleep.
 	Timer func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd
 }
+
+// DefaultPollTimeout is the deadline of one Poll call when
+// [Config.PollTimeout] is zero.
+const DefaultPollTimeout = 10 * time.Second
 
 // Dashboard is a validated, ready-to-run dashboard. Create one with [New].
 type Dashboard[S any] struct {
@@ -196,6 +207,9 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 
 	if cfg.Interval <= 0 {
 		cfg.Interval = time.Second
+	}
+	if cfg.PollTimeout == 0 {
+		cfg.PollTimeout = DefaultPollTimeout
 	}
 	if cfg.Clock == nil {
 		cfg.Clock = time.Now

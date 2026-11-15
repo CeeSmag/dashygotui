@@ -5,6 +5,36 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [Unreleased]
+
+The road to v0.4.0, where addons become values (see `docs/DESIGN.md`).
+
+### Added
+
+- **`Config.PollTimeout`** (default `DefaultPollTimeout`, ten seconds; negative for no
+  deadline). A poll that runs past it fails with an error wrapping
+  `context.DeadlineExceeded` and the next poll starts on schedule, so a poll that
+  never returns can no longer freeze the dashboard.
+- **Poll failures are visible.** While the latest poll failed, the footer shows
+  `STALE` in place of the refresh rate, and the footer says `poll failed: <reason>`
+  once when the data goes stale (unless an addon's own message is showing).
+
+### Fixed
+
+- `Context.Refresh` while a poll is in flight now repeats that poll when it ends,
+  as `Dashboard.Notify` already did; before, it returned nil and the screen could show
+  data read before the change until the next interval. A task that succeeds and is
+  not handled by a hook refreshes the same way.
+- A task's "working..." message stays up for as long as the task runs. Before, it
+  vanished after 30 seconds, and when two tasks ran, the first one ending removed the
+  second one's message.
+
+### Changed
+
+- **Every `Registry.OnMsg` hook now sees every message.** Before, the first hook that
+  returned a command hid the message from the rest, so the outcome depended on the
+  order the hooks were registered in. The commands of all hooks are run together.
+
 ## [0.3.0] - 2026-11-11
 
 Keeps applications on the library's rails: shorter addons, rules that travel with

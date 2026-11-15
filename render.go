@@ -92,6 +92,9 @@ func (m *model[S]) tabLabel(p Page[S], cols int, active bool) string {
 func (m *model[S]) footer(cols int, mode string, hints []panel.Hint) string {
 	th := m.th
 	left := " " + th.Green.Render(th.Spinner(m.ticks)) + " " + th.White.Render(mode)
+	if m.stateErr != nil { // the data on screen is from before the failing poll
+		left = " " + th.Red.Render(th.G.Cross+" STALE")
+	}
 	right := ""
 	if m.digits != "" {
 		right = th.Key.Render("#"+m.digits) + " "

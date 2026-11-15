@@ -124,8 +124,10 @@ func (c *Context[S]) RunTask(tag, pending string, fn func(ctx context.Context) (
 }
 
 // Refresh polls for fresh state now rather than waiting for the next interval.
-// It returns nil when nothing is configured to poll or a poll is under way.
-func (c *Context[S]) Refresh() tea.Cmd { return c.m.pollCmd() }
+// A poll already under way may have read the data before the change that
+// prompted the refresh, so it is repeated once when it ends; Refresh then
+// returns nil. It also returns nil when nothing is configured to poll.
+func (c *Context[S]) Refresh() tea.Cmd { return c.m.refresh() }
 
 // Spacing returns the active spacing.
 func (c *Context[S]) Spacing() Spacing { return c.m.spacing }

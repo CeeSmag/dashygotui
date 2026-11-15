@@ -368,8 +368,9 @@ func (r *Registry[S]) OnResult(fn func(*Context[S], TaskResult) (handled bool, c
 }
 
 // OnMsg registers a hook for messages the dashboard does not recognise, so an
-// addon can handle the messages of its own commands. Return a non-nil command
-// to claim the message and stop later hooks.
+// addon can handle the messages of its own commands. Every hook sees every such
+// message, whatever another hook returned; the commands they return are run
+// together. Return nil to ignore a message.
 func (r *Registry[S]) OnMsg(fn func(*Context[S], tea.Msg) tea.Cmd) {
 	site := callerSite()
 	if !r.begin(site, "message hook") {

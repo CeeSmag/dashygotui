@@ -90,6 +90,7 @@ dashygotui: const BackgroundOff
 dashygotui: const BackgroundPaint
 dashygotui: const BackgroundTerminal BackgroundMode
 dashygotui: const BackgroundTransparent
+dashygotui: const DefaultPollTimeout
 dashygotui: const FlashHint
 dashygotui: const FlashResult
 dashygotui: const GlyphsAuto GlyphMode
@@ -128,6 +129,7 @@ dashygotui: field Config.Pages []Page[S]
 dashygotui: field Config.Palette string
 dashygotui: field Config.Palettes []theme.Palette
 dashygotui: field Config.Poll func(ctx context.Context) (S, error)
+dashygotui: field Config.PollTimeout time.Duration
 dashygotui: field Config.Registry *Registry[S]
 dashygotui: field Config.Sections []SectionSpec[S]
 dashygotui: field Config.Spacing *Spacing
