@@ -15,18 +15,25 @@ Machine-enforced rules are marked **[enforced]** and are checked by
 `dashygotui` is a generic library for building Bubble Tea v2 dashboards with as
 little application code as possible.
 
+> **Migration in progress.** `docs/DESIGN.md` ("Decision: addons are values")
+> moves addons from `init()` registration to values listed by a generated file.
+> Until phase 4 of that plan lands, the v0.3 form (`init()` and the application's
+> `Registry`) is still accepted, and the guard tests enforce whichever form a file
+> uses. This note is removed by phase 4.
+
 > **Zero-edit extension.** Adding an option, widget, view, shortcut or modal to
-> an application means adding **exactly one new file** in that application's
-> `addons/` directory. No other file is edited: not the dashboard file, not a
-> registry table, not a README index. **[enforced: addon guard tests and
-> `make deletion-test`]**
+> an application means adding **exactly one new hand-written file** in that
+> application's `addons/` directory. No other file is edited by hand: not the
+> dashboard file, not a registry table, not a README index. The generated
+> `addons_gen.go` changes with it and is regenerated, never edited (`go generate`).
+> **[enforced: addon guard tests, rule A11 and `make deletion-test`]**
 
 Corollaries:
 
-- Deleting any single addon file must leave the module compiling and the
-  dashboard running. **[enforced: `make deletion-test`]**
+- Deleting any single addon file and regenerating must leave the module
+  compiling and the dashboard running. **[enforced: `make deletion-test`]**
 - A feature that needs persistence, a background task, a shortcut, a modal and
-  a sub-view registers all of them from the same file.
+  a sub-view declares all of them in the same file.
 - Editing an existing file to introduce a new addon is prohibited unless it is
   genuinely unavoidable and the reason is stated in the change description.
 
@@ -43,15 +50,17 @@ project-specific consequences explicit.
 ## 3. Layout and dependency boundaries
 
 ```
-main.go  --imports-->  dashboard   (pages, section slots, the one global Registry, Run)
-         --blank---->  dashboard/addons   (opt_*.go, widget_*.go, view_*.go, modal_*.go, shortcut_*.go)
+main.go  --imports-->  dashboard          (pages, section slots, Run)
+         --imports-->  dashboard/addons   (opt_*.go, widget_*.go, view_*.go, modal_*.go, shortcut_*.go,
+                                           doc.go, addons_gen.go with All())
 addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 ```
 
 - The library (`dashygotui`, `layout`, `theme`, `text`, `panel`, `chart`,
   `modal`, `stdaddons`, `store`, `dashtest`, and anything under `internal/`)
   **never** imports `examples/` or any `addons` package. **[enforced]**
-- `dashboard` **never** imports `addons`. Only `main` does, with a blank import.
+- `dashboard` **never** imports `addons`. Only `main` does, and it passes
+  `addons.All()` to the dashboard.
 - Addon files **never** depend on each other: no calling a function, using a
   type or reading a variable declared in a sibling addon file. Shared code
   moves into the `dashboard` package or the library. **[enforced]**
@@ -84,7 +93,7 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 - The library follows semantic versioning. Do not change an exported signature
   without calling it out as a breaking change.
 
-## 5. Globals, `init()` and registration
+## 5. Globals, `init()` and addons as values
 
 - The library has **no mutable package-level state** and **no `init()`**.
   Package-level `var` is limited to sentinel errors (`errors.New` /
@@ -92,18 +101,19 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
   **[enforced]**
 - Theme, spacing, refresh interval and every other piece of runtime state live
   on the `Dashboard` value and are passed explicitly to renderers.
-- The **only** global in an application is its single `Registry[S]`, declared in
-  the application's dashboard file. The library merely provides the generic
-  type.
-- `init()` is allowed only in `addons/` and `examples/`, and only to register
-  with a registry. No I/O, no goroutines, no reading environment or flags in
-  `init()`.
-- Registration never panics and never returns an error to `init()` (it cannot).
-  The registry records the problem together with the caller's `file:line`, and
-  `Registry.Validate` / `dashygotui.New` fail loudly before the UI starts.
-- `init()` order follows filenames and must not be relied on. Ordering of
-  options, widgets and panels comes only from the explicit `Order` field, then
-  the stable `Key`.
+- An application has **no global and no `init()`** either. An addon is a value:
+  every top-level `var` in an addon file is an addon literal (`Option`, `Widget`,
+  `View`, `Shortcut`, `Hook` or a `stdaddons` value), unexported, and never
+  assigned to. **[enforced: A3, A12]**
+- The list of addons is generated: `dashygotui gen` writes `addons_gen.go`, whose
+  `All()` returns every addon wrapped in `At("file.go:line", ...)`. It is checked
+  in and never edited; a stale list is an error. **[enforced: A11]**
+- Addons are passed to `dashygotui.New` in `Config.Addons`. A test passes only
+  the addons it needs.
+- Validation never panics. `dashygotui.New` reports every problem at once, each
+  with the `file:line` that `At` recorded, before the UI starts.
+- The order of `All()` must not be relied on. Ordering of options, widgets and
+  panels comes only from the explicit `Order` field, then the stable `Key`.
 - Option numbers are assigned by hand and are unique across the dashboard. A
   duplicate number, duplicate key, or reference to an unknown page or section
   is a startup error that names both offending call sites.
@@ -132,8 +142,9 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
   held by the Bubble Tea model (`model.run`), because commands created inside
   `Update` must be cancelled when the program ends; it is documented at the field
   and is never exposed to addons.
-- Every goroutine has a clear owner and a defined stop condition; never start
-  one in `init()`.
+- Every goroutine has a clear owner and a defined stop condition.
+- `Config.Poll` runs under a deadline (`Config.PollTimeout`, default 10s), so a
+  poll that never returns cannot freeze the dashboard.
 - **All model state is mutated only inside `Update`.** Background work (polling,
   tasks) returns results as `tea.Msg`; it never touches the model directly.
 - Protect any shared state with a mutex that has a short, obvious scope.
@@ -175,18 +186,23 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 ## 9a. Architecture guard tests
 
 `arch_test.go` parses the source with `go/parser` and enforces sections 3, 5
-and 10. Do not weaken, skip, or work around a guard test. If a guard is wrong,
+and 10. The generated `addons_gen.go` files of the examples are checked for
+staleness the same way an application's are. Do not weaken, skip, or work around a guard test. If a guard is wrong,
 change the guard in the same change and explain why.
 
 ## 10. Addon rules (`addons/` directories)
 
 - File names are `opt_<name>.go`, `widget_<name>.go`, `view_<name>.go`,
-  `modal_<name>.go` or `shortcut_<name>.go` (plus `_test.go`). **[enforced]**
-- An addon reaches the library only through the `*Context[S]` it is handed and
-  the registry in the dashboard package. No package-level mutable state, and no
-  variable captured in `init` and changed by a callback (it is shared by every
-  dashboard in the process): an addon's own state lives in `dashygotui.Local`, a
-  modal's or view's in its struct. **[enforced on applications: dashygotui check]**
+  `modal_<name>.go` or `shortcut_<name>.go` (plus `_test.go`). The package also
+  holds `doc.go` (the `//go:generate` line, written once) and the generated
+  `addons_gen.go`. **[enforced]**
+- An addon file declares its addons as unexported top-level values and contains
+  no `init()`. An addon reaches the library only through the `*Context[S]` its
+  callbacks are handed. No package-level mutable state: an addon's own state
+  lives in `dashygotui.Local`, a modal's or view's in its struct.
+  **[enforced on applications: dashygotui check]**
+- After adding, renaming or deleting an addon file, run `go generate ./...`.
+  `dashygotui check` fails while `addons_gen.go` is stale.
 - Pages and section containers are declared in the dashboard file, not in
   addons. An addon targets them by string ID.
 - Persisted addon settings use `Context.Store()` with a key namespaced by the
@@ -198,8 +214,8 @@ change the guard in the same change and explain why.
 `make check` runs: `gofmt`/`goimports` check, `go vet`, `staticcheck`,
 `golangci-lint`, `govulncheck`, `go test -race -shuffle=on ./...` (which includes the
 guard, API-snapshot, reference and documentation tests), `make deletion-test` (every
-addon removable), `make template-test` (every file in `templates/` compiles and
-registers cleanly), `make consumer-test` (a throw-away application scaffolds, builds,
+addon removable after regenerating), `make template-test` (every file in
+`templates/` compiles and validates cleanly), `make consumer-test` (a throw-away application scaffolds, builds,
 passes `dashygotui check` and fails it for each bad addon), `make app-check` (the
 examples obey the application rules), `make api-check` (an API change comes with a
 changelog entry) and `go mod tidy -diff`. All must pass. Never skip, silence or loosen a
@@ -219,8 +235,9 @@ library.
    requested. Keep diffs minimal and focused.
 3. To add an addon, add one file. If you believe another file must change, stop
    and say why instead of editing it.
-4. Do not add dependencies, build tags, code generation, global state or
-   `init()` outside `addons/` and `examples/`.
+4. Do not add dependencies, build tags, global state or `init()`. The only code
+   generation is `dashygotui gen` writing `addons_gen.go`; never hand-edit its
+   output and never add another generator.
 5. Do not invent APIs that are not in the library; read the code and the godoc.
 6. Run `make check` before declaring a task done. Report failures with their
    output; never claim success for a check you did not run.
@@ -240,7 +257,7 @@ library.
 - `docs/DESIGN.md` is the charter: complexity in the library, simplicity in the
   application; the generic gate; where code lives; the gap protocol.
 - `docs/APP-RULES.md` holds the rules for applications built on the library
-  (rules A1 to A10). They are enforced on an application by `dashygotui check`
+  (rules A1 to A12). They are enforced on an application by `dashygotui check`
   (`cmd/dashygotui`) and `dashtest.Audit`, and the library's examples are held to
   them by the same code (`internal/guard`).
 - `docs/COOKBOOK.md` is the "I want X, so use Y" table. When an addon is longer

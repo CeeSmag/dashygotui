@@ -10,13 +10,22 @@ reviewer sees it. An allow comment with no reason is itself an error (X1).
 
 ## The shape of an application
 
+> **Migration in progress.** Until v0.4.0 (phase 4 of the plan in `DESIGN.md`) an
+> application may still use the v0.3 form: addons registering from `init()` into a
+> `Registry` declared in the dashboard file. Rules A11 and A12 apply only to an
+> addons package that has an `addons_gen.go`.
+
 - **One feature, one file.** Adding an option, widget, view, shortcut or pop-up
-  means adding one file in `addons/` and editing no other file. Deleting an addon
-  file leaves the application building and running.
-- The `dashboard` package declares the pages, the sections and the one `Registry`.
-  `main` imports `addons` with a blank import and nothing else.
-- Addons reach the library through the `*Context` they are given and the registry.
-  They register from `init()`, with `Registry.Add`.
+  means adding one hand-written file in `addons/` and running `go generate ./...`,
+  which rewrites the generated `addons_gen.go`. No other file is edited by hand.
+  Deleting an addon file and regenerating leaves the application building and
+  running.
+- An addon is a value: each top-level `var` in an addon file is an unexported
+  `Option`, `Widget`, `View`, `Shortcut`, `Hook` or `stdaddons` value. There is no
+  `init()`.
+- The `dashboard` package declares the pages and the sections. `main` passes
+  `addons.All()` to it; nothing else imports `addons`.
+- Addons reach the library through the `*Context` their callbacks are given.
 
 ## The rules
 
@@ -24,7 +33,7 @@ reviewer sees it. An allow comment with no reason is itself an error (X1).
 | --- | --- | --- |
 | A1 | Addon files are named `opt_*.go`, `widget_*.go`, `view_*.go`, `modal_*.go` or `shortcut_*.go`. | Rename the file. |
 | A2 | An addon never uses a declaration from a sibling addon file. | Move shared code to the `dashboard` package. |
-| A3 | No package-level mutable variable in an addon. | `dashygotui.Local` for state of the dashboard, the `Store` for saved settings. |
+| A3 | A package-level variable in an addon is an addon: one unexported name, initialised with a composite literal, and never assigned to. | `dashygotui.Local` for state of the dashboard, the `Store` for saved settings, the `dashboard` package for shared values. |
 | A4 | No `go` statement, `time.Sleep`, `os.Exit`, `fmt.Print*`, `log.Fatal*`, `panic`, or use of `os.Stdout`, `os.Stderr` or `os.Stdin`. | `Context.RunTask`, `Context.Quit`, `Context.Flash`, `Context.FlashError`. |
 | A5 | No `lipgloss.NewStyle`, `lipgloss.Color`, `lipgloss.Style{}` literal (also when dot-imported), and in an addon no colour literal such as `"#38BDF8"`. | `Context.Theme()` styles, or a `Tone`. |
 | A6 | Text an addon writes is plain ASCII (`...`, not an ellipsis; no tick or cross characters) with no control or escape characters. | `Context.Theme().G` symbols; styling is the theme's job. |
@@ -32,8 +41,10 @@ reviewer sees it. An allow comment with no reason is itself an error (X1).
 | A8 | No struct embedding a library modal, and no type defined from one. | Use the modal's fields; if it lacks one, record a gap. |
 | A9 | No `Run` that only opens a view or only returns nil. | `Opens: "<view>"`, `Do: func(c) {...}`, or an `Entry` on the view. |
 | A10 | No variable declared in `init` and changed by a callback (`n++`, `list = append(...)`, `m[k] = v`): it is shared by every dashboard in the process. | `dashygotui.Local` (see "Where an addon keeps its state"). |
+| A11 | `addons_gen.go` matches what `dashygotui gen` would write now. | Run `go generate ./...`. Never edit the file by hand. |
+| A12 | No `init()` in an addons package that has an `addons_gen.go`. | Declare the addon as a value; the generated list picks it up. |
 
-**Where they apply.** A1 to A4, A6 and A9 apply to files in a directory named
+**Where they apply.** A1 to A4, A6, A9, A11 and A12 apply to files in a directory named
 `addons`. A5 (raw styles), A7 and A8 apply to **every file that imports the
 library**, because a workaround is as likely to sit in the `dashboard` package as in
 an addon (a wrapper type around a library modal there is still a wrapper).
@@ -47,14 +58,15 @@ deliberate ones visible: that is what the allow comment and the gap marker are f
 (`git diff` against `-base`, default `HEAD`, plus untracked files). A change that **adds** an
 addon file and also **edits, deletes or renames another Go file** (the dashboard file, a
 sibling addon, a registry table) is reported as C1: adding an addon should edit nothing
-else. Tests, `go.mod`, `go.sum` and non-Go files are exempt. It is advice, because an edit
+else. Tests, `go.mod`, `go.sum`, non-Go files, and the addons package's `doc.go` and
+generated `addons_gen.go` are exempt. It is advice, because an edit
 can be unavoidable (a new section in the dashboard file); say why in the change
 description, or run with `-strict` to make it fail.
 
 **For AI agents.** `dashygotui init -claude` writes a Claude Code skill
 (`.claude/skills/dashygotui/SKILL.md`) that tells the agent when to read these rules and
 what loop to follow, and merges a `PostToolUse` hook into `.claude/settings.json` that
-runs `dashygotui check -q` after every edit and hands the findings back to the agent.
+runs `dashygotui gen` and then `dashygotui check -q` after every edit and hands the findings back to the agent.
 Your other settings and hooks are kept; a settings file that is not a JSON object is
 never overwritten.
 
@@ -66,9 +78,9 @@ must say where the gap is recorded) and **X1** (an allow comment needs a reason)
 - **Saved between runs:** the `Store` (settings; `stdaddons.Toggle` and friends do it).
 - **Alive while the dashboard runs** (a history it samples, a selection, a counter):
   `dashygotui.Local[T](c, "key")`, which gives the addon a value that belongs to
-  *this dashboard*. Do not capture a variable in `init` for this: a captured variable
-  is shared by every dashboard in the process, so two dashboards (a test, an
-  embedding) corrupt each other and tests depend on their order. The check cannot see
+  *this dashboard*. Do not keep it in a package-level variable: that is shared by
+  every dashboard in the process, so two dashboards (a test, an embedding) corrupt
+  each other and tests depend on their order. The check cannot see
   such a variable when it is changed through a method (`series.Add(...)`) rather than assigned, so that case is on the author; A10 catches assignments, increments and element or field writes.
 - **The application's data:** the state type `S` that `Poll` returns.
 
