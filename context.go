@@ -23,7 +23,7 @@ type Context[S any] struct {
 }
 
 // State returns the latest state from the configured Poll function. Before the
-// first successful poll it is the zero value; see [Context.Ready].
+// first successful poll it is [Config.Initial]; see [Context.Ready].
 func (c *Context[S]) State() S { return c.m.state }
 
 // Ready reports whether Poll has succeeded at least once.

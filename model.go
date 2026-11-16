@@ -124,6 +124,7 @@ func newModel[S any](run context.Context, d *Dashboard[S]) *model[S] {
 		pageSec:  make([]int, len(d.pages)),
 		palette:  theme.DefaultID,
 		pageOn:   -1,
+		state:    d.cfg.Initial,
 	}
 	m.ctx = &Context[S]{m: m}
 	if d.cfg.Spacing != nil {

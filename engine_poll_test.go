@@ -3,6 +3,7 @@ package dashygotui_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -267,4 +268,35 @@ func TestPollFailureDoesNotHideAnAddonMessage(t *testing.T) {
 	d.Press("x")
 	d.RequireContains("Outage started", "STALE")
 	d.RequireAbsent("poll failed")
+}
+
+// Before the first poll returns, the dashboard holds Config.Initial: a start
+// view and its Session see it, and Ready is still false.
+func TestInitialIsTheStateBeforeTheFirstPoll(t *testing.T) {
+	var seen []string
+	r := collect.New[state]()
+	r.View(dashygotui.View[state]{ID: "v", Title: "V",
+		Body: func(c *ctx, _ dashygotui.Size) []string { return []string{fmt.Sprintf("count=%d", c.State().Count)} },
+		Session: func(c *ctx) func() {
+			seen = append(seen, fmt.Sprintf("count=%d ready=%v", c.State().Count, c.Ready()))
+			return nil
+		}})
+	c := baseConfig(r)
+	c.Initial = state{Count: 7}
+	c.StartView = []string{"v"}
+	fail := true
+	c.Poll = func(context.Context) (state, error) {
+		if fail {
+			return state{}, errors.New("not yet")
+		}
+		return state{Count: 8}, nil
+	}
+	d := dashtest.New(t, c, 100, 24)
+	if strings.Join(seen, ",") != "count=7 ready=false" {
+		t.Fatalf("the start view's session saw %q, want Initial before the first poll", seen)
+	}
+	d.RequireContains("count=7") // a failed poll keeps Initial
+	fail = false
+	d.Tick()
+	d.RequireContains("count=8")
 }

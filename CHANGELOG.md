@@ -5,6 +5,16 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [0.6.1] - 2026-11-17
+
+### Added
+
+- **`Config.Initial`**: the state before the first poll returns. A key pressed in the
+  first moment, or a start view and its `Session`, see it instead of the zero value,
+  so handles the state carries (services, clients) are never empty. A failed first
+  poll keeps it. `Context.Ready` still reports false until the first poll succeeds.
+  Additive: without it, the state starts as the zero value as before.
+
 ## [0.6.0] - 2026-11-16
 
 **A window is a subpage, and the map gives the keys.** A feature says only what it

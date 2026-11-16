@@ -138,6 +138,19 @@ panel with the scroll position in its border. `Body` is given the size to fill.
 `Map.Hooks`: set the ones you need. Every `Msg` sees every message the dashboard
 does not handle itself. A widget that only samples needs no hook: `Widget.Tick`.
 
+## Give the state what it needs before the first poll
+
+`Config.Initial` is the state until the first poll returns. Put the services the
+state carries there, so a key pressed in the first second, or a start view, never
+sees them empty:
+
+```go
+cfg.Initial = dashboard.State{Service: svc, Settings: settings}
+```
+
+`Poll` then returns a state that carries them too. `c.Ready()` stays false until
+the first poll succeeds.
+
 ## Start in a view
 
 `Config.StartView: []string{"diag", "log"}` (bottom first).

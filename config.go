@@ -30,9 +30,16 @@ type Config[S any] struct {
 	Map Map[S]
 
 	// Poll fetches the application state. It is called at Interval, in the
-	// background, and once at start. When nil the state stays the zero value
-	// of S and nothing is polled.
+	// background, and once at start. When nil the state stays Initial and
+	// nothing is polled.
 	Poll func(ctx context.Context) (S, error)
+	// Initial is the state before the first poll returns: what the dashboard
+	// shows, and what a key pressed or a start view opened in that moment sees.
+	// Put there what is known before polling, such as the handles to the
+	// services the state carries, so nothing reads them empty. Context.Ready
+	// stays false until the first poll succeeds. Optional; the zero value of S
+	// by default.
+	Initial S
 	// Interval is how often the dashboard refreshes. Default one second. The
 	// user can change it at run time; the choice is kept in Store.
 	Interval time.Duration

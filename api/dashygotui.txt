@@ -127,6 +127,7 @@ dashygotui: field Config.Exec func(cmd tea.ExecCommand, done tea.ExecCallback) t
 dashygotui: field Config.Getenv func(string) string
 dashygotui: field Config.Glyphs GlyphMode
 dashygotui: field Config.Header func(*Context[S]) []panel.Segment
+dashygotui: field Config.Initial S
 dashygotui: field Config.Interval time.Duration
 dashygotui: field Config.Keys KeyMap
 dashygotui: field Config.Map Map[S]
