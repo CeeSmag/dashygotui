@@ -20,11 +20,11 @@ import (
 // theme picker.
 func extras(buf *logs.Buffer, st dashygotui.Store, term string) dashygotui.Config[state] {
 	r := collect.New[state]()
-	r.Add(stdaddons.ThemePicker[state]{Hotkey: "m"})
-	r.Add(stdaddons.DisplayPicker[state]{})                   // [23]
-	r.Add(stdaddons.LogView[state]{Buffer: buf, Hotkey: "g"}) // [24]
-	r.Add(stdaddons.BackgroundPicker[state]{})                // [25]
-	r.Add(stdaddons.TransparencyToggle[state]{Hotkey: "y"})   // [26]
+	r.Add(dashygotui.Hotkey[state]{Key: "m", Item: stdaddons.ThemePicker[state]{}})
+	r.Add(stdaddons.DisplayPicker[state]{})                                                // [23]
+	r.Add(dashygotui.Hotkey[state]{Key: "g", Item: stdaddons.LogView[state]{Buffer: buf}}) // [24]
+	r.Add(stdaddons.BackgroundPicker[state]{})                                             // [25]
+	r.Add(dashygotui.Hotkey[state]{Key: "y", Item: stdaddons.TransparencyToggle[state]{}}) // [26]
 	return dashygotui.Config[state]{
 		Title:  "T",
 		Store:  st,

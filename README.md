@@ -6,7 +6,7 @@ possible.
 
 An application's dashboard is **a directory of features and one map**. Each
 feature is a single file that says only what it does: an option, a widget, a view,
-a sub-page, a shortcut, a pop-up. The map, one hand-written file, says where
+a subpage, a shortcut, a pop-up. The map, one hand-written file, says where
 everything goes: the pages, the panels on each page, the rows in each panel. Add a
 feature's file and its line in the map; no other file is edited.
 
@@ -85,9 +85,10 @@ Most features are shorter still: an option that opens a view is `Opens: "logs"`,
 one that shows a pop-up is `Modal: ...`, an action with nothing to return is
 `Do: ...`, a view placed as a row is opened by that row, and a saved setting is one
 `stdaddons.Toggle`, `Number`, `Pick` or `Text`. An option that opens a **window**
-is a plain option (`Option{Label: "Diagnostics", Hotkey: "d"}`); the map makes it
-the `Row` of a page placed as a row and says what the window holds. A big
-dashboard splits the map by page into `<name>_map.go` files. Ready-made addons such as the theme picker go in the map directly, with no
+is a **subpage**, a plain option in `diag_subpage.go`; everything inside the window
+is named after it (`diag_logs_subopt.go`), and the map opens it, fills it and gives
+every row its number and hotkey. A big dashboard splits the map by page into
+`<name>_map.go` files. Ready-made addons such as the theme picker go in the map directly, with no
 file. `dashygotui new <kind> <name>` writes a starter from [`templates/`](templates/)
 and prints the line to add to the map.
 

@@ -13,8 +13,6 @@ import (
 //
 // Declare it as an addon.
 type DisplayPicker[S any] struct {
-	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
-	Hotkey string
 }
 
 // Addons implements [dashygotui.Addon].
@@ -31,8 +29,7 @@ func (a DisplayPicker[S]) Addons() []dashygotui.Addon[S] {
 			}
 			return ctx.Badge(label)
 		},
-		Do:     openDisplayPicker[S],
-		Hotkey: a.Hotkey,
+		Do: openDisplayPicker[S],
 	}}
 }
 

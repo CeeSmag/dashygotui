@@ -66,18 +66,26 @@ func newCmd(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	raw, err := fs.ReadFile(templates.FS, kind+".go.example")
+	if strings.HasPrefix(kind, "sub") && kind != "subpage" {
+		// An element of a subpage is named after it: <subpage>_<name>_sub<kind>.go.
+		if sub := subpageOf(addons, name); sub == "" {
+			fmt.Fprintf(stderr, "dashygotui new: %s_%s.go needs its subpage: no <subpage>_subpage.go in %s starts %q (create one with dashygotui new subpage <name>)\n", name, kind, addons, name)
+			return exitUsage
+		}
+	}
+	raw, err := fs.ReadFile(templates.FS, templateOf(kind)+".go.example")
 	if err != nil {
 		fmt.Fprintf(stderr, "dashygotui new: reading the %s template: %v\n", kind, err)
 		return exitUsage
 	}
 	src := render(string(raw), importPath, name, packageName(addons))
+	src = subRename(src, kind)
 	if err := os.WriteFile(target, []byte(src), 0o644); err != nil { //nolint:gosec // a source file, readable by design
 		fmt.Fprintf(stderr, "dashygotui new: writing %s: %v\n", target, err)
 		return exitUsage
 	}
 	fmt.Fprintf(stdout, "wrote %s\n", target)
-	fmt.Fprintf(stdout, "Place it in %s, %s\n", filepath.Join(addons, guard.MapFile), placement(kind, lowerCamel(name), titleCase(name)))
+	fmt.Fprintf(stdout, "Place it in %s, %s\n", filepath.Join(addons, guard.MapFile), placement(kind, lowerCamel(name)))
 	if _, err := os.Stat(filepath.Join(addons, guard.MapFile)); err != nil {
 		fmt.Fprintf(stdout, "(there is no %s yet: it is the map, with func Map() dashboard.Map; see dashygotui rules design)\n", guard.MapFile)
 	}
@@ -85,15 +93,59 @@ func newCmd(args []string, stdout, stderr io.Writer) int {
 	return exitOK
 }
 
+// templateOf is the template a kind is written from: an element of a subpage
+// is written like its plain kind.
+func templateOf(kind string) string {
+	if base, ok := strings.CutPrefix(kind, "sub"); ok && kind != "subpage" {
+		return base
+	}
+	return kind
+}
+
+// subRename names the values of an element of a subpage after its kind:
+// myFeatureOpt becomes myFeatureSubopt.
+func subRename(src, kind string) string {
+	r := map[string][2]string{
+		"subopt":    {"Opt =", "Subopt ="},
+		"subwidget": {"Widget =", "Subwidget ="},
+		"subview":   {"View =", "Subview ="},
+		"submodal":  {"ModalOpt =", "Submodal ="},
+	}[kind]
+	if r[0] == "" {
+		return src
+	}
+	return strings.ReplaceAll(src, r[0], r[1])
+}
+
+// subpageOf returns the subpage an element named name belongs to: the longest
+// <subpage>_subpage.go in the addons directory whose subpage name, followed by
+// "_", starts name. "" when there is none.
+func subpageOf(addons, name string) string {
+	entries, _ := os.ReadDir(addons)
+	best := ""
+	for _, e := range entries {
+		sub, ok := strings.CutSuffix(e.Name(), "_subpage.go")
+		if ok && strings.HasPrefix(name, sub+"_") && len(sub) > len(best) {
+			best = sub
+		}
+	}
+	return best
+}
+
 // placement says where a new feature of the kind goes in the map, and how.
-func placement(kind, id, label string) string {
+func placement(kind, id string) string {
 	switch kind {
+	case "subpage":
+		return "in the Items of a panel, as a window: dashboard.Page{Row: " + id + "Subpage, Badge: " + id + "Badge, Session: " + id + "Session, Panels: ...}"
+	case "subopt", "subwidget", "subview", "submodal":
+		k := strings.ToUpper(kind[3:4]) + kind[4:]
+		return "inside its subpage's window: " + id + "Sub" + strings.ToLower(k)
+	case "page":
+		return "on its tab in the map: Badge: " + id + "TabBadge, Session: " + id + "TabSession"
 	case "widget":
 		return "as a panel of a page: {Widget: " + id + "Widget}"
 	case "view":
 		return "in the Items of a panel: " + id + "View (or in Map.Views, opened by its ID)"
-	case "page":
-		return "in the Items of a panel, with its panels: dashboard.Page{Title: \"" + label + "\", Badge: " + id + "Badge, Session: " + id + "Session, Panels: ...}"
 	case "modal":
 		return "in the Items of a panel: " + id + "ModalOpt"
 	case "shortcut":

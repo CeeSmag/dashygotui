@@ -35,8 +35,6 @@ import (
 //
 // Declare it as an addon.
 type BackgroundPicker[S any] struct {
-	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
-	Hotkey string
 }
 
 // Addons implements [dashygotui.Addon].
@@ -46,8 +44,7 @@ func (a BackgroundPicker[S]) Addons() []dashygotui.Addon[S] {
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			return ctx.Badge(ctx.BackgroundMode().String())
 		},
-		Do:     openBackgroundPicker[S],
-		Hotkey: a.Hotkey,
+		Do: openBackgroundPicker[S],
 	}}
 }
 
@@ -88,8 +85,6 @@ func openBackgroundPicker[S any](ctx *dashygotui.Context[S]) {
 //
 // Declare it as an addon.
 type TransparencyToggle[S any] struct {
-	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
-	Hotkey string
 }
 
 // Addons implements [dashygotui.Addon].
@@ -117,6 +112,5 @@ func (a TransparencyToggle[S]) Addons() []dashygotui.Addon[S] {
 			ctx.Flash("Transparent background off: themed background (" + restore.String() + ")")
 			return nil
 		},
-		Hotkey: a.Hotkey,
 	}}
 }

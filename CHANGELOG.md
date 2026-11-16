@@ -7,21 +7,30 @@ the API; each such change is listed under **Changed** or **Removed**.
 
 ## [0.6.0] - 2026-11-16
 
-**A window is an option and the map.** An option that opens a window is a plain
-option in a file of its own; the map opens the window and says what is inside.
-The map can be split by page. The decision is in `docs/DESIGN.md`. This release
-breaks the API; see **Removed** and **Migrating from 0.5**.
+**A window is a subpage, and the map gives the keys.** A feature says only what it
+does: no number and no hotkey, both are the map's. An option that opens a window is
+a subpage (`<name>_subpage.go`), everything inside the window is named after it
+(`<name>_<element>_sub<kind>.go`), and the map opens the window and fills it. The map
+can be split by page. The decision is in `docs/DESIGN.md`. This release breaks the
+API; see **Removed** and **Migrating from 0.5**.
 
 ### Added
 
+- **`Hotkey`**, the map's way to give a row a key: `Hotkey{Key, Display, Tone, Hint,
+  Item}` wraps an option, a view, a window or a ready-made setting.
 - **`Page.Row`**: the option that opens a page placed as a row (a window). It is an
-  ordinary `Option` with a label, hotkey and badge and no action; the map gives it
-  its action. A window's `Title` defaults to its row's label.
+  ordinary `Option` with a label and badge and no action; the map gives it its
+  action. A window's `Title` defaults to its row's label.
+- **Subpages.** New feature kinds `subpage`, `subopt`, `subwidget`, `subview` and
+  `submodal`. Rule **A14**: a window opens from a `<name>_subpage.go` option, and its
+  elements, named `<name>_<element>_sub<kind>.go`, are placed inside it and nowhere
+  else. `dashygotui new subpage <name>` writes one, and `new subopt <subpage>_<name>`
+  (and the other sub kinds) an element, refusing one whose subpage does not exist.
 - **Map files.** The map may be split by page: `addons.go` keeps `Map()`, and a page
-  or window gets `<name>_map.go`, a function returning it. `dashygotui check` treats
-  every map file as the map (A1, A2, A3, A13, C1); `make deletion-test` allows a
-  deleted feature to break any of them. `dashygotui new map <name>` writes one, from
-  the new `map` template.
+  or window gets `<name>_map.go`, a function returning it. `dashygotui new map
+  <name>` writes one. `make deletion-test` allows a deleted feature to break any map
+  file.
+- Templates `subpage` and `map`; the `page` template is now a tab's behaviour.
 - A row that opens a view or a window and sets an action of its own is a startup
   error.
 
@@ -29,24 +38,30 @@ breaks the API; see **Removed** and **Migrating from 0.5**.
 
 - **`View.Row`** replaces `View.Entry`: the row that opens a placed view is an
   `Option`, like any row.
-- The `page` template describes a window: its option, its map and its behaviour.
-- The showcase's map is split by page, and Diagnostics, in the showcase and the
-  demo, opens from a plain option (`diagnostics_opt.go`); the showcase fills it in
-  `diagnostics_map.go`.
+- The examples: Diagnostics is a subpage with its elements named after it, every
+  hotkey is given in the map, and the showcase's map is split by page.
 
 ### Removed
 
+- **`Option.Hotkey`, `HotkeyDisplay`, `HotkeyTone`, `HotkeyHint`**: use `Hotkey` in the
+  map. The `Hotkey` fields of the `stdaddons` values go too.
 - **`Entry`**, `Page.Entry` and `View.Entry`: use `Row`.
 
 ### Migrating from 0.5
 
-1. `Entry: &dashboard.Entry{...}` becomes `Row: dashboard.Option{...}`, with the same
-   fields. Remove the `Entry` alias from the dashboard package.
-2. Optionally, move a window's row into a file of its own
-   (`var diagOpt = dashboard.Option{Label: "Diagnostics", Hotkey: "d"}`) and give the
-   window `Row: diagOpt`; its `Title` may then go.
-3. Optionally, split a long map: a function per page in `<name>_map.go`, listed in
+1. Move every option's `Hotkey`, `HotkeyDisplay`, `HotkeyTone` and `HotkeyHint` into
+   the map: `dashboard.Hotkey{Key: "s", Display: ..., Tone: ..., Hint: ..., Item:
+   storageOpt}`. The same for a `stdaddons` value's `Hotkey`. Add the alias
+   `Hotkey = dashygotui.Hotkey[State]`.
+2. `Entry: &dashboard.Entry{...}` becomes `Row: dashboard.Option{...}`, without its
+   hotkey fields (step 1). Remove the `Entry` alias.
+3. Turn each window into a subpage: its row into `<name>_subpage.go`
+   (`var diagSubpage = dashboard.Option{Label: "Diagnostics"}`), with its `Session`
+   and `Badge` functions; rename what is inside it to `<name>_<element>_sub<kind>.go`;
+   give the window `Row: diagSubpage`.
+4. Optionally, split a long map: a function per page in `<name>_map.go`, listed in
    `addons.go`.
+5. Run `dashygotui check`: A14 names every element placed in the wrong window.
 
 ## [0.5.0] - 2026-11-16
 

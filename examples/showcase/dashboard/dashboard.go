@@ -79,6 +79,8 @@ type (
 	Page = dashygotui.Page[State]
 	// Panel is one panel of a page: a widget, or a list of rows.
 	Panel = dashygotui.Panel[State]
+	// Hotkey gives a row of the map a key that runs it.
+	Hotkey = dashygotui.Hotkey[State]
 	// Ctx is the handle every addon callback receives.
 	Ctx = dashygotui.Context[State]
 	// Option is a numbered row.

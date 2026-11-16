@@ -1,34 +1,28 @@
 package addons
 
-// TEMPLATE: what a window (a sub-page) does while it is open.
+// TEMPLATE: what a tab does apart from its panels.
 //
-// A window is a page placed as a row of a panel: the row opens it full-screen,
-// with panels of its own, rows numbered from 1, and Back to return. It is made of
-// three things:
-//   - the option that opens it, in a file of its own (my_feature_opt.go): only a
-//     Label, a Hotkey, a Badge; no action, the map gives it one;
-//   - what is inside it, written in the map (addons.go, or my_feature_map.go):
+// A tab is written in the map: its title, layout and panels. Some tabs also
+// need behaviour: a badge on the tab, a compact version for small terminals, a
+// session that runs while the tab is on screen. That goes here, in
+// <name>_page.go, and the map refers to it:
 //
-//	dashboard.Page{Row: myFeatureOpt, Badge: myFeatureBadge, Session: myFeatureSession,
-//		Panels: []dashboard.Panel{{Title: "Tools", Items: []dashboard.Addon{someOpt}}}}
+//	{Title: "My Feature", Badge: myFeatureTabBadge, Session: myFeatureTabSession, Panels: ...}
 //
-//   - and this file: what it does while it is open, the badge beside its title
-//     and a session that runs while it is on screen. Delete what you do not need.
-//
-// To use it, copy this file as <name>_page.go (or run dashygotui new page <name>)
-// and change the import path of the dashboard package to your own.
+// For a window opened from a row, use a subpage instead (dashygotui new subpage
+// <name>). To use this file, run dashygotui new page <name>, or copy it as
+// <name>_page.go and change the import path of the dashboard package.
 
 import (
 	"example.com/yourapp/dashboard"
 )
 
-func myFeatureBadge(c *dashboard.Ctx) string {
-	return c.Theme().Green.Render(c.Theme().G.Bullet + " OK")
+func myFeatureTabBadge(c *dashboard.Ctx) string {
+	return c.Theme().Muted.Render("live")
 }
 
-// myFeatureSession starts work that only matters while the window is on
+// myFeatureTabSession starts work that only matters while the tab is on
 // screen, and returns what stops it.
-func myFeatureSession(c *dashboard.Ctx) func() {
-	c.Flash("My Feature opened")
+func myFeatureTabSession(*dashboard.Ctx) func() {
 	return func() {}
 }

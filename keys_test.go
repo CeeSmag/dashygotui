@@ -14,8 +14,7 @@ import (
 
 func TestOptionHotkeyRunsFromAnyPage(t *testing.T) {
 	f := newFixture(t)
-	f.reg.Row("actions", option{Label: "Open Storage Dir", Hotkey: "e",
-		Run: func(*ctx) tea.Cmd { f.log = append(f.log, "dir"); return nil }})
+	f.reg.Row("actions", dashygotui.Hotkey[state]{Key: "e", Item: option{Label: "Open Storage Dir", Run: func(*ctx) tea.Cmd { f.log = append(f.log, "dir"); return nil }}})
 	d := f.driver(120, 40)
 
 	d.Press("e") // on the Monitor page, where the option is not even shown
@@ -34,8 +33,7 @@ func TestHotkeyDoesNotOpenWhileAModalIsUp(t *testing.T) {
 	f := newFixture(t)
 	mod := &stubModal{}
 	f.reg.Row("actions", option{Label: "Ask", Run: func(c *ctx) tea.Cmd { c.OpenModal(mod); return nil }})
-	f.reg.Row("actions", option{Label: "Dir", Hotkey: "e",
-		Run: func(*ctx) tea.Cmd { f.log = append(f.log, "dir"); return nil }})
+	f.reg.Row("actions", dashygotui.Hotkey[state]{Key: "e", Item: option{Label: "Dir", Run: func(*ctx) tea.Cmd { f.log = append(f.log, "dir"); return nil }}})
 	d := f.driver(120, 40)
 	d.Type("3")
 	d.Press("enter", "e")
@@ -55,31 +53,31 @@ func TestHotkeysAreValidated(t *testing.T) {
 		want     string
 	}{
 		{"duplicate hotkey", func(r *reg) {
-			r.Row("actions", option{Label: "A", Hotkey: "e", Run: run})
-			r.Row("actions", option{Label: "B", Hotkey: "e", Run: run})
+			r.Row("actions", dashygotui.Hotkey[state]{Key: "e", Item: option{Label: "A", Run: run}})
+			r.Row("actions", dashygotui.Hotkey[state]{Key: "e", Item: option{Label: "B", Run: run}})
 		}, `option "B" reuses hotkey "e"`},
 		{"hotkey then shortcut", func(r *reg) {
-			r.Row("actions", option{Label: "A", Hotkey: "e", Run: run})
+			r.Row("actions", dashygotui.Hotkey[state]{Key: "e", Item: option{Label: "A", Run: run}})
 			r.Shortcut(dashygotui.Shortcut[state]{Key: "e", Run: run})
 		}, `shortcut "e" is already a row's hotkey`},
 		{"shortcut then hotkey", func(r *reg) {
 			r.Shortcut(dashygotui.Shortcut[state]{Key: "e", Run: run})
-			r.Row("actions", option{Label: "A", Hotkey: "e", Run: run})
+			r.Row("actions", dashygotui.Hotkey[state]{Key: "e", Item: option{Label: "A", Run: run}})
 		}, `"e" is already a`},
 		{"navigation key", func(r *reg) {
-			r.Row("actions", option{Label: "A", Hotkey: "tab", Run: run})
+			r.Row("actions", dashygotui.Hotkey[state]{Key: "tab", Item: option{Label: "A", Run: run}})
 		}, `hotkey "tab" is reserved`},
 		{"vim key", func(r *reg) {
-			r.Row("actions", option{Label: "A", Hotkey: "k", Run: run})
+			r.Row("actions", dashygotui.Hotkey[state]{Key: "k", Item: option{Label: "A", Run: run}})
 		}, `hotkey "k" is reserved`},
 		{"quit key", func(r *reg) {
-			r.Row("actions", option{Label: "A", Hotkey: "q", Run: run})
+			r.Row("actions", dashygotui.Hotkey[state]{Key: "q", Item: option{Label: "A", Run: run}})
 		}, `hotkey "q" is reserved`},
 		{"digit", func(r *reg) {
-			r.Row("actions", option{Label: "A", Hotkey: "5", Run: run})
+			r.Row("actions", dashygotui.Hotkey[state]{Key: "5", Item: option{Label: "A", Run: run}})
 		}, `hotkey "5" is reserved`},
 		{"force-quit key", func(r *reg) {
-			r.Row("actions", option{Label: "A", Hotkey: "ctrl+q", Run: run})
+			r.Row("actions", dashygotui.Hotkey[state]{Key: "ctrl+q", Item: option{Label: "A", Run: run}})
 		}, `hotkey "ctrl+q" is reserved`},
 		{"pages shortcut on a force key", func(r *reg) {
 			r.Shortcut(dashygotui.Shortcut[state]{Key: "ctrl+q", Run: run})
@@ -110,7 +108,7 @@ func TestEverywhereShortcutMayTakeAForceKey(t *testing.T) {
 func TestViewLocalHotkeys(t *testing.T) {
 	f := newFixture(t)
 	f.reg.Add(dashygotui.Page[state]{ID: "v", Title: "V", Panels: []panelT{{Title: "Menu", Items: []dashygotui.Addon[state]{
-		option{Label: "Do It", Hotkey: "d", Run: func(*ctx) tea.Cmd { f.log = append(f.log, "view"); return nil }},
+		dashygotui.Hotkey[state]{Key: "d", Item: option{Label: "Do It", Run: func(*ctx) tea.Cmd { f.log = append(f.log, "view"); return nil }}},
 	}}}})
 	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "v", Run: func(c *ctx) tea.Cmd { _ = c.OpenView("v"); return nil }})
 	d := f.driver(120, 40)

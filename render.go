@@ -144,8 +144,8 @@ func (m *model[S]) autoHints() []panel.Hint {
 		hints = append(hints, m.hint("Tab", fmt.Sprintf("Page %d/%d", (m.page+1)%n+1, n), th.Key, 70))
 	}
 	for _, o := range m.d.reg.options {
-		if o.Hotkey != "" && o.HotkeyHint != "" {
-			hints = append(hints, m.toneHint(Hint{Key: cmp.Or(o.HotkeyDisplay, o.Hotkey), Label: o.HotkeyHint, Tone: o.HotkeyTone, Prio: 40}))
+		if o.hot.Key != "" && o.hot.Hint != "" {
+			hints = append(hints, m.toneHint(Hint{Key: cmp.Or(o.hot.Display, o.hot.Key), Label: o.hot.Hint, Tone: o.hot.Tone, Prio: 40}))
 		}
 	}
 	for _, s := range m.d.reg.shortcuts {
@@ -178,8 +178,8 @@ func (m *model[S]) menuHints(menus [][]Option[S]) []panel.Hint {
 	hints := m.navHints(menus)
 	for _, menu := range menus {
 		for _, o := range menu {
-			if o.Hotkey != "" && o.HotkeyHint != "" {
-				hints = append(hints, m.toneHint(Hint{Key: cmp.Or(o.HotkeyDisplay, o.Hotkey), Label: o.HotkeyHint, Tone: o.HotkeyTone, Prio: 40}))
+			if o.hot.Key != "" && o.hot.Hint != "" {
+				hints = append(hints, m.toneHint(Hint{Key: cmp.Or(o.hot.Display, o.hot.Key), Label: o.hot.Hint, Tone: o.hot.Tone, Prio: 40}))
 			}
 		}
 	}
@@ -336,7 +336,7 @@ func labelWidth[S any](opts []Option[S]) int {
 
 // optionText is the label as drawn, with the hotkey after it: "Open Logs (l)".
 func optionText[S any](o Option[S]) string {
-	if o.Hotkey == "" {
+	if o.hot.Key == "" {
 		return o.Label
 	}
 	return o.Label + " (" + hotkeyText(o) + ")"
@@ -344,10 +344,10 @@ func optionText[S any](o Option[S]) string {
 
 // hotkeyText is how the option's hotkey is written.
 func hotkeyText[S any](o Option[S]) string {
-	if o.HotkeyDisplay != "" {
-		return o.HotkeyDisplay
+	if o.hot.Display != "" {
+		return o.hot.Display
 	}
-	return o.Hotkey
+	return o.hot.Key
 }
 
 // menuRow draws one option w cells wide: the cursor, the number, the label, and
@@ -375,9 +375,9 @@ func (m *model[S]) menuRow(o Option[S], w, numW, labelW int, selected bool) stri
 	}
 	label := func(width int) string {
 		txt := optionText(o)
-		if o.Hotkey != "" && o.HotkeyTone != ToneDefault && !selected && text.Width(txt) <= width {
+		if o.hot.Key != "" && o.hot.Tone != ToneDefault && !selected && text.Width(txt) <= width {
 			// Colour the "(key)" part; a label that must be truncated stays plain.
-			txt = o.Label + " " + o.HotkeyTone.style(th).Render("("+hotkeyText(o)+")")
+			txt = o.Label + " " + o.hot.Tone.style(th).Render("("+hotkeyText(o)+")")
 		}
 		s := text.Pad(th.Trunc(txt, width), width)
 		if selected {

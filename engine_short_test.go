@@ -114,9 +114,8 @@ func TestAddRejectsNil(t *testing.T) {
 func TestViewEntryRegistersTheOption(t *testing.T) {
 	f := newFixture(t)
 	v := plainView(f.reg, "diag")
-	v.Row = dashygotui.Option[state]{Hotkey: "d", HotkeyHint: "Diagnostics",
-		HotkeyDisplay: "D", Note: "health and logs"}
-	f.reg.Add(v)
+	v.Row = dashygotui.Option[state]{Note: "health and logs"}
+	f.reg.Add(dashygotui.Hotkey[state]{Key: "d", Display: "D", Hint: "Diagnostics", Item: v}) // the map gives the hotkey
 	d := f.driver(140, 40)
 	d.RequireContains("[D] Diagnostics") // the footer hint, without a separate Shortcut
 	d.Press("tab")
@@ -128,12 +127,12 @@ func TestViewEntryRegistersTheOption(t *testing.T) {
 func TestSubPageRowsAreNumberedFromOne(t *testing.T) {
 	f := newFixture(t)
 	noop := func(*ctx) {}
-	f.reg.Add(dashygotui.Page[state]{Title: "Tools", Row: dashygotui.Option[state]{Hotkey: "t"},
+	f.reg.Add(dashygotui.Hotkey[state]{Key: "t", Item: dashygotui.Page[state]{Title: "Tools",
 		Panels: []panelT{{Title: "Tools", Items: []dashygotui.Addon[state]{
 			option{Label: "First Tool", Do: func(*ctx) { f.log = append(f.log, "first") }},
 			option{Label: "Second Tool", Do: noop, Note: "muted note"},
 			option{Label: "Third Tool", Do: noop},
-		}}}})
+		}}}}})
 	d := f.driver(120, 30)
 	d.Press("t")
 	d.RequireContains("TOOLS") // the footer's mode is the title in capitals
@@ -298,8 +297,8 @@ func TestPageSessionWaitsForTheStartView(t *testing.T) {
 func TestHotkeyHintOnlyWhenAsked(t *testing.T) {
 	f := newFixture(t)
 	f.reg.Add(
-		option{Label: "A", Hotkey: "u", HotkeyHint: "Upload", Do: func(*ctx) {}},
-		option{Label: "B", Hotkey: "i", Do: func(*ctx) {}},
+		dashygotui.Hotkey[state]{Key: "u", Hint: "Upload", Item: option{Label: "A", Do: func(*ctx) {}}},
+		dashygotui.Hotkey[state]{Key: "i", Item: option{Label: "B", Do: func(*ctx) {}}},
 	)
 	d := f.driver(160, 40)
 	d.RequireContains("[u] Upload")

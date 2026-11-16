@@ -295,32 +295,48 @@ Each phase ends with `make check` passing and is one commit.
 | 4 | The v0.4 placement API, `gen` and A11 removed; rules and docs final; v0.5.0 | yes | done |
 | 5 | The first production application moves onto v0.5.0 | n/a | |
 
-## Decision: a window is an option and the map (v0.6.0)
+## Decision: a window is a subpage, and the map gives keys (v0.6.0)
 
 In v0.5 the row that opened a sub-page was written inside the map's `Page`
-(`Entry`), and the map grew with the dashboard into one long file. From v0.6.0:
+(`Entry`), a feature could still choose its own hotkey, and the map grew with the
+dashboard into one long file. From v0.6.0:
 
-- **An option that opens a window is a plain option** in a file of its own,
-  with a label, a hotkey and a badge and no action. The map makes it the `Row` of
-  a `Page` placed as a row, which gives it its action (opening the window), and
-  says everything that is inside. The window's title is the option's label.
-  `Row` replaces `Entry` on pages and views alike: a row is always an `Option`.
+- **Numbers and hotkeys are the map's.** A feature never has either. The map wraps
+  a row in `Hotkey{Key, Display, Tone, Hint, Item}` to give it a key.
+- **An option that opens a window is a subpage**, `<name>_subpage.go`: a plain
+  option with no action and no hotkey (a label, a badge), and what the window does
+  while open (`Session`, `Badge`). The map makes it the `Row` of a `Page` placed as
+  a row, which gives it its action, opening the window, and says everything that
+  is inside. The window's title is the option's label. `Row` replaces `Entry` on
+  pages and views: a row is always an `Option`.
+- **Everything inside a window is named after its subpage**:
+  `<name>_<element>_sub<kind>.go` (`subopt`, `subwidget`, `subview`, `submodal`, and
+  `subpage` for a window inside it). The map places those inside that window and
+  nothing else there (rule A14), so the file listing shows what each window holds.
 - **The map may be split by page.** `addons.go` keeps `Map()`, the tabs, the
   shortcuts and the hooks; a page or window longer than a screen gets
   `<name>_map.go`, a function returning it. The checker treats every map file as
-  the map (A1, A2, A3, A13, C1); `dashygotui new map <name>` writes one.
+  the map (A1, A2, A3, A13, A14, C1); `dashygotui new map <name>` writes one.
 
-```go
-// diag_opt.go: the whole file.
-var diagOpt = dashboard.Option{Label: "Diagnostics", Hotkey: "d"}
+```
+diag_subpage.go              the option that opens it, and its Session and Badge
+diag_checkhealth_subopt.go   a row inside it
+diag_logs_subview.go         a view opened from inside it
+diag_health_subwidget.go     a panel inside it
+diag_map.go                  what it holds
 ```
 
 ```go
-// diag_map.go: what the window holds.
+// diag_subpage.go
+var diagSubpage = dashboard.Option{Label: "Diagnostics"}
+```
+
+```go
+// diag_map.go: what the window holds; placed as dashboard.Hotkey{Key: "d", Item: diagPage()}.
 func diagPage() dashboard.Page {
-	return dashboard.Page{Row: diagOpt, Panels: []dashboard.Panel{
-		{Widget: diagHealthWidget},
-		{Title: "Tools", Items: []dashboard.Addon{diagCheckOpt, diagLogsView}},
+	return dashboard.Page{Row: diagSubpage, Panels: []dashboard.Panel{
+		{Widget: diagHealthSubwidget},
+		{Title: "Tools", Items: []dashboard.Addon{diagCheckhealthSubopt, diagLogsSubview}},
 	}}
 }
 ```

@@ -9,7 +9,7 @@ import (
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 )
 
-// Release Notes (hotkey n): a view whose Body is longer than the screen.
+// Release Notes: a view whose Body is longer than the screen.
 // Scroll: true makes the dashboard do the scrolling (Up/Down, PgUp/PgDn, Home,
 // End) and draw the scroll bar, so the view writes none of that. OnEnter and
 // OnLeave run when the view appears and disappears; here they count visits and
@@ -17,7 +17,6 @@ import (
 
 var notesView = dashboard.View{
 	ID: "notes", Title: "Release Notes", Mode: "NOTES", Scroll: true,
-	Row:   dashboard.Option{Hotkey: "n"},
 	Badge: func(c *dashboard.Ctx) string { return c.Count(*dashygotui.Local[int](c, "notes.visits"), "visits") },
 	Body: func(c *dashboard.Ctx, size dashygotui.Size) []string {
 		th := c.Theme()

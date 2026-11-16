@@ -11,7 +11,10 @@ func Map() dashboard.Map {
 		Pages: []dashboard.Page{
 			{Title: "Builds", Panels: []dashboard.Panel{
 				{Widget: pipelinesWidget},
-				{Title: "Actions", Items: []dashboard.Addon{buildlogView, rerunOpt}}, // [1] [2]
+				{Title: "Actions", Items: []dashboard.Addon{
+					dashboard.Hotkey{Key: "l", Hint: "Build log", Item: buildlogView}, // [1]
+					rerunOpt, // [2]
+				}},
 			}},
 			{Title: "Settings", Panels: []dashboard.Panel{
 				{Title: "Preferences", Subtitle: "saved between runs", Number: 10, Items: []dashboard.Addon{

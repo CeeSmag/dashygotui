@@ -6,7 +6,7 @@
 #   2. `dashygotui init`, then `dashygotui new` for every feature kind, each placed
 #      in the map
 #   3. the app must build and `dashygotui check` must pass
-#   4. a deliberately bad feature per rule (A1..A9, A12, A13, G1) must make `check`
+#   4. a deliberately bad feature per rule (A1..A9, A12, A13, A14, G1) must make `check`
 #      fail with exactly that rule
 set -euo pipefail
 
@@ -63,6 +63,13 @@ done
 for kind in opt widget view page modal shortcut hook map; do
 	python3 "$root/scripts/place-in-map.py" dashboard/addons/addons.go "$kind" scaffold
 done
+# a subpage and an element of it, named after it and placed inside its window
+if "$cli" new subpage scaffold >/dev/null 2>"$scratch/err" && "$cli" new subopt scaffold_part >/dev/null 2>>"$scratch/err"; then
+	step "new subpage and new subopt"
+else
+	bad "new subpage/subopt: $(cat "$scratch/err")"
+fi
+python3 "$root/scripts/place-in-map.py" dashboard/addons/addons.go subpage scaffold scaffoldPartSubopt
 gofmt -w dashboard/addons/addons.go
 
 # 3. the app builds and passes the check
@@ -119,6 +126,8 @@ expect A9; reset
 # A13: a feature that is not placed in the map
 printf 'package addons\nimport "example.com/consumer/dashboard"\nvar lateOpt = dashboard.Option{Label: "Late", Do: func(*dashboard.Ctx) {}}\n' >"$dir/bad_opt.go"; expect A13; reset
 printf 'package addons\nfunc init() {}\n' >"$dir/bad_opt.go";                                            expect A12; reset
+# A14: an element of a subpage with no subpage of its name
+printf 'package addons\nimport "example.com/consumer/dashboard"\nvar nopeXSubopt = dashboard.Option{Label: "X", Do: func(*dashboard.Ctx) {}}\n' >"$dir/nope_x_subopt.go"; expect A14; rm -f "$dir/nope_x_subopt.go"
 printf 'package dashboard\n// dashygotui:gap\nfunc badGap() {}\n' >dashboard/bad_gap.go;                    expect G1; rm -f dashboard/bad_gap.go
 # the original problem: a wrapper around a library modal in the dashboard package, not in an addon
 printf 'package dashboard\nimport "github.com/CeeSmag/dashygotui/modal"\ntype SettingEdit struct{ *modal.Edit[State] }\n' >dashboard/bad_wrap.go; expect A8; rm -f dashboard/bad_wrap.go

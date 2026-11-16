@@ -123,7 +123,7 @@ type Report struct {
 // dashygotui rules command.
 func Rules() map[string]string {
 	return map[string]string{
-		"A1":  "a feature file is named <name>_<kind>.go (opt, widget, view, page, modal, shortcut, hook), and the map is addons.go",
+		"A1":  "a feature file is named <name>_<kind>.go (opt, widget, view, page, modal, shortcut, hook, and subpage, subopt, subwidget, subview, submodal), and the map is addons.go and <name>_map.go files",
 		"A2":  "a feature uses nothing of another feature file, no other application package, and of the dashboard package only its types",
 		"A3":  "each package-level var of an addon file is one unexported addon literal, never assigned to",
 		"A4":  "an addon starts no goroutines, sleeps, exits, prints, or panics",
@@ -134,6 +134,7 @@ func Rules() map[string]string {
 		"A9":  "an addon uses Opens and Do instead of a Run that only opens a view or returns nil",
 		"A12": "an addons package has no init()",
 		"A13": "every addon of a feature file is placed in the map, addons.go, exactly once",
+		"A14": "a window opens from a <name>_subpage.go option, and its elements, named <name>_<element>_sub<kind>.go, are placed inside it and nowhere else",
 		"C1":  "a change that adds a feature edits no other Go file than the map (dashygotui check -changed)",
 		"G1":  "a //dashygotui:gap marker says where the gap is recorded",
 		"X1":  "a //dashygotui:allow comment names a rule and gives a reason",

@@ -78,10 +78,8 @@ func TestEveryToneIsDistinct(t *testing.T) {
 
 func TestOptionHotkeyDisplay(t *testing.T) {
 	f := newFixture(t)
-	f.reg.Row("actions", option{Label: "Open Logs", Hotkey: "l", HotkeyDisplay: "Ctrl+L",
-		HotkeyTone: dashygotui.ToneInfo, Run: func(*ctx) tea.Cmd { f.log = append(f.log, "logs"); return nil }})
-	f.reg.Row("actions", option{Label: "Open Plain", Hotkey: "p",
-		Run: func(*ctx) tea.Cmd { return nil }})
+	f.reg.Row("actions", dashygotui.Hotkey[state]{Key: "l", Display: "Ctrl+L", Tone: dashygotui.ToneInfo, Item: option{Label: "Open Logs", Run: func(*ctx) tea.Cmd { f.log = append(f.log, "logs"); return nil }}})
+	f.reg.Row("actions", dashygotui.Hotkey[state]{Key: "p", Item: option{Label: "Open Plain", Run: func(*ctx) tea.Cmd { return nil }}})
 	d := f.driver(120, 40)
 	d.Press("tab")
 	d.RequireContains("Open Logs (Ctrl+L)", "Open Plain (p)")

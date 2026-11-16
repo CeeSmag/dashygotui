@@ -6,11 +6,13 @@ import (
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 )
 
-// What the Diagnostics window does while it is open: the badge beside its title
-// in the header, and a Session that runs while it is on screen. The window is a
-// page placed as a row (diagnostics_map.go): it has panels of its own and its own
-// numbering from 1, its rows' hotkeys (t) work only inside it, and Back returns
-// to the page it was opened from. The row that opens it is diagnostics_opt.go.
+// Diagnostics: a subpage, a window opened from a row. This file is the subpage
+// itself: the option that opens it (only its label; its hotkey and what is inside
+// are the map's, diagnostics_map.go), the badge beside its title in the header,
+// and a Session that runs while it is on screen. What it holds is named after it:
+// diagnostics_<name>_sub<kind>.go.
+
+var diagnosticsSubpage = dashboard.Option{Label: "Diagnostics"}
 
 func diagnosticsBadge(c *dashboard.Ctx) string {
 	th := c.Theme()

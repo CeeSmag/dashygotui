@@ -26,14 +26,15 @@ func Map() dashboard.Map {
 				{Title: "Quick Actions", Subtitle: "things to do", Items: []dashboard.Addon{
 					backupOpt,  // [1]
 					restartOpt, // [2]
-					dashboard.Page{Row: diagnosticsOpt, Panels: []dashboard.Panel{ // [3] opens a window
-						{Widget: diagnosticsHealthWidget},
-						{Title: "Tools", Items: []dashboard.Addon{diagnosticsSelfTestOpt}},
+					// [3] a subpage: diagnostics_subpage.go opens it, and the map fills it.
+					dashboard.Page{Row: diagnosticsSubpage, Panels: []dashboard.Panel{
+						{Widget: diagnosticsHealthSubwidget},
+						{Title: "Tools", Items: []dashboard.Addon{diagnosticsSelftestSubopt}},
 					}},
-					stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Hotkey: "g"}, // [4]
+					dashboard.Hotkey{Key: "g", Item: stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs}}, // [4]
 				}},
 				{Title: "Settings", Subtitle: "saved between runs", Number: 10, Items: []dashboard.Addon{
-					storageOpt,       // [10]
+					dashboard.Hotkey{Key: "s", Item: storageOpt}, // [10]
 					notificationsOpt, // [11]
 					resetOpt,         // [12]
 				}},

@@ -8,15 +8,16 @@ package addons
 //  2. Change the import path of the dashboard package to your own.
 //  3. Place it in addons.go, in the Items of a panel: myFeatureOpt
 //
-// The map numbers it by its position. This file says only what it does.
+// The map numbers it by its position, and gives it a hotkey if it has one
+// (dashboard.Hotkey{Key: "y", Item: myFeatureOpt}). This file says only what it
+// does.
 
 import (
 	"example.com/yourapp/dashboard"
 )
 
 var myFeatureOpt = dashboard.Option{
-	Label:  "My Feature",
-	Hotkey: "y", // optional: runs this option from any page; shown as "(y)"
+	Label: "My Feature",
 	// Badge is the row's current state, shown after the label. Optional.
 	Badge: func(c *dashboard.Ctx) string { return c.OnOff(true) },
 	// What Enter (or Space) does: set exactly one of

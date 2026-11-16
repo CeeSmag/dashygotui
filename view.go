@@ -26,7 +26,7 @@ func (m *model[S]) viewKey(msg tea.KeyPressMsg) tea.Cmd {
 		name := strings.ToLower(msg.String())
 		for _, menu := range m.menus() {
 			for _, o := range menu {
-				if o.Hotkey != "" && o.Hotkey == name {
+				if o.hot.Key != "" && o.hot.Key == name {
 					m.digits = ""
 					return o.run(m.ctx)
 				}

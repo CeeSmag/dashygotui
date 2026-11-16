@@ -11,7 +11,7 @@ reviewer sees it. An allow comment with no reason is itself an error (X1).
 ## The shape of an application
 
 - **One feature, one file, placed by the map.** Adding an option, widget, view,
-  sub-page, shortcut, pop-up or hook means adding one hand-written file in
+  subpage, shortcut, pop-up or hook means adding one hand-written file in
   `addons/`, named `<name>_<kind>.go`, and its line in the map, `addons/addons.go`.
   No other file is edited. Deleting a feature is deleting its file and its line.
 - **The map** (`addons.go`, `func Map() dashboard.Map`) holds the pages, the panels
@@ -19,9 +19,13 @@ reviewer sees it. An allow comment with no reason is itself an error (X1).
   views without a row. It is the only place anything is placed. It may be split by
   page: a `<name>_map.go` file returns one page or window. A ready-made addon from
   `stdaddons` is placed there directly.
-- **An option that opens a window is a plain option.** Its file gives only its
-  label, hotkey and badge; the map makes it the `Row` of a `Page` placed as a row,
-  and says what the window contains.
+- **Numbers and hotkeys are the map's.** A feature never has either; the map wraps
+  a row in `Hotkey{Key, Hint, Item}`.
+- **An option that opens a window is a subpage**, `<name>_subpage.go`: a plain option
+  (a label, a badge) and what the window does while open. Everything inside the
+  window is named after it, `<name>_<element>_sub<kind>.go` (`subopt`, `subwidget`,
+  `subview`, `submodal`, or `subpage` for a window inside it), and the map places it
+  inside that window and nowhere else.
 - A feature is a value: each top-level `var` in a feature file is an unexported
   `Option`, `Widget`, `View`, `Shortcut`, `Hook` or `stdaddons` value (or a type
   of the file's own with an `Addons` method). There is no `init()`. Helpers in
@@ -36,7 +40,7 @@ reviewer sees it. An allow comment with no reason is itself an error (X1).
 
 | ID | Rule | Instead |
 | --- | --- | --- |
-| A1 | Feature files are named `<name>_<kind>.go`, the kind one of `opt`, `widget`, `view`, `page`, `modal`, `shortcut`, `hook`; the map is `addons.go` and any `<name>_map.go` files. There is no `doc.go` or `addons_gen.go`. | Rename the file; put the package comment in `addons.go`. |
+| A1 | Feature files are named `<name>_<kind>.go`, the kind one of `opt`, `widget`, `view`, `page`, `modal`, `shortcut`, `hook`, `subpage`, `subopt`, `subwidget`, `subview`, `submodal`; the map is `addons.go` and any `<name>_map.go` files. There is no `doc.go` or `addons_gen.go`. | Rename the file; put the package comment in `addons.go`. |
 | A2 | A feature uses nothing of a sibling feature file, no other application package, and of the `dashboard` package only its types. | A method of `State`; a library feature (record a gap); or repeat the few lines. |
 | A3 | A package-level variable in a feature file is an addon: one unexported name, initialised with a composite literal, and never assigned to. The map files declare no package-level variables. | `dashygotui.Local` for state of the dashboard, the `Store` for saved settings. |
 | A4 | No `go` statement, `time.Sleep`, `os.Exit`, `fmt.Print*`, `log.Fatal*`, `panic`, or use of `os.Stdout`, `os.Stderr` or `os.Stdin`. | `Context.RunTask`, `Context.Quit`, `Context.Flash`, `Context.FlashError`. |
@@ -47,13 +51,14 @@ reviewer sees it. An allow comment with no reason is itself an error (X1).
 | A9 | No `Run` that only opens a view or only returns nil. | `Opens: "<view>"`, `Do: func(c) {...}`, or the view placed as a row. |
 | A12 | No `init()` in an addons package. | Declare the addon as a value and place it in the map. |
 | A13 | The addons package has a map, `addons.go`, and every addon declared in a feature file is placed in the map (`addons.go` and the `<name>_map.go` files) exactly once. | Add it to a panel, `Shortcuts`, `Hooks` or `Views` in `addons.go`, or delete the file. A second way into a view is an option with `Opens`. |
+| A14 | A window opens from a subpage: the `Row` of a `Page` placed as a row is the option of a `<name>_subpage.go`. An element of a subpage is named `<name>_<element>_sub<kind>.go` after it, and the map places it inside that subpage's window; nothing else is placed there. | Rename the file after its subpage, or move its line in the map into, or out of, the window. |
 
 (A10, a variable captured in `init` and changed by a callback, was retired in v0.4.0:
 A12 forbids `init` altogether, and A3 forbids assigning to an addon value. A11, a
 stale generated addon list, was retired in v0.5.0 with the list: the map replaced
 it.)
 
-**Where they apply.** A1 to A4, A6, A9, A12 and A13 apply to files in a directory named
+**Where they apply.** A1 to A4, A6, A9 and A12 to A14 apply to files in a directory named
 `addons`. A5 (raw styles), A7 and A8 apply to **every file that imports the
 library**, because a workaround is as likely to sit in the `dashboard` package as in
 an addon (a wrapper type around a library modal there is still a wrapper).

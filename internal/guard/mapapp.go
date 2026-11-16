@@ -30,12 +30,26 @@ const (
 // libraryPath is the import path of the library.
 const libraryPath = "github.com/CeeSmag/dashygotui"
 
-// MapKinds are the kinds of feature file, the last part of its name.
+// MapKinds are the kinds of feature file, the last part of its name. A subpage
+// (<name>_subpage.go) is a window opened from a row; what it holds is named after
+// it, <subpage>_<name>_sub<kind>.go.
 func MapKinds() []string {
-	return []string{"opt", "widget", "view", "page", "modal", "shortcut", "hook"}
+	return []string{"opt", "widget", "view", "page", "modal", "shortcut", "hook",
+		"subpage", "subopt", "subwidget", "subview", "submodal"}
 }
 
-var mapFileName = regexp.MustCompile(`^[a-z][a-z0-9_]*_(opt|widget|view|page|modal|shortcut|hook)(_test)?\.go$`)
+var mapFileName = regexp.MustCompile(`^[a-z][a-z0-9_]*_(opt|widget|view|page|modal|shortcut|hook|subpage|subopt|subwidget|subview|submodal)(_test)?\.go$`)
+
+// featureKind splits a feature file's base name into its name and kind:
+// "diag_logs_subopt.go" is ("diag_logs", "subopt").
+func featureKind(base string) (name, kind string) {
+	stem := strings.TrimSuffix(base, ".go")
+	i := strings.LastIndex(stem, "_")
+	if i < 0 {
+		return stem, ""
+	}
+	return stem[:i], stem[i+1:]
+}
 
 var mapPartName = regexp.MustCompile(`^[a-z][a-z0-9_]*_map\.go$`)
 
@@ -112,6 +126,8 @@ func mapFindings(dir string, files, all []Source) []Finding {
 	for _, s := range features {
 		out = append(out, featureImportFindings(s, dashPkg, types)...)
 	}
+
+	out = append(out, subpageFindings(features, maps)...)
 
 	// A13: every addon of a feature file is placed in the map.
 	if mapFile.File == nil {
@@ -243,4 +259,141 @@ func importPathOf(module, modDir, root, rel string) string {
 		return module
 	}
 	return module + "/" + filepath.ToSlash(r)
+}
+
+// subpageFindings applies A14 to the features and map files of an addons
+// package. A subpage is <name>_subpage.go: the option that opens a window.
+// Every element of the window is named after it, <name>_<element>_sub<kind>.go,
+// and the map places the elements of a subpage inside its window and nowhere
+// else, and nothing else there; a window opens from a subpage's option.
+func subpageFindings(features, maps []Source) []Finding {
+	var out []Finding
+	subpages := map[string]bool{} // subpage names
+	for _, s := range features {
+		if name, kind := featureKind(path.Base(s.Rel)); kind == "subpage" {
+			subpages[name] = true
+		}
+	}
+	// parentOf is the subpage a name belongs to: the longest subpage name it
+	// starts with, followed by "_".
+	parentOf := func(name string) string {
+		best := ""
+		for sp := range subpages {
+			if strings.HasPrefix(name, sp+"_") && len(sp) > len(best) {
+				best = sp
+			}
+		}
+		return best
+	}
+	owner := map[string]string{}    // feature var -> the window it belongs in ("" for a tab)
+	openerOf := map[string]string{} // a subpage's var -> the subpage it opens
+	for _, s := range features {
+		name, kind := featureKind(path.Base(s.Rel))
+		place := ""
+		switch {
+		case kind == "subpage":
+			place = parentOf(name)
+		case strings.HasPrefix(kind, "sub"):
+			place = parentOf(name)
+			if place == "" {
+				out = append(out, Finding{Rule: "A14", File: s.Rel, Line: 1,
+					Msg:  path.Base(s.Rel) + " is an element of a subpage, but no <subpage>_subpage.go starts its name",
+					Hint: "name it <subpage>_<name>_" + kind + ".go after its subpage, or make it a " + strings.TrimPrefix(kind, "sub")})
+				continue
+			}
+		}
+		for _, d := range s.File.Decls {
+			gd, ok := d.(*ast.GenDecl)
+			if !ok || gd.Tok != token.VAR {
+				continue
+			}
+			for _, spec := range gd.Specs {
+				for _, id := range spec.(*ast.ValueSpec).Names {
+					owner[id.Name] = place
+					if kind == "subpage" {
+						openerOf[id.Name] = name
+					}
+				}
+			}
+		}
+	}
+
+	for _, m := range maps {
+		at := func(n ast.Node, msg, hint string) {
+			out = append(out, Finding{Rule: "A14", File: m.Rel, Line: m.Line(n.Pos()), Msg: msg, Hint: hint})
+		}
+		check := func(id *ast.Ident, window string) {
+			want, ok := owner[id.Name]
+			if !ok || want == window {
+				return
+			}
+			switch {
+			case want == "":
+				at(id, id.Name+" is placed inside the "+window+" subpage, but it is not one of its elements",
+					"name its file "+window+"_<name>_sub<kind>.go, or place it outside the subpage")
+			case window == "":
+				at(id, id.Name+" is an element of the "+want+" subpage, placed outside it",
+					"place it inside the window whose Row is the "+want+" subpage")
+			default:
+				at(id, id.Name+" is an element of the "+want+" subpage, placed inside "+window,
+					"place it inside the "+want+" subpage, or rename its file")
+			}
+		}
+		var walk func(n ast.Node, window string, nested bool)
+		walk = func(n ast.Node, window string, nested bool) {
+			ast.Inspect(n, func(x ast.Node) bool {
+				switch x := x.(type) {
+				case *ast.CompositeLit:
+					if !isPageType(x.Type) {
+						return true
+					}
+					inner := window
+					var row *ast.Ident
+					for _, e := range x.Elts {
+						if kv, ok := e.(*ast.KeyValueExpr); ok && isIdent(kv.Key, "Row") {
+							row, _ = kv.Value.(*ast.Ident)
+							if row == nil || openerOf[row.Name] == "" {
+								at(kv, "a window opens from a subpage: its Row is the option of a <name>_subpage.go",
+									"declare the option in <name>_subpage.go")
+							} else {
+								inner = openerOf[row.Name]
+							}
+						}
+					}
+					if row != nil && nested {
+						check(row, window) // the row lives where the window is placed
+					}
+					for _, e := range x.Elts {
+						if kv, ok := e.(*ast.KeyValueExpr); ok && !isIdent(kv.Key, "Row") {
+							walk(kv.Value, inner, true)
+						}
+					}
+					return false
+				case *ast.Ident:
+					check(x, window)
+				}
+				return true
+			})
+		}
+		for _, d := range m.File.Decls {
+			if fd, ok := d.(*ast.FuncDecl); ok && fd.Body != nil {
+				walk(fd.Body, "", false)
+			}
+		}
+	}
+	return out
+}
+
+// isPageType reports whether a composite literal's type is a Page: Page,
+// dashboard.Page or dashygotui.Page[S].
+func isPageType(t ast.Expr) bool {
+	switch t := t.(type) {
+	case *ast.Ident:
+		return t.Name == "Page"
+	case *ast.SelectorExpr:
+		return t.Sel.Name == "Page"
+	case *ast.IndexExpr:
+		return isPageType(t.X)
+	}
+	return false
 }

@@ -14,12 +14,12 @@ func themePage() dashboard.Page {
 		Badge: themeBadge,
 		Panels: []dashboard.Panel{
 			{Title: "Appearance", Subtitle: "colours, spacing, symbols", Number: 20, Items: []dashboard.Addon{
-				stdaddons.ThemePicker[s]{Hotkey: "m"},        // [20]
-				stdaddons.SpacingMenu[s]{},                   // [21]
-				stdaddons.RefreshRatePicker[s]{},             // [22]
-				stdaddons.DisplayPicker[s]{},                 // [23]
-				stdaddons.BackgroundPicker[s]{},              // [24]
-				stdaddons.TransparencyToggle[s]{Hotkey: "t"}, // [25]
+				dashboard.Hotkey{Key: "m", Item: stdaddons.ThemePicker[s]{}},        // [20]
+				stdaddons.SpacingMenu[s]{},                                          // [21]
+				stdaddons.RefreshRatePicker[s]{},                                    // [22]
+				stdaddons.DisplayPicker[s]{},                                        // [23]
+				stdaddons.BackgroundPicker[s]{},                                     // [24]
+				dashboard.Hotkey{Key: "t", Item: stdaddons.TransparencyToggle[s]{}}, // [25]
 			}},
 			{Widget: glyphsWidget},
 			{Widget: paletteWidget},

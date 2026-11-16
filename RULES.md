@@ -16,7 +16,7 @@ Machine-enforced rules are marked **[enforced]** and are checked by
 little application code as possible.
 
 > **One feature, one file, one line in the map.** Adding an option, widget,
-> view, sub-page, shortcut, modal or hook to an application means adding
+> view, subpage, shortcut, modal or hook to an application means adding
 > **exactly one new hand-written file** in that application's `addons/`
 > directory and placing it in the **map**, `addons/addons.go`. No other file is
 > edited: not the dashboard file, not a sibling feature, not a README index. A
@@ -48,7 +48,8 @@ project-specific consequences explicit.
 ```
 main.go  --imports-->  dashboard          (State and its methods, Poll, Run, short type names)
          --imports-->  dashboard/addons   (addons.go: the map, Map(); *_opt.go, *_widget.go, *_view.go,
-                                           *_page.go, *_modal.go, *_shortcut.go, *_hook.go)
+                                           *_page.go, *_modal.go, *_shortcut.go, *_hook.go,
+                                           <sub>_subpage.go and <sub>_*_sub{opt,widget,view,modal}.go)
 addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 ```
 
@@ -121,7 +122,7 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 - The map is passed to `dashygotui.New` in `Config.Map`. A test builds the map it
   needs.
 - **Rows are numbered by position**, across the tab pages in map order; a
-  panel's `Number` sets where its count starts. A sub-page numbers its own rows
+  panel's `Number` sets where its count starts. A window numbers its own rows
   from 1. Two rows with one number, or anything else wrong in the map, is a
   startup error that names its place in the map
   (`Control > Quick Actions > row 3`). Validation never panics, and reports every
@@ -205,8 +206,12 @@ explain why.
   `view`, `page`, `modal`, `shortcut` and `hook` (plus `_test.go`). The package
   also holds the map: `addons.go`, and a `<name>_map.go` file for any page or
   window that deserves its own. Nothing else. **[enforced: A1]**
-- An option that opens a window is a plain option with no action. The map makes
-  it the `Row` of a `Page` placed as a row and fills the window.
+- A feature has no number and no hotkey: both are the map's (`Hotkey{Key, Item}`).
+- An option that opens a window is a **subpage**, `<name>_subpage.go`: a plain
+  option with no action, and what the window does while open. Everything inside
+  the window is named after it, `<name>_<element>_sub<kind>.go` (`subopt`,
+  `subwidget`, `subview`, `submodal`, `subpage`), and the map places it inside that
+  window and nowhere else. **[enforced: A14]**
 - A feature file declares its addons as unexported top-level values and contains
   no `init()`. A feature reaches the library only through the `*Context[S]` its
   callbacks are handed, and the application only through `State`. No

@@ -14,7 +14,7 @@ import (
 	"github.com/CeeSmag/dashygotui/panel"
 )
 
-// Processes (hotkey p): a view that draws its whole body itself (Body) and
+// Processes: a view that draws its whole body itself (Body) and
 // handles its own keys (Keys): select, sort and kill. Its selection, sort order
 // and the killed processes are per-dashboard state (dashygotui.Local), not package state.
 
@@ -55,7 +55,6 @@ func rows(c *dashboard.Ctx) []dashboard.Process {
 
 var processesView = dashboard.View{
 	ID: "processes", Title: "Processes", Mode: "PROCS",
-	Row:   dashboard.Option{Hotkey: "p"},
 	Badge: func(c *dashboard.Ctx) string { return c.Count(len(rows(c)), "running") },
 	Body: func(c *dashboard.Ctx, size dashygotui.Size) []string {
 		st := state(c)

@@ -10,7 +10,7 @@ import (
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 )
 
-// Event Stream (hotkey e): a Follow view (Scroll + Tail), like `tail -f`. Rows are appended
+// Event Stream: a Follow view (Scroll + Tail), like `tail -f`. Rows are appended
 // at the bottom as they happen; the view starts at the newest, Up goes back in
 // time, and a view scrolled back holds its place while new rows arrive (watch
 // the row numbers stay put). End returns to the live bottom. Tail needs Scroll,
@@ -45,7 +45,6 @@ var streamTick = dashboard.Hook{Tick: streamSample}
 
 var streamView = dashboard.View{
 	ID: "stream", Title: "Event Stream", Mode: "STREAM",
-	Row: dashboard.Option{Hotkey: "e"},
 	// Follow is Scroll, Tail and a panel in one word. Setting Panel as well
 	// gives the panel its own title and subtitle; the scroll position goes in
 	// its bottom border.

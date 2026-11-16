@@ -163,14 +163,14 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 	}
 	hotkeys := make(map[string]Option[S])
 	for _, o := range reg.options {
-		if o.Hotkey == "" {
+		if o.hot.Key == "" {
 			continue
 		}
-		if keys.reserved(o.Hotkey, true) {
-			errs = append(errs, fmt.Errorf("option %q hotkey %q is reserved for navigation or a digit", o.Label, o.Hotkey))
+		if keys.reserved(o.hot.Key, true) {
+			errs = append(errs, fmt.Errorf("option %q hotkey %q is reserved for navigation or a digit", o.Label, o.hot.Key))
 			continue
 		}
-		hotkeys[o.Hotkey] = o
+		hotkeys[o.hot.Key] = o
 	}
 	viewKnown := func(id string) bool {
 		return slices.ContainsFunc(reg.views, func(v View[S]) bool { return v.ID == id })

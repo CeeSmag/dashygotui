@@ -30,13 +30,13 @@ func TestValueFormsDrawTheSameRows(t *testing.T) {
 	t.Parallel()
 	buf := logs.NewBuffer(10)
 	d := valueDash(t,
-		stdaddons.ThemePicker[valState]{Hotkey: "t"},
+		dashygotui.Hotkey[valState]{Key: "t", Item: stdaddons.ThemePicker[valState]{}},
 		stdaddons.RefreshRatePicker[valState]{},
 		stdaddons.SpacingMenu[valState]{},
 		stdaddons.DisplayPicker[valState]{},
 		stdaddons.BackgroundPicker[valState]{},
 		stdaddons.TransparencyToggle[valState]{},
-		stdaddons.LogView[valState]{Buffer: buf, Hotkey: "g"},
+		dashygotui.Hotkey[valState]{Key: "g", Item: stdaddons.LogView[valState]{Buffer: buf}},
 	)
 	d.RequireContains("Color Theme", "Refresh Rate", "Section Gap", "Display Mode", "Background", "Transparent Background", "Logs")
 	d.Press("t")

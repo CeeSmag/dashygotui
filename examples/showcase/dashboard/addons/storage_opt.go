@@ -13,7 +13,7 @@ import (
 	"github.com/CeeSmag/dashygotui/modal"
 )
 
-// Storage Limit (hotkey s). This is the raw modal API on show, to demonstrate
+// Storage Limit. This is the raw modal API on show, to demonstrate
 // Edit's Validate, Save and OnSaved. For an ordinary number setting do not write
 // this: use stdaddons.Number (see [16] Log Retention, which is five lines).
 //
@@ -36,7 +36,7 @@ func limit(c *dashboard.Ctx) int {
 }
 
 var storageOption = dashboard.Option{
-	Label: "Storage Limit", Hotkey: "s",
+	Label: "Storage Limit",
 	Badge: func(c *dashboard.Ctx) string { return c.Badge(fmt.Sprintf("%d GB", limit(c))) },
 	Modal: func(c *dashboard.Ctx) dashboard.Modal {
 		st := c.Store()

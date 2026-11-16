@@ -149,6 +149,11 @@ dashygotui: field Hint.Tone Tone
 dashygotui: field Hook.Msg func(*Context[S], tea.Msg) tea.Cmd
 dashygotui: field Hook.Result func(*Context[S], TaskResult) (handled bool, cmd tea.Cmd)
 dashygotui: field Hook.Tick func(*Context[S], time.Time) tea.Cmd
+dashygotui: field Hotkey.Display string
+dashygotui: field Hotkey.Hint string
+dashygotui: field Hotkey.Item Addon[S]
+dashygotui: field Hotkey.Key string
+dashygotui: field Hotkey.Tone Tone
 dashygotui: field Invalid.Reason string
 dashygotui: field KeyMap.Back key.Binding
 dashygotui: field KeyMap.Down key.Binding
@@ -172,10 +177,6 @@ dashygotui: field Map.Shortcuts []Shortcut[S]
 dashygotui: field Map.Views []View[S]
 dashygotui: field Option.Badge func(*Context[S]) string
 dashygotui: field Option.Do func(*Context[S])
-dashygotui: field Option.Hotkey string
-dashygotui: field Option.HotkeyDisplay string
-dashygotui: field Option.HotkeyHint string
-dashygotui: field Option.HotkeyTone Tone
 dashygotui: field Option.Label string
 dashygotui: field Option.Modal func(*Context[S]) Modal[S]
 dashygotui: field Option.Note string
@@ -302,6 +303,7 @@ dashygotui: func (d *Dashboard[S]) Run(ctx context.Context) (ExitInfo, error)
 dashygotui: func (e *AddonError) Error() string
 dashygotui: func (g GlyphMode) String() string
 dashygotui: func (h Hook[S]) Addons() []Addon[S]
+dashygotui: func (h Hotkey[S]) Addons() []Addon[S]
 dashygotui: func (i Invalid[S]) Addons() []Addon[S]
 dashygotui: func (o Option[S]) Addons() []Addon[S]
 dashygotui: func (p Page[S]) Addons() []Addon[S]
@@ -332,6 +334,7 @@ dashygotui: type ExitInfo struct
 dashygotui: type GlyphMode int
 dashygotui: type Hint struct
 dashygotui: type Hook[S any] struct
+dashygotui: type Hotkey[S any] struct
 dashygotui: type Invalid[S any] struct
 dashygotui: type KeyMap struct
 dashygotui: type Layout = layout.Mode
@@ -527,17 +530,11 @@ panel: func TooSmall(th *theme.Theme, cols, rows, minCols, minRows int) []string
 panel: func VStack(blocks ...[]string) []string
 panel: type Hint struct
 panel: type Segment struct
-stdaddons: field BackgroundPicker.Hotkey string
-stdaddons: field DisplayPicker.Hotkey string
 stdaddons: field LogView.Buffer *logs.Buffer
 stdaddons: field LogView.Categories []string
 stdaddons: field LogView.CategoryKey string
-stdaddons: field LogView.Hotkey string
 stdaddons: field Number.Default int
 stdaddons: field Number.Help string
-stdaddons: field Number.Hotkey string
-stdaddons: field Number.HotkeyDisplay string
-stdaddons: field Number.HotkeyHint string
 stdaddons: field Number.Key string
 stdaddons: field Number.Label string
 stdaddons: field Number.Max int
@@ -546,36 +543,23 @@ stdaddons: field Number.OnChange func(ctx *dashygotui.Context[S], n int) tea.Cmd
 stdaddons: field Number.Unit string
 stdaddons: field Pick.Default string
 stdaddons: field Pick.Help string
-stdaddons: field Pick.Hotkey string
-stdaddons: field Pick.HotkeyDisplay string
-stdaddons: field Pick.HotkeyHint string
 stdaddons: field Pick.Items []modal.Item
 stdaddons: field Pick.Key string
 stdaddons: field Pick.Label string
 stdaddons: field Pick.OnChange func(ctx *dashygotui.Context[S], label string) tea.Cmd
-stdaddons: field RefreshRatePicker.Hotkey string
-stdaddons: field SpacingMenu.Hotkey string
 stdaddons: field Text.AllowEmpty bool
 stdaddons: field Text.Default string
 stdaddons: field Text.Help string
-stdaddons: field Text.Hotkey string
-stdaddons: field Text.HotkeyDisplay string
-stdaddons: field Text.HotkeyHint string
 stdaddons: field Text.Key string
 stdaddons: field Text.Label string
 stdaddons: field Text.Limit int
 stdaddons: field Text.OnChange func(ctx *dashygotui.Context[S], value string) tea.Cmd
 stdaddons: field Text.Secret bool
 stdaddons: field Text.Validate func(value string) error
-stdaddons: field ThemePicker.Hotkey string
 stdaddons: field Toggle.Default bool
-stdaddons: field Toggle.Hotkey string
-stdaddons: field Toggle.HotkeyDisplay string
-stdaddons: field Toggle.HotkeyHint string
 stdaddons: field Toggle.Key string
 stdaddons: field Toggle.Label string
 stdaddons: field Toggle.OnChange func(ctx *dashygotui.Context[S], on bool) tea.Cmd
-stdaddons: field TransparencyToggle.Hotkey string
 stdaddons: func (a BackgroundPicker[S]) Addons() []dashygotui.Addon[S]
 stdaddons: func (a DisplayPicker[S]) Addons() []dashygotui.Addon[S]
 stdaddons: func (a LogView[S]) Addons() []dashygotui.Addon[S]

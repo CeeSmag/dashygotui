@@ -32,7 +32,7 @@ func textWidget(title, body string) widget {
 
 // mapConfig is a dashboard of two tabs and a sub-page, built from a Map.
 func mapConfig(log *[]string, sessions *[]string) cfg {
-	diag := pageT{Title: "Diagnostics", Row: dashygotui.Option[state]{Hotkey: "d", HotkeyHint: "Diag"},
+	diag := dashygotui.Hotkey[state]{Key: "d", Hint: "Diag", Item: pageT{Title: "Diagnostics",
 		Session: func(*ctx) func() {
 			*sessions = append(*sessions, "diag+")
 			return func() { *sessions = append(*sessions, "diag-") }
@@ -40,8 +40,8 @@ func mapConfig(log *[]string, sessions *[]string) cfg {
 		Panels: []panelT{
 			{Widget: textWidget("Health", "all green")},
 			{Title: "Tools", Items: []addonT{row("Self-Test", log), row("Export", log),
-				option{Label: "Probe", Hotkey: "p", Do: func(*ctx) { *log = append(*log, "probe") }}}},
-		}}
+				dashygotui.Hotkey[state]{Key: "p", Item: option{Label: "Probe", Do: func(*ctx) { *log = append(*log, "probe") }}}}},
+		}}}
 	return cfg{
 		Title: "MapApp",
 		Map: mapT{
@@ -214,10 +214,11 @@ func TestMapErrorsNameThePlace(t *testing.T) {
 // the map what the window holds. Its title is the option's label.
 func TestASubPageOpensFromAPlainOption(t *testing.T) {
 	var log []string
-	diagOpt := option{Label: "Diagnostics", Hotkey: "d", HotkeyHint: "Diag"} // diag_opt.go: no action
+	diagSubpage := option{Label: "Diagnostics"} // diag_subpage.go: no action, no hotkey
 	c := cfg{Map: mapT{Pages: []pageT{{Title: "Main", Panels: []panelT{{Title: "Tools", Items: []addonT{
 		row("Backup", &log),
-		pageT{Row: diagOpt, Panels: []panelT{{Title: "Inside", Items: []addonT{row("Probe", &log)}}}},
+		dashygotui.Hotkey[state]{Key: "d", Hint: "Diag", // the map gives the hotkey
+			Item: pageT{Row: diagSubpage, Panels: []panelT{{Title: "Inside", Items: []addonT{row("Probe", &log)}}}}},
 	}}}}}}}
 	d := dashtest.New(t, c, 120, 30)
 	d.RequireContains("[d] Diag")

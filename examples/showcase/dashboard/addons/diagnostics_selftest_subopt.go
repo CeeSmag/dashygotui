@@ -7,15 +7,13 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 )
 
-// Run Self-Test, a row of the Diagnostics sub-page. Its hotkey (t) works only
-// there, and HotkeyHint lists it in the sub-page's footer.
+// Run Self-Test, a row of the Diagnostics subpage.
 
 var diagnosticsSelfTestOpt = dashboard.Option{
-	Label: "Run Self-Test", Hotkey: "t", HotkeyHint: "Self-test", HotkeyTone: dashygotui.ToneGood,
+	Label: "Run Self-Test",
 	Run: func(c *dashboard.Ctx) tea.Cmd {
 		return c.RunTask("selftest", "Testing...", func(ctx context.Context) (string, error) {
 			select {

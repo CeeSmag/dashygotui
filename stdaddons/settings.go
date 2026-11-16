@@ -32,10 +32,6 @@ type Toggle[S any] struct {
 	Key string
 	// Label is the row text. Required.
 	Label string
-	// Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option].
-	Hotkey        string
-	HotkeyDisplay string
-	HotkeyHint    string
 	// Default is the value until the user changes it. The zero value is off.
 	Default bool
 	// OnChange is called with the new value after it was saved. Optional.
@@ -56,8 +52,7 @@ func (t Toggle[S]) Addons() []dashygotui.Addon[S] {
 		return on
 	}
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Label:  t.Label,
-		Hotkey: t.Hotkey, HotkeyDisplay: t.HotkeyDisplay, HotkeyHint: t.HotkeyHint,
+		Label: t.Label,
 		Badge: func(c *dashygotui.Context[S]) string { return c.OnOff(value(c)) },
 		Run: func(c *dashygotui.Context[S]) tea.Cmd {
 			on := !value(c)
@@ -80,10 +75,6 @@ type Number[S any] struct {
 	Key string
 	// Label is the row text. Required.
 	Label string
-	// Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option].
-	Hotkey        string
-	HotkeyDisplay string
-	HotkeyHint    string
 	// Unit follows the value in the badge and messages, such as "GB". Optional.
 	Unit string
 	// Min and Max bound the value, inclusive. Max must be greater than Min.
@@ -123,8 +114,7 @@ func (n Number[S]) Addons() []dashygotui.Addon[S] {
 		help = fmt.Sprintf("A whole number from %d to %d.", n.Min, n.Max)
 	}
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Label:  n.Label,
-		Hotkey: n.Hotkey, HotkeyDisplay: n.HotkeyDisplay, HotkeyHint: n.HotkeyHint,
+		Label: n.Label,
 		Badge: func(c *dashygotui.Context[S]) string { return c.Badge(show(value(c))) },
 		Modal: func(c *dashygotui.Context[S]) dashygotui.Modal[S] {
 			st := c.Store()
@@ -167,10 +157,6 @@ type Pick[S any] struct {
 	Key string
 	// Label is the row text. Required.
 	Label string
-	// Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option].
-	Hotkey        string
-	HotkeyDisplay string
-	HotkeyHint    string
 	// Items are the choices; at least one, with distinct labels. An item's Detail
 	// explains it under its label.
 	Items []modal.Item
@@ -225,8 +211,7 @@ func (p Pick[S]) Addons() []dashygotui.Addon[S] {
 		return p.Items[current(c)].Label
 	}
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Label:  p.Label,
-		Hotkey: p.Hotkey, HotkeyDisplay: p.HotkeyDisplay, HotkeyHint: p.HotkeyHint,
+		Label: p.Label,
 		Badge: func(c *dashygotui.Context[S]) string { return c.Badge(label(c)) },
 		Run: func(c *dashygotui.Context[S]) tea.Cmd {
 			c.OpenModal(&modal.Choice[S]{
@@ -262,10 +247,6 @@ type Text[S any] struct {
 	Key string
 	// Label is the row text. Required.
 	Label string
-	// Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option].
-	Hotkey        string
-	HotkeyDisplay string
-	HotkeyHint    string
 	// Default is the value until the user changes it. Optional.
 	Default string
 	// Help explains the setting in the pop-up. Optional.
@@ -297,8 +278,7 @@ func (t Text[S]) Addons() []dashygotui.Addon[S] {
 		return v
 	}
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Label:  t.Label,
-		Hotkey: t.Hotkey, HotkeyDisplay: t.HotkeyDisplay, HotkeyHint: t.HotkeyHint,
+		Label: t.Label,
 		Badge: func(c *dashygotui.Context[S]) string {
 			v := value(c)
 			switch {

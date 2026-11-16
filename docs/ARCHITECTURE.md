@@ -12,6 +12,7 @@ global state.
 main.go ──imports──▶ dashboard         State (and its methods), Poll, Run
         └─imports──▶ dashboard/addons  addons.go (Map), *_opt.go *_widget.go *_view.go
                                        *_page.go *_modal.go *_shortcut.go *_hook.go
+                                       <sub>_subpage.go <sub>_*_sub{opt,widget,view,modal}.go
 addons ──imports──▶ dashboard ──imports──▶ dashygotui
 dashboard never imports addons
 ```

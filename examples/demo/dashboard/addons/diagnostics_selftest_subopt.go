@@ -10,9 +10,9 @@ import (
 	"github.com/CeeSmag/dashygotui/examples/demo/dashboard"
 )
 
-// Run Self-Test: a row of the Diagnostics sub-page, a background task.
+// Run Self-Test: a row of the Diagnostics subpage, a background task.
 
-var diagnosticsSelfTestOpt = dashboard.Option{
+var diagnosticsSelftestSubopt = dashboard.Option{
 	Label: "Run Self-Test",
 	Run: func(c *dashboard.Ctx) tea.Cmd {
 		return c.RunTask("selftest", "Testing...", func(ctx context.Context) (string, error) {

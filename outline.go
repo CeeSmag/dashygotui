@@ -36,7 +36,7 @@ func (d *Dashboard[S]) Outline() Outline {
 		for _, panel := range p.panels {
 			for _, o := range panel.opts {
 				out.Options = append(out.Options, OutlineOption{
-					Number: o.number, Label: o.Label, Hotkey: o.Hotkey, Page: name,
+					Number: o.number, Label: o.Label, Hotkey: o.hot.Key, Page: name,
 				})
 			}
 		}

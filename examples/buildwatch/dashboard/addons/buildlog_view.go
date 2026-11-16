@@ -7,12 +7,11 @@ import (
 	"github.com/CeeSmag/dashygotui/examples/buildwatch/dashboard"
 )
 
-// The build log: a Follow view (a log that holds its place). Entry says how the
-// row that opens it looks: its hotkey and footer hint.
+// The build log: a Follow view (a log that holds its place). The map places it
+// as a row, which opens it, and gives that row its hotkey.
 
 var buildlogView = dashboard.View{
 	ID: "buildlog", Title: "Build Log", Follow: true,
-	Row:   dashboard.Option{Hotkey: "l", HotkeyHint: "Build log"},
 	Badge: func(c *dashboard.Ctx) string { return c.Count(len(c.State().Builds)*20, "lines") },
 	Body: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
 		var lines []string

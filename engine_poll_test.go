@@ -168,8 +168,7 @@ func TestPollErrorIsShownUntilAPollSucceeds(t *testing.T) {
 func TestRefreshDuringAPollPollsAgain(t *testing.T) {
 	t.Parallel()
 	r := collect.New[state]()
-	r.Row("actions", option{Label: "Apply", Hotkey: "a",
-		Run: func(c *ctx) tea.Cmd { return c.Refresh() }})
+	r.Row("actions", dashygotui.Hotkey[state]{Key: "a", Item: option{Label: "Apply", Run: func(c *ctx) tea.Cmd { return c.Refresh() }}})
 	polls := 0
 	c := baseConfig(r)
 	c.Poll = func(context.Context) (state, error) { polls++; return state{Count: polls}, nil }
@@ -193,8 +192,8 @@ func TestASecondTaskKeepsItsMessageWhenTheFirstEnds(t *testing.T) {
 			return c.RunTask(tag, pending, func(context.Context) (string, error) { return "", nil })
 		}
 	}
-	r.Row("actions", option{Label: "First", Hotkey: "f", Run: task("first", "Scanning trash...")})
-	r.Row("actions", option{Label: "Second", Hotkey: "g", Run: task("second", "Restarting...")})
+	r.Row("actions", dashygotui.Hotkey[state]{Key: "f", Item: option{Label: "First", Run: task("first", "Scanning trash...")}})
+	r.Row("actions", dashygotui.Hotkey[state]{Key: "g", Item: option{Label: "Second", Run: task("second", "Restarting...")}})
 	m, start := newRaw(t, baseConfig(r))
 	m.exec(start)
 
@@ -220,10 +219,9 @@ func TestASecondTaskKeepsItsMessageWhenTheFirstEnds(t *testing.T) {
 func TestATaskMessageOutlastsTheFlashDuration(t *testing.T) {
 	t.Parallel()
 	r := collect.New[state]()
-	r.Row("actions", option{Label: "Slow", Hotkey: "s",
-		Run: func(c *ctx) tea.Cmd {
-			return c.RunTask("slow", "Copying...", func(context.Context) (string, error) { return "", nil })
-		}})
+	r.Row("actions", dashygotui.Hotkey[state]{Key: "s", Item: option{Label: "Slow", Run: func(c *ctx) tea.Cmd {
+		return c.RunTask("slow", "Copying...", func(context.Context) (string, error) { return "", nil })
+	}}})
 	m, start := newRaw(t, baseConfig(r))
 	m.exec(start)
 	_ = m.send(dashtest.KeyPress("s")) // the task never finishes in this test
@@ -257,8 +255,7 @@ func TestPollFailureDoesNotHideAnAddonMessage(t *testing.T) {
 	t.Parallel()
 	r := collect.New[state]()
 	fail := false
-	r.Row("actions", option{Label: "Break", Hotkey: "x",
-		Run: func(c *ctx) tea.Cmd { fail = true; c.Flash("Outage started"); return c.Refresh() }})
+	r.Row("actions", dashygotui.Hotkey[state]{Key: "x", Item: option{Label: "Break", Run: func(c *ctx) tea.Cmd { fail = true; c.Flash("Outage started"); return c.Refresh() }}})
 	c := baseConfig(r)
 	c.Poll = func(context.Context) (state, error) {
 		if fail {

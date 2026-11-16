@@ -211,13 +211,35 @@ func TestNewWritesAnAddonFromATemplate(t *testing.T) {
 func TestNewWritesEveryKind(t *testing.T) {
 	dir := app(t)
 	t.Chdir(dir)
-	for _, kind := range kinds() {
-		if code, _, errOut := runCLI(t, "new", kind, "thing"); code != exitOK {
+	for _, kind := range kinds() { // subpage comes before its elements
+		name := "thing"
+		if strings.HasPrefix(kind, "sub") && kind != "subpage" {
+			name = "thing_part" // an element of the thing subpage
+		}
+		if code, _, errOut := runCLI(t, "new", kind, name); code != exitOK {
 			t.Errorf("%s: code %d, stderr %q", kind, code, errOut)
 		}
-		if _, err := os.Stat(filepath.Join(dir, "internal/ui/addons", "thing_"+kind+".go")); err != nil {
+		if _, err := os.Stat(filepath.Join(dir, "internal/ui/addons", name+"_"+kind+".go")); err != nil {
 			t.Errorf("%s: %v", kind, err)
 		}
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, "internal/ui/addons", "thing_part_subopt.go")); err != nil || !strings.Contains(string(b), "var thingPartSubopt =") {
+		t.Errorf("an element of a subpage is named after its kind: %v\n%s", err, b)
+	}
+}
+
+func TestNewElementNeedsItsSubpage(t *testing.T) {
+	dir := app(t)
+	t.Chdir(dir)
+	code, _, errOut := runCLI(t, "new", "subopt", "diag_logs")
+	if code != exitUsage || !strings.Contains(errOut, "needs its subpage") {
+		t.Fatalf("code %d, stderr %q", code, errOut)
+	}
+	if code, _, errOut := runCLI(t, "new", "subpage", "diag"); code != exitOK {
+		t.Fatalf("subpage: %d %s", code, errOut)
+	}
+	if code, out, errOut := runCLI(t, "new", "subopt", "diag_logs"); code != exitOK || !strings.Contains(out, "inside its subpage's window: diagLogsSubopt") {
+		t.Errorf("code %d, out %q, stderr %q", code, out, errOut)
 	}
 }
 

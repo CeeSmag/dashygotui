@@ -25,7 +25,7 @@ func storageLimit(c *dashboard.Ctx) int {
 }
 
 var storageOpt = dashboard.Option{
-	Label: "Storage Limit", Hotkey: "s",
+	Label: "Storage Limit",
 	Badge: func(c *dashboard.Ctx) string { return c.Badge(fmt.Sprintf("%d GB", storageLimit(c))) },
 	Modal: func(c *dashboard.Ctx) dashboard.Modal {
 		st := c.Store()

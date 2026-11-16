@@ -23,7 +23,7 @@ starts its count at 10.
 ## Open a view from a row
 
 Place the view itself as the row: `Items: []dashboard.Addon{logsView}`. Its
-`Row` says how the row looks (`Hotkey`, `HotkeyHint`, `Note`). To open the same
+`Row` says how the row reads (`Label`, `Note`, `Badge`). To open the same
 view from a second place, an option with `Opens`:
 
 ```go
@@ -32,31 +32,42 @@ var logsAgainOpt = dashboard.Option{Label: "Logs", Opens: "logs"}
 
 Not `Run: func(c) tea.Cmd { return OpenView(...) }`. `Opens` is checked at startup.
 
-## An option that opens a window
+## An option that opens a window: a subpage
 
-The option is a plain option, in its own file, with no action:
+The subpage is a plain option with no action and no hotkey, and what the window
+does while open:
 
 ```go
-// diag_opt.go
-var diagOpt = dashboard.Option{Label: "Diagnostics", Hotkey: "d", HotkeyHint: "Diagnostics"}
+// diag_subpage.go
+var diagSubpage = dashboard.Option{Label: "Diagnostics"}
+
+func diagSession(c *dashboard.Ctx) func() { return c.State().WantDiag() }
 ```
 
-The map makes it open a window and says what is inside (in `addons.go`, or in
-`diag_map.go` when the window deserves a file of its own):
+Everything inside it is named after it: `diag_logs_subview.go`,
+`diag_checkhealth_subopt.go`, `diag_health_subwidget.go`. The map opens it, gives it
+its hotkey, and fills it (in `addons.go`, or `diag_map.go`):
 
 ```go
 // diag_map.go
 func diagPage() dashboard.Page {
-	return dashboard.Page{Row: diagOpt, Session: diagSession, Panels: []dashboard.Panel{
-		{Widget: diagHealthWidget},
-		{Title: "Tools", Items: []dashboard.Addon{diagCheckOpt, diagLogsView}}, // [1] [2]
+	return dashboard.Page{Row: diagSubpage, Session: diagSession, Panels: []dashboard.Panel{
+		{Widget: diagHealthSubwidget},
+		{Title: "Tools", Items: []dashboard.Addon{diagCheckhealthSubopt, diagLogsSubview}}, // [1] [2]
 	}}
 }
 ```
 
-Place `diagPage()` in a panel's `Items`. The window's title is the option's label;
-it numbers its own rows from 1, its rows' hotkeys work only inside it, and Back
-returns. What it does while open (`Session`, `Badge`) lives in `diag_page.go`.
+Place it as a row, with its hotkey: `dashboard.Hotkey{Key: "d", Hint: "Diagnostics",
+Item: diagPage()}`. The window's title is the option's label; it numbers its own
+rows from 1, its rows' hotkeys work only inside it, and Back returns.
+`dashygotui new subpage diag` and `dashygotui new subopt diag_logs` write the files.
+
+## Give a row a hotkey
+
+In the map: `dashboard.Hotkey{Key: "s", Display: "S", Tone: dashygotui.ToneInfo,
+Hint: "Storage", Item: storageOpt}`. A feature never has a hotkey, as it never has a
+number.
 
 ## Split the map by page
 
@@ -164,7 +175,7 @@ application is a field or a method of `State`: `c.State().Logger("net")`,
 ## Show a key hint
 
 `Shortcut{Key: "ctrl+q", Display: "Ctrl+Q", Tone: dashygotui.ToneDanger, Label: "Stop"}`;
-for an option, `Hotkey` plus `HotkeyHint`. Tones follow the theme.
+for a row, the map's `Hotkey{Key, Hint, Item}`. Tones follow the theme.
 
 ## Colour something
 

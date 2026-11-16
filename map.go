@@ -52,6 +52,33 @@ type Panel[S any] struct {
 	Items []Addon[S]
 }
 
+// Hotkey gives a row of the map a key that runs it without selecting it: from
+// any tab page for a row of a tab, and only inside the window for a row of a
+// window. The row is shown as "Label (key)". Like a row's number, its hotkey is
+// the map's to give, never the feature's:
+//
+//	dashboard.Hotkey{Key: "d", Hint: "Diagnostics", Item: diagPage()}
+//
+// A hotkey may not be a navigation key, a digit, a shortcut or another row's
+// hotkey in the same place.
+type Hotkey[S any] struct {
+	// Key is the key, as Bubble Tea names it: "d", "ctrl+o". Required.
+	Key string
+	// Display is how the key is written after the label and in the footer, such
+	// as "Ctrl+O". It defaults to Key.
+	Display string
+	// Tone colours the key after the label and in the footer.
+	Tone Tone
+	// Hint, when set, also lists the key in the footer with this wording.
+	Hint string
+	// Item is the row: an option, a view, a window or a ready-made setting that
+	// makes exactly one row. Required.
+	Item Addon[S]
+}
+
+// Addons implements [Addon].
+func (h Hotkey[S]) Addons() []Addon[S] { return []Addon[S]{h} }
+
 // isWidget reports whether the panel holds a widget, as opposed to rows.
 func (p Panel[S]) isWidget() bool {
 	w := p.Widget
@@ -71,6 +98,7 @@ type mapped[S any] struct {
 // mapper compiles a Map, recording every mistake with the place in the map.
 type mapper[S any] struct {
 	reg     *registry[S]
+	hot     *Hotkey[S] // a hotkey waiting for the row it was given to
 	pages   []pageDef[S]
 	subRows []placedRow[S] // the rows of sub-pages, for checking what they open
 }
@@ -221,6 +249,25 @@ func (c *mapper[S]) item(it Addon[S], path, parent string, sc *scope[S], depth i
 		c.reg.fail(path, "nil row")
 	case Option[S]:
 		return c.row(v, path, sc)
+	case Hotkey[S]:
+		if c.hot != nil {
+			c.reg.fail(path, "hotkey %q is given to another hotkey", v.Key)
+			return nil
+		}
+		if strings.TrimSpace(v.Key) == "" {
+			c.reg.fail(path, "hotkey has no Key")
+		}
+		c.hot = &v
+		rows := c.item(v.Item, path, parent, sc, depth)
+		if c.hot != nil {
+			c.hot = nil
+			c.reg.fail(path, "hotkey %q has no row to run", v.Key)
+			return rows
+		}
+		if len(rows) != 1 {
+			c.reg.fail(path, "hotkey %q is given to %d rows; give it one", v.Key, len(rows))
+		}
+		return rows
 	case View[S]:
 		if v.ID == "" {
 			v.ID = path
@@ -234,7 +281,10 @@ func (c *mapper[S]) item(it Addon[S], path, parent string, sc *scope[S], depth i
 	case Page[S]:
 		v.Title = cmp.Or(v.Title, v.Row.Label)
 		spath := parent + " > " + cmp.Or(v.Title, "page")
+		hot := c.hot // the window's own rows are not the one the hotkey is for
+		c.hot = nil
 		def := c.page(v, spath, newScope[S](false))
+		c.hot = hot
 		id := cmp.Or(v.ID, spath)
 		if !c.view(View[S]{ID: id, Title: cmp.Or(v.Title, "page"), Badge: v.Badge, Session: v.Session, sub: &def}, path) {
 			return nil
@@ -292,8 +342,7 @@ func (c *mapper[S]) opener(r Option[S], title, id, path string, sc *scope[S]) []
 
 // rowZero reports whether r says nothing about how a row looks or acts.
 func rowZero[S any](r Option[S]) bool {
-	return r.Label == "" && r.Hotkey == "" && r.HotkeyDisplay == "" && r.HotkeyHint == "" &&
-		r.HotkeyTone == ToneDefault && r.Badge == nil && r.Note == "" && r.actions() == 0
+	return r.Label == "" && r.Badge == nil && r.Note == "" && r.actions() == 0
 }
 
 // view registers a view and reports whether it was valid.
@@ -320,7 +369,12 @@ func (c *mapper[S]) row(o Option[S], path string, sc *scope[S]) []Option[S] {
 	if n := o.actions(); n != 1 {
 		fail("option %q needs exactly one of Run, Do, Opens and Modal, has %d", o.Label, n)
 	}
-	if hk := o.Hotkey; hk != "" {
+	if c.hot != nil {
+		o.hot = *c.hot
+		o.hot.Item = nil
+		c.hot = nil
+	}
+	if hk := o.hot.Key; hk != "" {
 		switch {
 		case sc.hotkeys[hk] != "":
 			fail("option %q reuses hotkey %q (first used at %s)", o.Label, hk, sc.hotkeys[hk])

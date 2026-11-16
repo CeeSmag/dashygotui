@@ -154,7 +154,7 @@ func TestTTYModeDrawsOnlyConsoleSafeGlyphs(t *testing.T) {
 		Body: func(*ctx, dashygotui.Size) []string { return []string{"body row"} }})
 	f.reg.Add(dashygotui.Page[state]{ID: "sub", Title: "Sub-page", Panels: []panelT{
 		{Widget: widget{Title: "Status", Subtitle: "sub", Render: func(*ctx, dashygotui.Size) []string { return []string{"status row"} }}},
-		{Title: "Menu", Items: []dashygotui.Addon[state]{option{Label: "Do It", Hotkey: "d", Run: noop}}},
+		{Title: "Menu", Items: []dashygotui.Addon[state]{dashygotui.Hotkey[state]{Key: "d", Item: option{Label: "Do It", Run: noop}}}},
 	}})
 	open := func(m dashygotui.Modal[state]) func(c *ctx) tea.Cmd {
 		return func(c *ctx) tea.Cmd { c.OpenModal(m); return nil }

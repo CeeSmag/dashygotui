@@ -1,0 +1,37 @@
+package addons
+
+// TEMPLATE: a subpage, a window opened from a row.
+//
+// The window is made of:
+//   - this file, my_feature_subpage.go: the option that opens it (only its Label,
+//     and a Badge or Note; no action and no hotkey, the map gives both), and
+//     what the window does while it is open: the badge beside its title and a
+//     session that runs while it is on screen. Delete what you do not need.
+//   - its elements, each named after it: my_feature_<name>_subopt.go,
+//     my_feature_<name>_subwidget.go, my_feature_<name>_subview.go,
+//     my_feature_<name>_submodal.go (dashygotui new subopt my_feature_<name> ...).
+//   - the map, which places it and fills it (addons.go, or my_feature_map.go):
+//
+//	dashboard.Hotkey{Key: "x", Item: dashboard.Page{Row: myFeatureSubpage,
+//		Badge: myFeatureBadge, Session: myFeatureSession,
+//		Panels: []dashboard.Panel{{Title: "Tools", Items: []dashboard.Addon{myFeatureSomeSubopt}}}}}
+//
+// To use it, run dashygotui new subpage <name>, or copy this file as
+// <name>_subpage.go and change the import path of the dashboard package.
+
+import (
+	"example.com/yourapp/dashboard"
+)
+
+var myFeatureSubpage = dashboard.Option{Label: "My Feature"}
+
+func myFeatureBadge(c *dashboard.Ctx) string {
+	return c.Theme().Green.Render(c.Theme().G.Bullet + " OK")
+}
+
+// myFeatureSession starts work that only matters while the window is on
+// screen, and returns what stops it.
+func myFeatureSession(c *dashboard.Ctx) func() {
+	c.Flash("My Feature opened")
+	return func() {}
+}

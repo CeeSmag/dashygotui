@@ -214,3 +214,76 @@ func Map() dashboard.Map { return dashboard.Map{Pages: []any{setupPage(), backup
 		t.Errorf("AddonNameViolations = %v", got)
 	}
 }
+
+// A subpage is a window opened from a row: diag_subpage.go is its option, and
+// everything inside it is named after it and placed inside it (A14).
+func TestSubpages(t *testing.T) {
+	t.Parallel()
+	sub := mapSrc(t, mapAddons+"diag_subpage.go", `package addons
+import "example.com/app/dashboard"
+var diagSubpage = dashboard.Option{Label: "Diagnostics"}`)
+	logs := mapSrc(t, mapAddons+"diag_logs_subopt.go", `package addons
+import "example.com/app/dashboard"
+var diagLogsSubopt = dashboard.Option{Label: "Logs"}`)
+	nested := mapSrc(t, mapAddons+"diag_deep_subpage.go", `package addons
+import "example.com/app/dashboard"
+var diagDeepSubpage = dashboard.Option{Label: "Deep"}`)
+	deep := mapSrc(t, mapAddons+"diag_deep_x_subopt.go", `package addons
+import "example.com/app/dashboard"
+var diagDeepXSubopt = dashboard.Option{Label: "X"}`)
+	tests := []struct {
+		name  string
+		root  string
+		extra []guard.Source
+		want  string
+		inMsg string
+	}{
+		{name: "placed inside its window", root: `package addons
+import "example.com/app/dashboard"
+func Map() dashboard.Map { return dashboard.Map{Pages: []dashboard.Page{{Title: "Main", Panels: []dashboard.Panel{{Items: []any{
+	backupOpt,
+	dashboard.Hotkey{Key: "d", Item: dashboard.Page{Row: diagSubpage, Panels: []dashboard.Panel{{Items: []any{diagLogsSubopt}}}}},
+}}}}}} }`, extra: []guard.Source{sub, logs}},
+		{name: "a window inside a window", root: `package addons
+import "example.com/app/dashboard"
+func Map() dashboard.Map { return dashboard.Map{Pages: []dashboard.Page{{Title: "Main", Panels: []dashboard.Panel{{Items: []any{
+	backupOpt,
+	dashboard.Page{Row: diagSubpage, Panels: []dashboard.Panel{{Items: []any{diagLogsSubopt,
+		dashboard.Page{Row: diagDeepSubpage, Panels: []dashboard.Panel{{Items: []any{diagDeepXSubopt}}}}}}}},
+}}}}}} }`, extra: []guard.Source{sub, logs, nested, deep}},
+		{name: "an element placed outside its window", root: `package addons
+import "example.com/app/dashboard"
+func Map() dashboard.Map { return dashboard.Map{Pages: []dashboard.Page{{Title: "Main", Panels: []dashboard.Panel{{Items: []any{
+	backupOpt, diagLogsSubopt,
+	dashboard.Page{Row: diagSubpage},
+}}}}}} }`, extra: []guard.Source{sub, logs}, want: "A14", inMsg: "is an element of the diag subpage, placed outside it"},
+		{name: "a plain feature placed inside a window", root: `package addons
+import "example.com/app/dashboard"
+func Map() dashboard.Map { return dashboard.Map{Pages: []dashboard.Page{{Title: "Main", Panels: []dashboard.Panel{{Items: []any{
+	dashboard.Page{Row: diagSubpage, Panels: []dashboard.Panel{{Items: []any{diagLogsSubopt, backupOpt}}}},
+}}}}}} }`, extra: []guard.Source{sub, logs}, want: "A14", inMsg: "is placed inside the diag subpage, but it is not one of its elements"},
+		{name: "a window that does not open from a subpage", root: `package addons
+import "example.com/app/dashboard"
+func Map() dashboard.Map { return dashboard.Map{Pages: []dashboard.Page{{Title: "Main", Panels: []dashboard.Panel{{Items: []any{
+	dashboard.Page{Row: backupOpt},
+}}}}}} }`, want: "A14", inMsg: "a window opens from a subpage"},
+		{name: "an element with no subpage", root: `package addons
+import "example.com/app/dashboard"
+func Map() dashboard.Map { return dashboard.Map{Items: []any{backupOpt, diagLogsSubopt}} }`,
+			extra: []guard.Source{logs}, want: "A14", inMsg: "no <subpage>_subpage.go starts its name"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			files := mapApp(t, tt.extra...)
+			files[1] = mapSrc(t, mapAddons+guard.MapFile, tt.root)
+			rep := guard.CheckApp(files)
+			if got := strings.Join(rules(rep.Findings), " "); got != tt.want {
+				t.Fatalf("rules = %q, want %q: %v", got, tt.want, rep.Findings)
+			}
+			if tt.inMsg != "" && !strings.Contains(rep.Findings[0].Msg, tt.inMsg) {
+				t.Errorf("message = %q, want it to contain %q", rep.Findings[0].Msg, tt.inMsg)
+			}
+		})
+	}
+}

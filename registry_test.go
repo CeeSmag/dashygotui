@@ -114,8 +114,8 @@ func TestNewRejectsMistakesAndNamesThePlace(t *testing.T) {
 		{
 			name: "duplicate hotkey",
 			register: func(r *reg) {
-				r.Row("actions", option{Label: "A", Hotkey: "x", Run: noop})
-				r.Row("settings", option{Label: "B", Hotkey: "x", Run: noop})
+				r.Row("actions", dashygotui.Hotkey[state]{Key: "x", Item: option{Label: "A", Run: noop}})
+				r.Row("settings", dashygotui.Hotkey[state]{Key: "x", Item: option{Label: "B", Run: noop}})
 			},
 			want: []string{`option "B" reuses hotkey "x"`},
 		},
@@ -123,7 +123,7 @@ func TestNewRejectsMistakesAndNamesThePlace(t *testing.T) {
 			name: "hotkey that is a shortcut",
 			register: func(r *reg) {
 				r.Shortcut(dashygotui.Shortcut[state]{Key: "x", Run: noop})
-				r.Row("settings", option{Label: "B", Hotkey: "x", Run: noop})
+				r.Row("settings", dashygotui.Hotkey[state]{Key: "x", Item: option{Label: "B", Run: noop}})
 			},
 			want: []string{`"x"`, "shortcut"},
 		},

@@ -30,8 +30,6 @@ import (
 // highlight previews each palette live; Enter keeps one and saves the choice
 // and Esc restores the previous palette.
 type ThemePicker[S any] struct {
-	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
-	Hotkey string
 }
 
 // Addons implements [dashygotui.Addon].
@@ -44,8 +42,7 @@ func (a ThemePicker[S]) Addons() []dashygotui.Addon[S] {
 			}
 			return ctx.Badge(ctx.PaletteID())
 		},
-		Do:     openThemePicker[S],
-		Hotkey: a.Hotkey,
+		Do: openThemePicker[S],
 	}}
 }
 
@@ -80,17 +77,14 @@ func openThemePicker[S any](ctx *dashygotui.Context[S]) {
 //
 // Declare it as an addon.
 type RefreshRatePicker[S any] struct {
-	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
-	Hotkey string
 }
 
 // Addons implements [dashygotui.Addon].
 func (a RefreshRatePicker[S]) Addons() []dashygotui.Addon[S] {
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Label:  "Refresh Rate",
-		Badge:  func(ctx *dashygotui.Context[S]) string { return ctx.Badge(rateLabel(ctx.RefreshInterval())) },
-		Do:     openRatePicker[S],
-		Hotkey: a.Hotkey,
+		Label: "Refresh Rate",
+		Badge: func(ctx *dashygotui.Context[S]) string { return ctx.Badge(rateLabel(ctx.RefreshInterval())) },
+		Do:    openRatePicker[S],
 	}}
 }
 
@@ -161,8 +155,6 @@ func gaps(both string) []gap {
 //
 // Declare it as an addon.
 type SpacingMenu[S any] struct {
-	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
-	Hotkey string
 }
 
 // Addons implements [dashygotui.Addon].
@@ -174,8 +166,7 @@ func (a SpacingMenu[S]) Addons() []dashygotui.Addon[S] {
 			d := ctx.Theme().G.Dot
 			return ctx.Badge(fmt.Sprintf("%d%s%d%s%d%s%d", sp.TerminalPage, d, sp.PageSection, d, sp.Section, d, sp.SectionOption))
 		},
-		Run:    openSpacingMenu[S],
-		Hotkey: a.Hotkey,
+		Run: openSpacingMenu[S],
 	}}
 }
 

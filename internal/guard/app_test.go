@@ -385,7 +385,7 @@ func TestReportIsSorted(t *testing.T) {
 }
 
 func TestEveryRuleHasADescription(t *testing.T) {
-	for _, id := range []string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A12", "A13", "C1", "G1", "X1"} {
+	for _, id := range []string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A12", "A13", "A14", "C1", "G1", "X1"} {
 		if guard.Rules()[id] == "" {
 			t.Errorf("rule %s has no description", id)
 		}

@@ -8,28 +8,12 @@ import (
 	"github.com/CeeSmag/dashygotui/panel"
 )
 
-// Option is one numbered row of a panel: the thing an addon adds to a menu.
-// The map places it in a panel's Items, and its position there is its number.
+// Option is one numbered row of a panel: what happens when it is opened, and how
+// its row reads. The map places it in a panel's Items; its position there is its
+// number, and the map gives it a hotkey with [Hotkey].
 type Option[S any] struct {
 	// Label is the row text. Required.
 	Label string
-	// Hotkey is an optional key that runs the option directly from any
-	// dashboard page, without selecting it first: "l" to open the logs, say. It
-	// is shown after the label as "(l)". It must not clash with a navigation key,
-	// a digit, a shortcut or another option's hotkey. Inside a view's own
-	// options it works only in that view.
-	Hotkey string
-	// HotkeyDisplay is how the hotkey is written after the label, such as
-	// "Ctrl+L". It defaults to Hotkey.
-	HotkeyDisplay string
-	// HotkeyTone colours the hotkey after the label. The default is the label's
-	// own colour.
-	HotkeyTone Tone
-	// HotkeyHint, when set, also lists the hotkey in the footer with this
-	// wording, written as HotkeyDisplay (or Hotkey) and coloured by HotkeyTone,
-	// so a hotkey needs no separate [Shortcut] to be advertised. It is shown on
-	// the dashboard pages. Optional.
-	HotkeyHint string
 	// Badge returns the row's current state, already styled, such as "[ON ✓]".
 	// Optional.
 	Badge func(*Context[S]) string
@@ -51,8 +35,10 @@ type Option[S any] struct {
 	// Modal returns a pop-up to open, such as a [modal.Confirm] or a notice.
 	Modal func(*Context[S]) Modal[S]
 
-	// number is the row's number, given by its position in the map.
+	// number is the row's number, given by its position in the map, and hot its
+	// hotkey, given by the map with [Hotkey].
 	number int
+	hot    Hotkey[S]
 }
 
 // actions counts how many of Run, Do, Opens and Modal are set.

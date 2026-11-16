@@ -1,18 +1,14 @@
 package addons
 
 import (
-	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 )
 
-// Open Web UI (hotkey Ctrl+O): an option whose hotkey is a key combination.
-// HotkeyDisplay writes it as "Ctrl+O" after the label instead of "ctrl+o", and
-// HotkeyTone draws it in the theme's info colour. The key itself is still
-// Hotkey, the name Bubble Tea reports.
+// Open Web UI. The map gives it a key combination as its hotkey (Ctrl+O), written
+// and coloured there.
 
 var webOption = dashboard.Option{
-	Label:  "Open Web UI",
-	Hotkey: "ctrl+o", HotkeyDisplay: "Ctrl+O", HotkeyTone: dashygotui.ToneInfo,
+	Label: "Open Web UI",
 	Do: func(c *dashboard.Ctx) {
 		c.Flash("Would open http://localhost:8080 in your browser")
 	},

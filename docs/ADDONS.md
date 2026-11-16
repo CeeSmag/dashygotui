@@ -18,7 +18,9 @@ quickstart.
 | a saved setting | `<name>_opt.go` | a `stdaddons.Toggle`, `Number`, `Pick` or `Text` | in a panel's `Items` |
 | a read-only panel | `<name>_widget.go` | a `Widget` | as a panel: `{Widget: x}` |
 | a full-screen view | `<name>_view.go` | a `View` | in a panel's `Items` (the row opens it), or `Map.Views` |
-| a window: panels opened from a row | `<name>_opt.go` (the row) and `<name>_page.go` (`Session`, `Badge`) | an `Option` with no action | a `Page` with that `Row`, in a panel's `Items`, with its `Panels` |
+| a window: panels opened from a row | `<name>_subpage.go` | the `Option` that opens it (no action, no hotkey), and its `Session` and `Badge` | a `Page` with that `Row`, in a panel's `Items`, with its `Panels` |
+| a row, widget, view or pop-up inside a window | `<subpage>_<name>_subopt.go`, `_subwidget.go`, `_subview.go`, `_submodal.go` | as its plain kind | inside its subpage's window, and nowhere else |
+| what a tab does (badge, fallback, session) | `<name>_page.go` | functions | on the tab in the map |
 | the map of one page or window | `<name>_map.go` | a function returning the `Page` | in `Map.Pages`, or a panel's `Items` |
 | a custom pop-up | `<name>_modal.go` | an `Option` with a `Modal` | in a panel's `Items` |
 | a key that is not a row | `<name>_shortcut.go` | a `Shortcut` | `Map.Shortcuts` |
@@ -72,13 +74,19 @@ func Map() dashboard.Map {
 - **Rows are numbered by position**, across the tab pages in map order. A panel's
   `Number` sets where its count starts; typing `1` then `0` jumps to `[10]`. Two
   rows with one number is a startup error.
+- **Hotkeys are the map's**, like numbers: `dashboard.Hotkey{Key: "d", Hint:
+  "Diagnostics", Item: …}` gives the row it wraps a key that runs it without
+  selecting it (from every tab for a row of a tab, only inside the window for a row
+  of a window), shown as `Label (d)`. `Display` writes the key (`"Ctrl+O"`), `Tone`
+  colours it and `Hint` lists it in the footer. A feature never has a hotkey.
 - A **`View`** placed as a row is opened by that row; its `Row` (an `Option` with no
-  action) says how the row looks (`Label`, `Hotkey`, `HotkeyHint`, `Note`, `Badge`).
-- A **`Page`** placed as a row is a **window** (a sub-page): the row opens it
-  full-screen with panels of its own, numbered from 1, its rows' hotkeys working
-  only inside it, and Back returns. Its `Row` is the option that opens it, a plain
-  option from a feature file such as `diag_opt.go`; its title defaults to that
-  option's label. Its `Session` and `Badge` work as a tab's do.
+  action) says how the row reads (`Label`, `Note`, `Badge`).
+- A **`Page`** placed as a row is a **window**, opened from a **subpage**: the row
+  opens it full-screen with panels of its own, numbered from 1, and Back returns.
+  Its `Row` is the subpage's option, a plain option in `<name>_subpage.go`; its
+  title defaults to that option's label. Its `Session` and `Badge` work as a tab's
+  do. Everything inside it is named after it, `<name>_<element>_sub<kind>.go`, and
+  the map places those inside it and nowhere else (rule A14).
 - **The map can be split by page.** `addons.go` holds `Map()` and lists the tabs;
   a page or window that is longer than a screen gets its own `<name>_map.go` with
   a function returning it (`func setupPage() dashboard.Page`). Map files place
@@ -95,10 +103,9 @@ needs exactly one of Run, Do, Opens and Modal, has 0`.
 
 ```go
 var storageOpt = dashboard.Option{
-	Label:  "Storage Limit",
-	Hotkey: "s", // optional: runs it from any page; shown as "(s)"
-	Badge:  func(c *dashboard.Ctx) string { return c.Badge("50 GB") },
-	Modal:  func(c *dashboard.Ctx) dashboard.Modal { return &modal.Edit[State]{...} },
+	Label: "Storage Limit",
+	Badge: func(c *dashboard.Ctx) string { return c.Badge("50 GB") },
+	Modal: func(c *dashboard.Ctx) dashboard.Modal { return &modal.Edit[State]{...} },
 }
 ```
 
@@ -106,11 +113,9 @@ var storageOpt = dashboard.Option{
 
 - `Badge` runs on every frame; keep it cheap. Helpers: `c.OnOff(bool)`,
   `c.Badge(text)`, `c.Count(n, "files")`.
-- **`Hotkey`** is an optional key that runs the option from any page without
-  selecting it: `Hotkey: "l"` to open the logs. The row shows `Logs (l)`. A
-  hotkey may not be a navigation key, a digit, or the same as a shortcut or
-  another row's hotkey; a clash is a startup error naming both places. A row of a
-  sub-page has its hotkey only inside the sub-page.
+- Its number and its hotkey are the map's (`dashboard.Hotkey{Key: "s", Item:
+  storageOpt}`). A hotkey may not be a navigation key, a digit, or the same as a
+  shortcut or another row's hotkey; a clash is a startup error naming both places.
 
 ## What an option does
 
@@ -124,8 +129,7 @@ An option and a shortcut say what happens when they are used by setting
 | `Modal func(*Ctx) Modal` | opening a pop-up |
 | `Run func(*Ctx) tea.Cmd` | when you must return a command |
 
-`Note: "text"` draws fixed muted text where a badge would go. `HotkeyHint: "Name"`
-lists the hotkey in the footer, with `HotkeyDisplay` and `HotkeyTone` styling it.
+`Note: "text"` draws fixed muted text where a badge would go.
 
 Anything that implements `Addon` (an `Addons()` method returning some) is an
 addon too: the ready-made settings in `stdaddons` are written that way, and a file
@@ -265,7 +269,7 @@ rate).
 A view is a full-screen body: a log, a long text, a table with keys of its own. The
 map places it as a row (the row opens it) or in `Map.Views` (opened by a shortcut,
 `Opens`, `c.OpenView(id)` or `StartView`); Back leaves it. For a page of panels
-opened from a row, use a sub-page instead (a `Page` placed as a row).
+opened from a row, use a subpage instead (a `Page` placed as a row).
 
 - **`Scroll: true`** makes the dashboard scroll a `Body` that returns more rows
   than fit: arrows, PgUp/PgDn, Home and End, a scroll bar down the right-hand
@@ -419,7 +423,7 @@ Three kinds of key, from narrow to wide:
 | | Use it for | Where it works |
 | --- | --- | --- |
 | a number | jumping to a row | every page (typed digits, then Enter) |
-| `Option.Hotkey` | running one option directly | every page; in a view, only that view's options |
+| a `Hotkey` in the map | running one row directly | every page; in a window, only that window's rows |
 | a `Shortcut` | anything that is not a menu row | its `Scope` |
 
 A **shortcut** has a `Scope`. `ScopePages` (the default) works on the dashboard
@@ -437,8 +441,8 @@ var stopShortcut = dashygotui.Shortcut[dashboard.State]{
 A shortcut's footer hint can be worded and coloured: `Display: "Ctrl+Q"` writes
 the key as people say it, and `Tone` (`ToneDanger`, `ToneWarn`, `ToneInfo`,
 `ToneGood`, `ToneMuted`) draws the whole hint in a colour the theme chooses, so it
-follows the palette. `Option.HotkeyDisplay` and `Option.HotkeyTone` do the same for
-the `(key)` shown after an option's label.
+follows the palette. A `Hotkey`'s `Display` and `Tone` do the same for the `(key)`
+shown after a row's label.
 
 A shortcut may use any key Bubble Tea reports (`ctrl+r`, `f5`, `d`), except a
 navigation key or a digit. Only an `ScopeEverywhere` shortcut may take over the
@@ -470,7 +474,7 @@ defer restore()
 In the map, as a row:
 
 ```go
-stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Hotkey: "g"}
+dashboard.Hotkey{Key: "g", Item: stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs}}
 ```
 
 Entries can carry a **category**, and the view then shows tabs along the top.
@@ -481,7 +485,7 @@ File a logger's output under one with `buf.In("net")`, which gives an
 var NetLog = slog.New(Logs.In("net").Handler(nil)) // in dashboard.go
 
 stdaddons.LogView[dashboard.State]{ // a row in the map
-	Buffer: dashboard.Logs, Hotkey: "g",
+	Buffer:      dashboard.Logs,
 	Categories:  []string{"net", "disk"}, // tabs always shown, in this order
 	CategoryKey: "c",                     // c: next tab, C: previous (wraps)
 }
@@ -585,10 +589,10 @@ hysteresis; `chart.Resample` maps timestamped samples onto columns.
 [`stdaddons`](../stdaddons/) provides a theme picker, the four spacing sliders, a
 refresh-rate picker, a display-mode picker, the background and transparency
 switches, the log view, and the settings above. Each is placed in the map as a row,
-directly, with an optional `Hotkey`:
+directly; a hotkey is the map's, as for any row:
 
 ```go
-stdaddons.ThemePicker[dashboard.State]{Hotkey: "m"},
+dashboard.Hotkey{Key: "m", Item: stdaddons.ThemePicker[dashboard.State]{}},
 ```
 
 ## Rules an addon must follow

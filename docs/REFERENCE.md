@@ -80,15 +80,11 @@ Panel is one bordered panel of a page: one widget, or a list of numbered rows. S
 
 ### `Option`
 
-Option is one numbered row of a panel: the thing an addon adds to a menu. The map places it in a panel's Items, and its position there is its number.
+Option is one numbered row of a panel: what happens when it is opened, and how its row reads. The map places it in a panel's Items; its position there is its number, and the map gives it a hotkey with [Hotkey].
 
 | Field | Type | What it does |
 | --- | --- | --- |
 | `Label` | `string` | Label is the row text. Required. |
-| `Hotkey` | `string` | Hotkey is an optional key that runs the option directly from any dashboard page, without selecting it first: "l" to open the logs, say. It is shown after the label as "(l)". It must not clash with a navigation key, a digit, a shortcut or another option's hotkey. Inside a view's own options it works only in that view. |
-| `HotkeyDisplay` | `string` | HotkeyDisplay is how the hotkey is written after the label, such as "Ctrl+L". It defaults to Hotkey. |
-| `HotkeyTone` | `Tone` | HotkeyTone colours the hotkey after the label. The default is the label's own colour. |
-| `HotkeyHint` | `string` | HotkeyHint, when set, also lists the hotkey in the footer with this wording, written as HotkeyDisplay (or Hotkey) and coloured by HotkeyTone, so a hotkey needs no separate [Shortcut] to be advertised. It is shown on the dashboard pages. Optional. |
 | `Badge` | `func(*Context[S]) string` | Badge returns the row's current state, already styled, such as "[ON ✓]". Optional. |
 | `Note` | `string` | Note is fixed, muted text shown in place of a badge, drawn "[Note]". It is ignored when Badge is set. Optional. |
 | `Run` | `func(*Context[S]) tea.Cmd` | Run is called when the user opens the row. Return the command to run, or nil. |
@@ -275,9 +271,6 @@ Toggle is an on/off setting. Opening the row flips it.
 | --- | --- | --- |
 | `Key` | `string` | Key names the setting in the Store. Required and unique. |
 | `Label` | `string` | Label is the row text. Required. |
-| `Hotkey` | `string` | Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option]. |
-| `HotkeyDisplay` | `string` |  |
-| `HotkeyHint` | `string` |  |
 | `Default` | `bool` | Default is the value until the user changes it. The zero value is off. |
 | `OnChange` | `func(ctx *dashygotui.Context[S], on bool) tea.Cmd` | OnChange is called with the new value after it was saved. Optional. |
 
@@ -289,9 +282,6 @@ Number is a whole-number setting, edited in a pop-up that validates the range.
 | --- | --- | --- |
 | `Key` | `string` | Key names the setting in the Store. Required and unique. |
 | `Label` | `string` | Label is the row text. Required. |
-| `Hotkey` | `string` | Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option]. |
-| `HotkeyDisplay` | `string` |  |
-| `HotkeyHint` | `string` |  |
 | `Unit` | `string` | Unit follows the value in the badge and messages, such as "GB". Optional. |
 | `Min` | `int` | Min and Max bound the value, inclusive. Max must be greater than Min. |
 | `Max` | `int` | Min and Max bound the value, inclusive. Max must be greater than Min. |
@@ -307,9 +297,6 @@ Pick is a setting chosen from a fixed list, shown in a pop-up with the current c
 | --- | --- | --- |
 | `Key` | `string` | Key names the setting in the Store. Required and unique. |
 | `Label` | `string` | Label is the row text. Required. |
-| `Hotkey` | `string` | Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option]. |
-| `HotkeyDisplay` | `string` |  |
-| `HotkeyHint` | `string` |  |
 | `Items` | `[]modal.Item` | Items are the choices; at least one, with distinct labels. An item's Detail explains it under its label. |
 | `Default` | `string` | Default is the Label chosen until the user picks. It defaults to the first item. |
 | `Help` | `string` | Help explains the setting above the list. Optional. |
@@ -323,9 +310,6 @@ Text is a text setting, edited in a one-line pop-up. Secret masks the input and 
 | --- | --- | --- |
 | `Key` | `string` | Key names the setting in the Store. Required and unique. |
 | `Label` | `string` | Label is the row text. Required. |
-| `Hotkey` | `string` | Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option]. |
-| `HotkeyDisplay` | `string` |  |
-| `HotkeyHint` | `string` |  |
 | `Default` | `string` | Default is the value until the user changes it. Optional. |
 | `Help` | `string` | Help explains the setting in the pop-up. Optional. |
 | `Secret` | `bool` | Secret masks the input, and shows only "set" or "not set" as the badge. |
@@ -340,7 +324,6 @@ ThemePicker is an option that opens a colour palette picker. Moving the highligh
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
 
 ### `RefreshRatePicker`
 
@@ -348,7 +331,6 @@ RefreshRatePicker is an option that opens a refresh-rate picker. Declare it as a
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
 
 ### `SpacingMenu`
 
@@ -356,7 +338,6 @@ SpacingMenu is an option that opens the spacing menu: the four gaps that frame t
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
 
 ### `DisplayPicker`
 
@@ -364,7 +345,6 @@ DisplayPicker is an option that opens a display-mode picker: Auto (detect the Li
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
 
 ### `BackgroundPicker`
 
@@ -372,7 +352,6 @@ Background registers an option that lets the user choose how the palette's backg
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
 
 ### `TransparencyToggle`
 
@@ -380,16 +359,14 @@ TransparencyToggle is a one-key switch for a transparent background: on leaves t
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
 
 ### `LogView`
 
-LogView is a full-screen log view of Buffer and the row that opens it. Place it in a panel's Items in the map: stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Hotkey: "g"} The view shows the newest entry on top and scrolls with the arrow keys (or j and k), PgUp and PgDn; Home returns to the live top and End jumps to the oldest entry. Scrolled away from the top, it keeps the line being read while new entries arrive. The f key cycles the minimum level shown. Entries filed under a category with [logs.Buffer.In] get a strip of tabs along the top, "All" first; CategoryKey moves along them, each tab keeps its own scroll position, and a tab you are not on shows how many entries arrived since you left it. Divert the application's logger into Buffer before the dashboard starts: restore := buf.Divert(log.Default()) defer restore() The option's badge counts the entries, and the errors among them.
+LogView is a full-screen log view of Buffer and the row that opens it. Place it in a panel's Items in the map: stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs} The view shows the newest entry on top and scrolls with the arrow keys (or j and k), PgUp and PgDn; Home returns to the live top and End jumps to the oldest entry. Scrolled away from the top, it keeps the line being read while new entries arrive. The f key cycles the minimum level shown. Entries filed under a category with [logs.Buffer.In] get a strip of tabs along the top, "All" first; CategoryKey moves along them, each tab keeps its own scroll position, and a tab you are not on shows how many entries arrived since you left it. Divert the application's logger into Buffer before the dashboard starts: restore := buf.Divert(log.Default()) defer restore() The option's badge counts the entries, and the errors among them.
 
 | Field | Type | What it does |
 | --- | --- | --- |
 | `Buffer` | `*logs.Buffer` | Buffer is the log buffer shown. Required. |
-| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
 | `Categories` | `[]string` | Categories are tabs always shown, in this order, ahead of any category the buffer meets later. Optional. |
 | `CategoryKey` | `string` | CategoryKey is the key that selects the next category tab; the same letter in upper case selects the previous one. Without it the tabs cannot be switched. Optional. |
 
