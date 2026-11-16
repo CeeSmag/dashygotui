@@ -14,6 +14,9 @@ import (
 
 // Network: a mirrored live waveform, download above the axis and upload below.
 // History is kept with dashygotui.Local and fed by a Hook's Tick, not held in package state.
+// The graph follows the clock: it always spans the last 2 minutes, so it scrolls
+// at the same speed whatever the refresh rate (compare CPU Waveforms, which
+// follows refreshes and speeds up with +).
 
 // traffic is the widget's two series and the scale they share, kept per
 // dashboard.
@@ -43,7 +46,7 @@ var networkTick = dashboard.Hook{Tick: func(c *dashboard.Ctx, now time.Time) tea
 }}
 
 var networkWidget = dashboard.Widget{
-	Key: "network", Page: "monitor", Order: 20, Title: "Network", Subtitle: "mirrored wave, last 2 minutes",
+	Key: "network", Page: "monitor", Order: 20, Title: "Network", Subtitle: "last 2 minutes, by the clock",
 	Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
 		th, s, tr := c.Theme(), c.State(), networkHistory(c)
 		rows := []string{

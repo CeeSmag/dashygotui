@@ -28,10 +28,10 @@ func All() []dashygotui.Addon[dashboard.State] {
 		dashygotui.At[dashboard.State]("shortcut_stop.go:14", stopShortcut),
 		dashygotui.At[dashboard.State]("widget_activity.go:25", activityTick),
 		dashygotui.At[dashboard.State]("widget_activity.go:39", activityWidget),
-		dashygotui.At[dashboard.State]("widget_network.go:35", networkTick),
-		dashygotui.At[dashboard.State]("widget_network.go:46", networkWidget),
+		dashygotui.At[dashboard.State]("widget_network.go:38", networkTick),
+		dashygotui.At[dashboard.State]("widget_network.go:49", networkWidget),
 		dashygotui.At[dashboard.State]("widget_system.go:15", systemWidget),
-		dashygotui.At[dashboard.State]("widget_waves.go:20", wavesTick),
-		dashygotui.At[dashboard.State]("widget_waves.go:31", wavesWidget),
+		dashygotui.At[dashboard.State]("widget_waves.go:22", wavesTick),
+		dashygotui.At[dashboard.State]("widget_waves.go:33", wavesWidget),
 	}
 }

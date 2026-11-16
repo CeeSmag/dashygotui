@@ -13,7 +13,9 @@ import (
 )
 
 // Waveforms: the same CPU history drawn four ways, to show the chart package's
-// renderers. The history is kept with dashygotui.Local and fed by a tick hook.
+// renderers. The history is kept with dashygotui.Local and fed by a tick hook. It
+// is the last 120 refreshes, one reading each, so it scrolls faster when the
+// refresh rate goes up (compare Network, which follows the clock).
 
 const wavesKeep = 120
 
@@ -29,7 +31,7 @@ var wavesTick = dashboard.Hook{Tick: func(c *dashboard.Ctx, _ time.Time) tea.Cmd
 }}
 
 var wavesWidget = dashboard.Widget{
-	Key: "waves", Page: "monitor", Order: 40, Title: "CPU Waveforms", Subtitle: "one series, four styles",
+	Key: "waves", Page: "monitor", Order: 40, Title: "CPU Waveforms", Subtitle: "last 120 refreshes, four styles",
 	Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
 		th, cpu := c.Theme(), *dashygotui.Local[[]float64](c, "waves.cpu")
 		w := max(size.Cols-panel.LabelWidth-1, 1)

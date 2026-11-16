@@ -75,11 +75,11 @@ func All() []dashygotui.Addon[dashboard.State] {
 		dashygotui.At[dashboard.State]("widget_chart_trace.go:30", chartTraceTick),
 		dashygotui.At[dashboard.State]("widget_chart_trace.go:42", chartTraceWidget),
 		dashygotui.At[dashboard.State]("widget_glyphs.go:15", glyphsWidget),
-		dashygotui.At[dashboard.State]("widget_network.go:34", networkTick),
-		dashygotui.At[dashboard.State]("widget_network.go:45", networkWidget),
+		dashygotui.At[dashboard.State]("widget_network.go:37", networkTick),
+		dashygotui.At[dashboard.State]("widget_network.go:48", networkWidget),
 		dashygotui.At[dashboard.State]("widget_palette.go:16", paletteWidget),
 		dashygotui.At[dashboard.State]("widget_system.go:17", systemWidget),
-		dashygotui.At[dashboard.State]("widget_waves.go:19", wavesTick),
-		dashygotui.At[dashboard.State]("widget_waves.go:30", wavesWidget),
+		dashygotui.At[dashboard.State]("widget_waves.go:21", wavesTick),
+		dashygotui.At[dashboard.State]("widget_waves.go:32", wavesWidget),
 	}
 }
