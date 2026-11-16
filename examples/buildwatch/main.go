@@ -33,7 +33,7 @@ func run() error {
 		fmt.Fprintln(os.Stderr, "buildwatch: settings will not be saved:", err)
 		st = nil
 	}
-	info, err := dashboard.Run(ctx, st, addons.All())
+	info, err := dashboard.Run(ctx, st, addons.Map())
 	if err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}

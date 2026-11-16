@@ -1,0 +1,31 @@
+package addons
+
+// TEMPLATE: a hook, a reaction to the dashboard's events that draws nothing.
+//
+// To use it:
+//  1. Copy this file to your addons directory as <name>_hook.go, or run
+//     dashygotui new hook <name>.
+//  2. Change the import path of the dashboard package to your own.
+//  3. Place it in addons.go, in Map.Hooks: myFeatureHook
+//
+// Set any of Tick (every refresh tick), Msg (a message of your own commands) and
+// Result (the result of a background task). A widget that samples on every tick
+// needs no hook: give the widget a Tick.
+
+import (
+	tea "charm.land/bubbletea/v2"
+
+	"example.com/yourapp/dashboard"
+	"github.com/CeeSmag/dashygotui"
+)
+
+var myFeatureHook = dashboard.Hook{
+	// Result sees every task's result; claim the ones with your own tag.
+	Result: func(c *dashboard.Ctx, res dashygotui.TaskResult) (bool, tea.Cmd) {
+		if res.Tag != "my_feature" {
+			return false, nil
+		}
+		c.FlashResult(res.Text, res.Err)
+		return true, nil
+	},
+}

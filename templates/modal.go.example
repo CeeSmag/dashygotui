@@ -1,15 +1,15 @@
 package addons
 
-// TEMPLATE: an option that opens a custom modal.
+// TEMPLATE: a row that opens a custom pop-up.
 //
 // For most needs the modal package already has what you want: Edit, Confirm,
 // Typed, Notice, Choice and Slider. Write your own only for something else.
 //
 // To use it:
-//  1. Copy this file to your addons directory as modal_<name>.go.
+//  1. Copy this file to your addons directory as <name>_modal.go, or run
+//     dashygotui new modal <name>.
 //  2. Change the import path of the dashboard package to your own.
-//  3. Pick an unused option Number and a section declared in your dashboard file.
-//  4. Run go generate ./... so the generated addons_gen.go lists the new value.
+//  3. Place it in addons.go, in the Items of a panel: myFeatureModalOpt
 //
 // All state lives in the modal value, never in package variables.
 
@@ -21,11 +21,11 @@ import (
 	"github.com/CeeSmag/dashygotui/panel"
 )
 
-// pickModal counts presses of the space bar until Enter.
-type pickModal struct{ presses int }
+// myFeatureModal counts presses of the space bar until Enter.
+type myFeatureModal struct{ presses int }
 
 // HandleKey implements dashygotui.Modal.
-func (m *pickModal) HandleKey(c *dashboard.Ctx, msg tea.KeyPressMsg) tea.Cmd {
+func (m *myFeatureModal) HandleKey(c *dashboard.Ctx, msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "space":
 		m.presses++
@@ -38,14 +38,13 @@ func (m *pickModal) HandleKey(c *dashboard.Ctx, msg tea.KeyPressMsg) tea.Cmd {
 
 // Render implements dashygotui.Modal. Return the box only; the dashboard
 // centres it and clips it to the terminal.
-func (m *pickModal) Render(c *dashboard.Ctx, size dashygotui.Size) []string {
+func (m *myFeatureModal) Render(c *dashboard.Ctx, size dashygotui.Size) []string {
 	body := []string{"Press space, then Enter.", "", panel.Row(c.Theme(), "Count", string(rune('0'+m.presses%10)))}
-	return panel.Panel(c.Theme(), "My Modal", "", "", min(50, size.Cols), len(body)+2, body)
+	return panel.Panel(c.Theme(), "My Feature", "", "", min(50, size.Cols), len(body)+2, body)
 }
 
-var myModalOption = dashboard.Option{
-	Key: "my_modal", Section: "settings", Number: 44, Label: "My Modal",
-	// Modal returns the pop-up to open. (Your dashboard package needs the alias
-	// `type Modal = dashygotui.Modal[State]` next to its other aliases.)
-	Modal: func(*dashboard.Ctx) dashboard.Modal { return &pickModal{} },
+var myFeatureModalOpt = dashboard.Option{
+	Label: "My Feature",
+	// Modal returns the pop-up to open.
+	Modal: func(*dashboard.Ctx) dashboard.Modal { return &myFeatureModal{} },
 }

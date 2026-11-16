@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 func newDemo(t *testing.T, st dashygotui.Store) *dashtest.Driver {
 	t.Helper()
 	dashboard.Logs.Clear() // the log buffer is the application's, shared by every dashboard in the process
-	return dashtest.New(t, dashboard.Config(st, addons.All()), 140, 40)
+	return dashtest.New(t, dashboard.Config(st, addons.Map()), 140, 40)
 }
 
 // requireRows fails unless every "[n] Label" pair is on screen as a menu row.
@@ -51,7 +51,7 @@ func requireRows(t *testing.T, d *dashtest.Driver, pairs ...string) {
 }
 
 func TestTheAddonsAreValid(t *testing.T) {
-	if _, err := dashygotui.New(dashboard.Config(store.NewMemory(), addons.All())); err != nil {
+	if _, err := dashygotui.New(dashboard.Config(store.NewMemory(), addons.Map())); err != nil {
 		t.Fatalf("New: %v", err)
 	}
 }
@@ -68,7 +68,7 @@ func TestControlPageShowsEveryOption(t *testing.T) {
 	d.RequireContains("Quick Actions", "Settings", "[never]", "[50 GB]", "[ON ✓]")
 	requireRows(t, d,
 		"1", "Run Backup", "2", "Restart Service", "3", "Diagnostics", "4", "Logs",
-		"10", "Storage Limit", "11", "Notifications", "90", "Reset All Settings")
+		"10", "Storage Limit", "11", "Notifications", "12", "Reset All Settings")
 }
 
 func TestThemePageHasTheBuiltins(t *testing.T) {
@@ -175,7 +175,7 @@ func TestDiagnosticsViewAndSelfTest(t *testing.T) {
 
 func TestResetEndsWithAReasonForMainToAct(t *testing.T) {
 	d := newDemo(t, store.NewMemory())
-	d.Type("90")
+	d.Type("12")
 	d.Press("enter")
 	d.RequireContains("Reset all settings?", "Type RESET to continue")
 
@@ -236,7 +236,7 @@ func TestEveryPageFitsEverySize(t *testing.T) {
 
 func TestOptionNumbersAreAllReachable(t *testing.T) {
 	// Every number typed on the keyboard must land on its own row.
-	for _, n := range []string{"1", "2", "3", "4", "10", "11", "20", "21", "22", "23", "24", "90"} {
+	for _, n := range []string{"1", "2", "3", "4", "10", "11", "20", "21", "22", "23", "24", "12"} {
 		d := newDemo(t, store.NewMemory())
 		d.Type(n)
 		found := false
@@ -355,7 +355,7 @@ func ttySafe(r rune) bool {
 
 func TestWholeDemoIsConsoleSafeInTTYMode(t *testing.T) {
 	cfg := func() dashygotui.Config[dashboard.State] {
-		c := dashboard.Config(store.NewMemory(), addons.All())
+		c := dashboard.Config(store.NewMemory(), addons.Map())
 		c.Glyphs = dashygotui.GlyphsTTY
 		return c
 	}
@@ -367,7 +367,7 @@ func TestWholeDemoIsConsoleSafeInTTYMode(t *testing.T) {
 		"logs":         func(d *dashtest.Driver) { d.Press("g") },
 		"restart":      func(d *dashtest.Driver) { d.Type("2"); d.Press("enter") },
 		"storage":      func(d *dashtest.Driver) { d.Press("s", "x"); d.Press("enter") },
-		"reset":        func(d *dashtest.Driver) { d.Type("90"); d.Press("enter") },
+		"reset":        func(d *dashtest.Driver) { d.Type("12"); d.Press("enter") },
 		"stop":         func(d *dashtest.Driver) { d.Press("ctrl+q") },
 		"theme picker": func(d *dashtest.Driver) { d.Type("20"); d.Press("enter") },
 		"spacing menu": func(d *dashtest.Driver) { d.Type("21"); d.Press("enter") },
@@ -413,5 +413,5 @@ func TestDemoSwitchesToTTYAndBack(t *testing.T) {
 
 // The demo passes the library's audit, including every option it can open.
 func TestDemoPassesTheAuditWalkingEveryOption(t *testing.T) {
-	dashtest.Audit(t, dashboard.Config(store.NewMemory(), addons.All()), dashtest.WalkOptions())
+	dashtest.Audit(t, dashboard.Config(store.NewMemory(), addons.Map()), dashtest.WalkOptions())
 }

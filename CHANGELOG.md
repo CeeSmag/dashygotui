@@ -31,8 +31,29 @@ still works beside it until v0.5.0.
   feature uses no sibling file, no other application package and nothing of the
   `dashboard` package but its types (A2); every addon is placed in the map (new rule
   A13); adding a feature may edit `addons.go` (C1).
+- **`dashygotui new`** writes `<name>_<kind>.go` for the kinds `opt`, `widget`,
+  `view`, `page`, `modal`, `shortcut` and `hook`, and prints the line that places it
+  in `addons.go`. The templates are written for the map, and there are two new ones
+  (`page`, `hook`).
+- A `stdaddons` setting (`Toggle`, `Number`, `Pick`, `Text`) without a `Key` is a
+  startup error. In a map nothing else asks for one, and settings without one would
+  share a single Store entry.
 - Mistakes in a map are reported with their place in it, such as
   `Control > Quick Actions > row 3: option "Old" sets Section, Number or Order`.
+
+### Changed
+
+- **The examples are on the map.** Each has an `addons/addons.go` that places every
+  feature, and feature files named `<name>_<kind>.go` that say only what they do. A
+  ready-made addon such as the theme picker is placed in the map directly and needs
+  no file. A menu-style view became a sub-page (Diagnostics), widgets sample with
+  `Tick`, and what a feature needs of the application is a method of `State`. The
+  showcase keeps its option numbers, except that the navigation rows are now
+  numbered in the order they are listed.
+- **`dashygotui init`** writes instructions for the map, and its agent hook only
+  runs the check (nothing is generated any more).
+- **`make deletion-test`** now deletes each feature file and requires that only the
+  map's lines that placed it break.
 
 ## [0.4.2] - 2026-11-16
 

@@ -33,7 +33,7 @@ func TestMain(m *testing.M) {
 // filled by the real addons (imported by main.go), driven like a user would.
 
 func opts(st dashygotui.Store) dashboard.Options {
-	return dashboard.Options{Store: st, Addons: addons.All()}
+	return dashboard.Options{Store: st, Map: addons.Map()}
 }
 
 func newApp(t *testing.T, st dashygotui.Store) *dashtest.Driver {
@@ -45,8 +45,8 @@ func newApp(t *testing.T, st dashygotui.Store) *dashtest.Driver {
 func newAppWith(t *testing.T, o dashboard.Options) *dashtest.Driver {
 	t.Helper()
 	dashboard.Logs.Clear()
-	if o.Addons == nil {
-		o.Addons = addons.All()
+	if o.Map.Pages == nil {
+		o.Map = addons.Map()
 	}
 	return dashtest.New(t, dashboard.Config(o), 160, 44)
 }
@@ -444,23 +444,11 @@ func TestBackspaceGoesBackBecauseTheKeyIsRebound(t *testing.T) {
 	d.RequireContains("System")
 }
 
-func TestNavigationRowsAreReorderedByOrder(t *testing.T) {
+func TestNavigationRowsAreNumberedInMapOrder(t *testing.T) {
 	d := newApp(t, store.NewMemory())
 	d.Press("tab", "tab", "tab", "tab")
-	lines := d.Lines()
-	at := map[string]int{}
-	for i, l := range lines {
-		for _, name := range []string{"Jump to Charts", "Jump to Theme", "Jump to Monitor"} {
-			if strings.Contains(l, name) {
-				at[name] = i
-			}
-		}
-	}
-	if at["Jump to Monitor"] >= at["Jump to Theme"] || at["Jump to Theme"] >= at["Jump to Charts"] {
-		t.Errorf("Order should reverse the listing, got rows %v:\n%s", at, d.Screen())
-	}
-	d.Type("60") // but typing the number still finds the right row
-	d.Press("enter")
+	rows(t, d, "60", "Jump to Charts", "61", "Jump to Theme", "62", "Jump to Monitor")
+	open(d, "60") // GotoPage moves to the page by its ID
 	d.RequireContains("Now on Charts", "Area & Sparkline")
 	open(d, "61")
 	d.RequireContains("Appearance")
@@ -641,7 +629,7 @@ func TestPageTitlesShortenOnNarrowTerminals(t *testing.T) {
 
 func TestTTYModeIsConsoleSafeEverywhere(t *testing.T) {
 	cfg := func() dashboard.Options {
-		return dashboard.Options{Store: store.NewMemory(), Glyphs: dashygotui.GlyphsTTY, Addons: addons.All()}
+		return dashboard.Options{Store: store.NewMemory(), Glyphs: dashygotui.GlyphsTTY, Map: addons.Map()}
 	}
 	safe := func(r rune) bool {
 		return (r >= 0x20 && r <= 0x7e) || strings.ContainsRune("─│┌┐└┘├┤░▒▓█\n", r)
@@ -973,7 +961,7 @@ func TestStorageSaveChainsAReload(t *testing.T) {
 func TestDiagnosticsViewChrome(t *testing.T) {
 	d := newApp(t, store.NewMemory())
 	d.Press("d")
-	d.RequireContains("Diagnostics", "Mode: ON", "Actions", "Enter runs the highlighted one", "[t] Self-test", "[Esc/b] Back")
+	d.RequireContains("Diagnostics", "HEALTHY", "Health", "Actions", "Enter runs the highlighted one", "[t] Self-test", "[Esc/b] Back")
 	d.RequireAbsent("Options")
 }
 
@@ -1017,7 +1005,7 @@ func TestStartViewFlagOpensTheStack(t *testing.T) {
 	d.RequireAbsent("Quick Actions")
 	d.RequireContains("LOGS")
 	d.Press("esc")
-	d.RequireContains("Mode: ON") // the diagnostics view
+	d.RequireContains("HEALTHY") // the diagnostics sub-page
 	d.Press("esc")
 	d.RequireContains("Monitor", "System")
 }
@@ -1054,7 +1042,7 @@ func TestViewEntriesNeedNoSeparateOption(t *testing.T) {
 	d.Press("tab", "tab", "tab", "tab")
 	d.RequireContains("Diagnostics (d)", "Processes (p)", "Release Notes (n)")
 	d.Press("d")
-	d.RequireContains("Mode: ON", "DIAGNOSTICS")
+	d.RequireContains("HEALTHY", "DIAGNOSTICS")
 }
 
 func TestDiagnosticsSessionLogsWhileOpen(t *testing.T) {
@@ -1090,16 +1078,16 @@ func TestExamplesReadmeCountsAreTrue(t *testing.T) {
 	}
 	out := d.Outline()
 	all, _ := filepath.Glob("dashboard/addons/*.go")
-	var files []string // the addon files, not doc.go and the generated list
+	var files []string // the feature files, not the map
 	for _, f := range all {
-		if b := filepath.Base(f); b != "doc.go" && b != "addons_gen.go" {
+		if filepath.Base(f) != "addons.go" {
 			files = append(files, f)
 		}
 	}
 	for _, want := range []string{
 		fmt.Sprintf("%d options", len(out.Options)),
 		fmt.Sprintf("%d views", len(out.Views)),
-		fmt.Sprintf("%d one-file addons", len(files)),
+		fmt.Sprintf("%d feature files", len(files)),
 	} {
 		if !strings.Contains(line, want) {
 			t.Errorf("examples/README.md says %q, but the showcase has %q", line, want)

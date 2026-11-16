@@ -186,7 +186,7 @@ func AddonNameViolations(rel string) []string {
 func CouplingViolations(files map[string]*ast.File) []string {
 	addons := map[string]*ast.File{}
 	for rel, f := range files {
-		if path.Base(rel) != GenFile { // the generated list uses every addon by design
+		if b := path.Base(rel); b != GenFile && b != MapFile { // the list and the map use every addon by design
 			addons[rel] = f
 		}
 	}

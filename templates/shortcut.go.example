@@ -1,13 +1,14 @@
 package addons
 
-// TEMPLATE: a global shortcut, a key that does something without being a menu row.
+// TEMPLATE: a shortcut, a key that does something without being a row.
 //
 // To use it:
-//  1. Copy this file to your addons directory as shortcut_<name>.go.
+//  1. Copy this file to your addons directory as <name>_shortcut.go, or run
+//     dashygotui new shortcut <name>.
 //  2. Change the import path of the dashboard package to your own.
-//  3. Pick a key that is not a navigation key, a digit, or another shortcut or
-//     option hotkey (a clash is a startup error that names both files).
-//  4. Run go generate ./... so the generated addons_gen.go lists the new value.
+//  3. Place it in addons.go, in Map.Shortcuts: myFeatureShortcut
+//  4. Pick a key that is not a navigation key, a digit, or another shortcut or
+//     row hotkey (a clash is a startup error that names both places).
 //
 // What the key does is exactly one of Do (an action), Opens (a view by ID),
 // Modal (a pop-up) or Run (when you must return a command).
@@ -19,8 +20,7 @@ package addons
 //     key such as ctrl+q, replacing the default quit. Make sure the app still
 //     has a way out.
 //
-// For a key that opens one particular menu option, set Hotkey on the option
-// instead: no separate file is needed.
+// For a key that opens one particular row, set Hotkey on the row instead.
 
 import (
 	tea "charm.land/bubbletea/v2"
@@ -30,14 +30,14 @@ import (
 	"github.com/CeeSmag/dashygotui/modal"
 )
 
-var myShortcut = dashygotui.Shortcut[dashboard.State]{
+var myFeatureShortcut = dashboard.Shortcut{
 	Key:     "ctrl+k",              // as Bubble Tea names it: "ctrl+r", "f5", "d", ...
 	Display: "Ctrl+K",              // how the key is written in the footer
 	Label:   "Kill",                // shown in the footer; leave empty for no hint
 	Tone:    dashygotui.ToneDanger, // colours the hint from the theme
 	Prio:    25,                    // lower is dropped first on narrow terminals
 	Scope:   dashygotui.ScopeEverywhere,
-	Modal: func(*dashboard.Ctx) dashygotui.Modal[dashboard.State] {
+	Modal: func(*dashboard.Ctx) dashboard.Modal {
 		return &modal.Confirm[dashboard.State]{
 			Title:  "Kill everything?",
 			Lines:  []string{"Everything is shut down."},

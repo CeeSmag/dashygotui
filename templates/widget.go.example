@@ -1,55 +1,53 @@
 package addons
 
-// TEMPLATE: a widget, a read-only panel on a page.
+// TEMPLATE: a widget, a read-only panel.
 //
 // To use it:
-//  1. Copy this file to your addons directory as widget_<name>.go.
+//  1. Copy this file to your addons directory as <name>_widget.go, or run
+//     dashygotui new widget <name>.
 //  2. Change the import path of the dashboard package to your own.
-//  3. Set Page to a page declared in your dashboard file.
+//  3. Place it in addons.go, as a panel of a page: {Widget: myFeatureWidget}
 //
-// Then run go generate ./... so the generated addons_gen.go lists the new value.
-// Nothing else is edited.
+// This file says only what it shows.
 
 import (
 	"fmt"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
 
 	"example.com/yourapp/dashboard"
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/panel"
 )
 
-var myWidget = dashboard.Widget{
-	Key:       "my_widget", // unique and stable
-	Page:      "monitor",   // a page declared in the dashboard file
-	Order:     50,          // among the page's panels, ascending
-	Title:     "My Widget",
+// myFeatureTicks is the widget's own state: a counter that belongs to this
+// dashboard (dashygotui.Local), not a package-level variable, which every
+// dashboard in the process would share.
+func myFeatureTicks(c *dashboard.Ctx) *int { return dashygotui.Local[int](c, "my_feature.ticks") }
+
+var myFeatureWidget = dashboard.Widget{
+	Title:     "My Feature",
 	Subtitle:  "live readout",
 	MinHeight: 6, // rows, borders included, wanted when panels are stacked
 
 	// Badge is shown in the top border. Optional.
 	Badge: func(c *dashboard.Ctx) string { return c.Theme().Green.Render(c.Theme().G.Bullet + " LIVE") },
 
+	// Tick runs on every refresh tick, for a widget that samples over time.
+	// Optional.
+	Tick: func(c *dashboard.Ctx, _ time.Time) tea.Cmd {
+		*myFeatureTicks(c)++
+		return nil
+	},
+
 	// Render returns the body rows for the inner size. It runs on every
 	// frame, so keep it cheap and read data from c.State().
 	Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
 		th := c.Theme()
 		return []string{
-			panel.Row(th, "Width", fmt.Sprint(size.Cols)),
-			panel.Row(th, "Height", fmt.Sprint(size.Rows)),
+			panel.Row(th, "Size", fmt.Sprintf("%dx%d", size.Cols, size.Rows)),
+			panel.Row(th, "Ticks", fmt.Sprint(*myFeatureTicks(c))),
 		}
 	},
 }
-
-// A widget that samples over time keeps its history with dashygotui.Local, which
-// gives it a value that belongs to this dashboard (not a package-level variable,
-// which every dashboard in the process would share), and feeds it from a Hook,
-// declared in this same file:
-//
-//	func myWidgetHistory(c *dashboard.Ctx) *[]float64 { return dashygotui.Local[[]float64](c, "my_widget") }
-//
-//	var myWidgetSampler = dashboard.Hook{Tick: func(c *dashboard.Ctx, now time.Time) tea.Cmd {
-//		*myWidgetHistory(c) = append(*myWidgetHistory(c), c.State().Something)
-//		return nil
-//	}}
-//
-// (Your dashboard package needs the alias `type Hook = dashygotui.Hook[State]`.)

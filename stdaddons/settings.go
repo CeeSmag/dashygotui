@@ -50,6 +50,9 @@ type Toggle[S any] struct {
 
 // Addons implements [dashygotui.Addon].
 func (t Toggle[S]) Addons() []dashygotui.Addon[S] {
+	if strings.TrimSpace(t.Key) == "" {
+		return invalid[S]("stdaddons.Toggle %q has no Key: the Key names the setting in the Store", t.Label)
+	}
 	value := func(c *dashygotui.Context[S]) bool {
 		on := t.Default
 		_, _ = c.Store().Get(t.Key, &on) // a missing or unreadable value keeps the default
@@ -106,6 +109,9 @@ type Number[S any] struct {
 
 // Addons implements [dashygotui.Addon].
 func (n Number[S]) Addons() []dashygotui.Addon[S] {
+	if strings.TrimSpace(n.Key) == "" {
+		return invalid[S]("stdaddons.Number %q has no Key: the Key names the setting in the Store", n.Label)
+	}
 	switch {
 	case n.Min >= n.Max:
 		return invalid[S]("stdaddons.Number %q: Min (%d) must be less than Max (%d)", n.Key, n.Min, n.Max)
@@ -192,6 +198,9 @@ type Pick[S any] struct {
 
 // Addons implements [dashygotui.Addon].
 func (p Pick[S]) Addons() []dashygotui.Addon[S] {
+	if strings.TrimSpace(p.Key) == "" {
+		return invalid[S]("stdaddons.Pick %q has no Key: the Key names the setting in the Store", p.Label)
+	}
 	if len(p.Items) == 0 {
 		return invalid[S]("stdaddons.Pick %q has no Items to pick from", p.Key)
 	}
@@ -291,6 +300,9 @@ type Text[S any] struct {
 
 // Addons implements [dashygotui.Addon].
 func (t Text[S]) Addons() []dashygotui.Addon[S] {
+	if strings.TrimSpace(t.Key) == "" {
+		return invalid[S]("stdaddons.Text %q has no Key: the Key names the setting in the Store", t.Label)
+	}
 	value := func(c *dashygotui.Context[S]) string {
 		v := t.Default
 		_, _ = c.Store().Get(t.Key, &v) // a missing or unreadable value keeps the default

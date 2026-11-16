@@ -122,6 +122,11 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 		{Text: th.White.Render(m.title()), Prio: 100},
 		{Text: th.Title.Render(v.Title), Prio: 90},
 	}
+	if v.sub != nil && v.Badge != nil { // a sub-page shows its badge beside its title
+		if b := v.Badge(m.ctx); b != "" {
+			segs = append(segs, panel.Segment{Text: b, Prio: 85})
+		}
+	}
 	if v.Tag != nil {
 		if tag := v.Tag(m.ctx); tag != "" {
 			segs = append(segs, panel.Segment{Text: th.Muted.Render(tag), Prio: 50})

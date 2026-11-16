@@ -9,18 +9,16 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/CeeSmag/dashygotui/internal/guard"
 	"github.com/CeeSmag/dashygotui/templates"
 )
 
-// kinds are the addon kinds `new` can write, each with a template.
-func kinds() []string { return []string{"opt", "widget", "view", "modal", "shortcut"} }
+// kinds are the feature kinds `new` can write, each with a template.
+func kinds() []string { return guard.MapKinds() }
 
 var (
-	numberRe  = regexp.MustCompile(`Number:\s*(\d+)`)
 	moduleRe  = regexp.MustCompile(`(?m)^module\s+(\S+)`)
 	nameRe    = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 	pkgNameRe = regexp.MustCompile(`(?m)^package\s+(\w+)`)
@@ -53,7 +51,7 @@ func newCmd(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "dashygotui new: %v\n", err)
 		return exitUsage
 	}
-	target := filepath.Join(addons, kind+"_"+name+".go")
+	target := filepath.Join(addons, name+"_"+kind+".go")
 	if _, err := os.Stat(target); err == nil {
 		fmt.Fprintf(stderr, "dashygotui new: %s already exists\n", target)
 		return exitUsage
@@ -72,25 +70,37 @@ func newCmd(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "dashygotui new: reading the %s template: %v\n", kind, err)
 		return exitUsage
 	}
-	src := render(string(raw), importPath, name, nextNumber(addons), packageName(addons))
+	src := render(string(raw), importPath, name, packageName(addons))
 	if err := os.WriteFile(target, []byte(src), 0o644); err != nil { //nolint:gosec // a source file, readable by design
 		fmt.Fprintf(stderr, "dashygotui new: writing %s: %v\n", target, err)
 		return exitUsage
 	}
 	fmt.Fprintf(stdout, "wrote %s\n", target)
-	if _, err := os.Stat(filepath.Join(addons, guard.GenFile)); err == nil {
-		// The package lists its addons in a generated file: add the new one to it.
-		msg, err := genDir(addons, "", "")
-		if err != nil {
-			fmt.Fprintf(stderr, "dashygotui new: regenerating the addon list: %v\n", err)
-			return exitFindings
-		}
-		if msg != "" {
-			fmt.Fprintln(stdout, msg)
-		}
+	fmt.Fprintf(stdout, "Place it in %s, %s\n", filepath.Join(addons, guard.MapFile), placement(kind, lowerCamel(name), titleCase(name)))
+	if _, err := os.Stat(filepath.Join(addons, guard.MapFile)); err != nil {
+		fmt.Fprintf(stdout, "(there is no %s yet: it is the map, with func Map() dashboard.Map; see dashygotui rules design)\n", guard.MapFile)
 	}
-	fmt.Fprintln(stdout, "Edit its Section or Page to one declared in your dashboard file, then run: dashygotui check")
+	fmt.Fprintln(stdout, "then run: dashygotui check")
 	return exitOK
+}
+
+// placement says where a new feature of the kind goes in the map, and how.
+func placement(kind, id, label string) string {
+	switch kind {
+	case "widget":
+		return "as a panel of a page: {Widget: " + id + "Widget}"
+	case "view":
+		return "in the Items of a panel: " + id + "View (or in Map.Views, opened by its ID)"
+	case "page":
+		return "in the Items of a panel, with its panels: dashboard.Page{Title: \"" + label + "\", Badge: " + id + "Badge, Session: " + id + "Session, Panels: ...}"
+	case "modal":
+		return "in the Items of a panel: " + id + "ModalOpt"
+	case "shortcut":
+		return "in Map.Shortcuts: " + id + "Shortcut"
+	case "hook":
+		return "in Map.Hooks: " + id + "Hook"
+	}
+	return "in the Items of a panel: " + id + "Opt"
 }
 
 func contains(list []string, s string) bool {
@@ -102,25 +112,15 @@ func contains(list []string, s string) bool {
 	return false
 }
 
-// render fills a template: the import path, the name, the next free number and
-// the package name.
-func render(tmpl, importPath, name string, number int, pkg string) string {
-	label := titleCase(name)
-	id := lowerCamel(name) // the Go names: one file's values must not clash with another's
+// render fills a template: the import path, the name and the package name.
+func render(tmpl, importPath, name, pkg string) string {
 	r := strings.NewReplacer(
-		// longest first: at one position the first match wins
-		"myWidgetHistory", id+"History", "myWidgetSampler", id+"Sampler",
-		"myFeatureOption", id+"Option", "myModalOption", id+"ModalOption", "pickModal", id+"Modal",
-		"myShortcut", id+"Shortcut", "myWidget", id+"Widget", "myView", id+"View",
 		"example.com/yourapp/dashboard", importPath,
-		"my_feature", name, "my_view", name, "my_widget", name, "my_modal", name,
-		"My Feature", label, "My View", label, "My Widget", label, "My Modal", label,
-		"My feature ran", label+" ran",
+		"myFeature", lowerCamel(name), // the Go names: one file's values must not clash with another's
+		"my_feature", name,
+		"My Feature", titleCase(name),
 	)
 	out := r.Replace(tmpl)
-	out = numberRe.ReplaceAllStringFunc(out, func(m string) string {
-		return numberRe.ReplaceAllString(m, "Number: "+strconv.Itoa(number))
-	})
 	if pkg != "" {
 		out = pkgNameRe.ReplaceAllString(out, "package "+pkg)
 	}
@@ -207,28 +207,6 @@ func dashboardImport(addons string) (string, error) {
 			return "", fmt.Errorf("no go.mod above %s", addons)
 		}
 	}
-}
-
-// nextNumber is one more than the highest option Number in the addons
-// directory, so a new option does not collide.
-func nextNumber(addons string) int {
-	highest := 0
-	entries, _ := os.ReadDir(addons)
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") {
-			continue
-		}
-		b, err := os.ReadFile(filepath.Join(addons, e.Name()))
-		if err != nil {
-			continue
-		}
-		for _, m := range numberRe.FindAllSubmatch(b, -1) {
-			if n, err := strconv.Atoi(string(m[1])); err == nil {
-				highest = max(highest, n)
-			}
-		}
-	}
-	return highest + 1
 }
 
 // packageName is the package clause of the files already in the directory.

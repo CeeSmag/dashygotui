@@ -49,7 +49,7 @@ test:
 race:
 	go test -race -shuffle=on -count=1 ./...
 
-## deletion-test: every addon file must be removable without breaking the build.
+## deletion-test: deleting any feature file may break only the map lines that placed it.
 deletion-test:
 	./scripts/deletion-test.sh
 

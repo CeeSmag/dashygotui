@@ -1,10 +1,10 @@
-// Package dashboard is the foundation of the showcase application: it declares
-// the pages and the sections on them and builds the dashboard. It never imports
-// the addons package; main passes the addons in (addons.All, a generated list of
-// every addon file's values).
+// Package dashboard is the frame of the showcase application: the state, the
+// poll, the loggers, the header and the short type names. What the dashboard
+// contains, and where, is the map in addons/addons.go; main passes it in. It
+// never imports the addons package.
 //
 // Everything the library can do is used somewhere in this application. The
-// comments on each page below say which features it demonstrates.
+// comments in the map say which features each page demonstrates.
 package dashboard
 
 import (
@@ -21,11 +21,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/CeeSmag/dashygotui"
-	"github.com/CeeSmag/dashygotui/chart"
 	"github.com/CeeSmag/dashygotui/logs"
 	"github.com/CeeSmag/dashygotui/modal"
 	"github.com/CeeSmag/dashygotui/panel"
-	"github.com/CeeSmag/dashygotui/text"
 	"github.com/CeeSmag/dashygotui/theme"
 )
 
@@ -73,23 +71,29 @@ var (
 	UILog = slog.New(Logs.In("ui").Handler(&slog.HandlerOptions{Level: slog.LevelDebug}))
 )
 
-// Short names for the generic types, so addon files stay terse.
+// Short names for the generic types, so the addon files and the map stay terse.
 type (
+	// Map is what the dashboard contains and where: addons/addons.go.
+	Map = dashygotui.Map[State]
+	// Page is a tab, or a sub-page when it is a row of a panel.
+	Page = dashygotui.Page[State]
+	// Panel is one panel of a page: a widget, or a list of rows.
+	Panel = dashygotui.Panel[State]
 	// Ctx is the handle every addon callback receives.
 	Ctx = dashygotui.Context[State]
-	// Option is a numbered row in a section.
+	// Option is a numbered row.
 	Option = dashygotui.Option[State]
-	// Widget is a read-only panel on a page.
+	// Widget is a read-only panel.
 	Widget = dashygotui.Widget[State]
 	// View is a full-screen view.
 	View = dashygotui.View[State]
-	// Entry is the menu option that opens a view.
+	// Entry is how the row that opens a view or a sub-page looks.
 	Entry = dashygotui.Entry[State]
 	// Shortcut is a key binding that is not a menu row.
 	Shortcut = dashygotui.Shortcut[State]
 	// Modal is a pop-up.
 	Modal = dashygotui.Modal[State]
-	// Addon is anything the dashboard takes in Config.Addons.
+	// Addon is anything a panel's rows take.
 	Addon = dashygotui.Addon[State]
 	// Hook reacts to ticks, messages and task results.
 	Hook = dashygotui.Hook[State]
@@ -98,10 +102,37 @@ type (
 // OutageKey is the Store key that makes Poll fail, to show a stale dashboard.
 const OutageKey = "sim.outage"
 
+// What the addons do with the application goes through State: the addon files
+// use nothing of this package but its types.
+
+// OutageKey is the Store key that makes Poll fail.
+func (State) OutageKey() string { return OutageKey }
+
+// Logger returns the structured logger of a category ("net", "disk", "auth",
+// "ui"), whose entries the Logs view shows on a tab of their own, or the
+// general one for "".
+func (State) Logger(category string) *slog.Logger {
+	switch category {
+	case "net":
+		return NetLog
+	case "disk":
+		return DiskLog
+	case "auth":
+		return AuthLog
+	case "ui":
+		return UILog
+	}
+	return Slog
+}
+
+// ClearLogs empties the log buffer.
+func (State) ClearLogs() { Logs.Clear() }
+
 // Options are the settings main takes from its command line.
 type Options struct {
-	// Addons are the features: addons.All() in the application.
-	Addons     []Addon
+	// Map is what the dashboard contains and where: addons.Map() in the
+	// application.
+	Map        Map
 	Store      dashygotui.Store
 	Glyphs     dashygotui.GlyphMode
 	Background dashygotui.BackgroundMode
@@ -126,16 +157,14 @@ func Solarized() theme.Palette {
 	}
 }
 
-// Config returns the dashboard's configuration.
-//
-// Pages show different layouts, tab badges and short titles; sections show
-// custom badges and nouns; the config shows a custom palette, a rebound key, a
-// force-quit hook, glyph and background modes, and a custom header.
+// Config returns the dashboard's configuration: a custom palette, a rebound key,
+// a force-quit hook, glyph and background modes, and a custom header. What the
+// pages show is the map, o.Map (addons/addons.go).
 func Config(o Options) dashygotui.Config[State] {
 	st := o.Store
 	return dashygotui.Config[State]{
 		Title:    "Showcase",
-		Addons:   o.Addons,
+		Map:      o.Map,
 		Store:    st,
 		Poll:     poll(time.Now(), st, o.Events),
 		Interval: time.Second,
@@ -153,7 +182,7 @@ func Config(o Options) dashygotui.Config[State] {
 		},
 
 		// ctrl+c is the library's force-quit key. Ask before quitting. (ctrl+q is
-		// a global shortcut of its own: see shortcut_stop.go.)
+		// a global shortcut of its own: see stop_shortcut.go.)
 		OnForceQuit: func(c *Ctx) tea.Cmd {
 			c.OpenModal(&modal.Confirm[State]{
 				Title:    "Quit the dashboard?",
@@ -177,83 +206,6 @@ func Config(o Options) dashygotui.Config[State] {
 				{Text: th.Green.Render(c.Now().Format("15:04:05")), Prio: 80},
 			}
 		},
-
-		Pages: []dashygotui.Page[State]{
-			// Four widgets in a 2x2 grid. The tab shows whether data is flowing.
-			// On a short or narrow terminal it falls back to a one-panel summary
-			// (Page.Fallback): shrink the window to see it.
-			{ID: "monitor", Title: "Monitor", ShortTitle: "Mon", TinyTitle: "M",
-				Layout:        dashygotui.LayoutGrid2x2,
-				Fallback:      monitorSummary,
-				FallbackBelow: dashygotui.Size{Cols: 60, Rows: 15},
-				Badge: func(c *Ctx) string {
-					th := c.Theme()
-					if c.Err() != nil {
-						return th.Red.Render("STALE")
-					}
-					return th.Green.Render("LIVE")
-				}},
-			// Three chart panels stacked. FallbackWhen says when to show the compact
-			// summary with any rule, here "narrow and short, or very short"; use
-			// FallbackBelow for the simple "narrower or shorter than" case.
-			{ID: "charts", Title: "Charts", ShortTitle: "Chrt", TinyTitle: "C", Layout: dashygotui.LayoutRows,
-				Fallback:     chartsSummary,
-				FallbackWhen: func(s dashygotui.Size) bool { return (s.Cols < 80 && s.Rows < 22) || s.Rows < 10 }},
-			// Three sections: Auto puts one above two.
-			{ID: "actions", Title: "Actions", ShortTitle: "Act", TinyTitle: "A", Layout: dashygotui.LayoutAuto},
-			// Two sections side by side.
-			{ID: "popups", Title: "Pop-ups", ShortTitle: "Pop", TinyTitle: "P", Layout: dashygotui.LayoutColumns},
-			// Two above one.
-			{ID: "views", Title: "Views & Hooks", ShortTitle: "View", TinyTitle: "V", Layout: dashygotui.LayoutTwoTopOneBottom},
-			// One section and two widgets.
-			{ID: "theme", Title: "Theme", ShortTitle: "Thm", TinyTitle: "T", Layout: dashygotui.LayoutOneTopTwoBottom,
-				Badge: func(c *Ctx) string { return c.Theme().Muted.Render(c.PaletteID()) }},
-		},
-
-		Sections: []dashygotui.SectionSpec[State]{
-			// Noun changes the default "[3 options]" badge to "[3 actions]".
-			{ID: "ops", Page: "actions", Order: 10, Title: "Quick Actions", Subtitle: "things to do", Noun: "action"},
-			// Badge replaces the count badge entirely.
-			{ID: "settings", Page: "actions", Order: 20, Title: "Settings", Subtitle: "saved between runs",
-				Badge: func(c *Ctx) string { return c.Theme().Muted.Render("[persisted]") }},
-			{ID: "danger", Page: "actions", Order: 30, Title: "Danger Zone", Subtitle: "think twice"},
-
-			{ID: "standard", Page: "popups", Order: 10, Title: "Standard Pop-ups", Subtitle: "from the modal package"},
-			{ID: "custom", Page: "popups", Order: 20, Title: "Custom Pop-ups", Subtitle: "written for this app"},
-
-			{ID: "views", Page: "views", Order: 10, Title: "Full-screen Views", Subtitle: "Esc, b or Backspace returns"},
-			{ID: "navigation", Page: "views", Order: 20, Title: "Navigation", Subtitle: "Order reorders; numbers do not"},
-			{ID: "hooks", Page: "views", Order: 30, Title: "Hooks & Tasks", Subtitle: "messages, results, processes"},
-
-			{ID: "appearance", Page: "theme", Order: 10, Title: "Appearance", Subtitle: "colours, spacing, symbols"},
-		},
-	}
-}
-
-// monitorSummary is the Monitor page's compact fallback: the headline numbers
-// in one panel.
-func monitorSummary(c *Ctx, size dashygotui.Size) []string {
-	th, s := c.Theme(), c.State()
-	w := chart.MeterWidth(size.Cols)
-	meter := func(pct float64) string { return fmt.Sprintf("%s %5.1f%%", chart.Meter(th, pct, w), pct) }
-	rows := []string{
-		panel.Row(th, "CPU", meter(s.CPU)),
-		panel.Row(th, "Memory", meter(s.Mem)),
-		panel.Row(th, "Disk", meter(s.Disk)),
-		panel.Row(th, "Traffic", text.Rate(s.NetIn)+" in, "+text.Rate(s.NetOut)+" out"),
-	}
-	return append(rows, th.Muted.Render("compact view: make the window larger for the full page"))
-}
-
-// chartsSummary is the Charts page's compact form: the numbers without the
-// graphs.
-func chartsSummary(c *Ctx, size dashygotui.Size) []string {
-	th, s := c.Theme(), c.State()
-	return []string{
-		panel.Row(th, "CPU", fmt.Sprintf("%5.1f%%", s.CPU)),
-		panel.Row(th, "Memory", fmt.Sprintf("%5.1f%%", s.Mem)),
-		panel.Row(th, "Traffic", text.Rate(s.NetIn)+" in, "+text.Rate(s.NetOut)+" out"),
-		th.Muted.Render(th.Trunc("compact view: the graphs need a larger window", size.Cols)),
 	}
 }
 

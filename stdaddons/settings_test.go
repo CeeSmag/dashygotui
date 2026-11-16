@@ -234,3 +234,24 @@ func TestSettingsNumberCollisionsAreReported(t *testing.T) {
 		t.Errorf("Validate = %v", err)
 	}
 }
+
+// A setting is saved under its Key. In a map nothing else asks for one, so a
+// setting without it is an error, not four settings sharing one Store entry.
+func TestASettingWithoutAKeyIsAnError(t *testing.T) {
+	items := []modal.Item{{Label: "a"}, {Label: "b"}}
+	for name, a := range map[string]dashygotui.Addon[state]{
+		"Toggle": stdaddons.Toggle[state]{Label: "On"},
+		"Number": stdaddons.Number[state]{Label: "Count", Min: 1, Max: 9},
+		"Pick":   stdaddons.Pick[state]{Label: "Choice", Items: items},
+		"Text":   stdaddons.Text[state]{Label: "Name"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := dashygotui.New(dashygotui.Config[state]{Map: dashygotui.Map[state]{Pages: []dashygotui.Page[state]{
+				{Title: "Page", Panels: []dashygotui.Panel[state]{{Title: "Settings", Items: []dashygotui.Addon[state]{a}}}},
+			}}})
+			if err == nil || !strings.Contains(err.Error(), "stdaddons."+name) || !strings.Contains(err.Error(), "has no Key") {
+				t.Errorf("New = %v, want an error naming stdaddons.%s and its missing Key", err, name)
+			}
+		})
+	}
+}

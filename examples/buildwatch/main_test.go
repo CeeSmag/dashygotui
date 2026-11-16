@@ -11,7 +11,7 @@ import (
 
 func newApp(t *testing.T) *dashtest.Driver {
 	t.Helper()
-	return dashtest.New(t, dashboard.Config(store.NewMemory(), addons.All()), 120, 36)
+	return dashtest.New(t, dashboard.Config(store.NewMemory(), addons.Map()), 120, 36)
 }
 
 func TestFirstPageShowsThePipelines(t *testing.T) {
@@ -29,7 +29,7 @@ func TestOpenTheBuildLogFromItsHotkey(t *testing.T) {
 
 func TestSettingsAreOneLineEach(t *testing.T) {
 	st := store.NewMemory()
-	d := dashtest.New(t, dashboard.Config(st, addons.All()), 120, 36)
+	d := dashtest.New(t, dashboard.Config(st, addons.Map()), 120, 36)
 	d.Press("tab")
 	d.RequireContains("Notify on Failure", "Builds to Keep", "[50 builds]", "Watched Branch", "[main]")
 	d.Type("11")
@@ -49,5 +49,5 @@ func TestCancelAllAsksFirst(t *testing.T) {
 }
 
 func TestPassesTheAudit(t *testing.T) {
-	dashtest.Audit(t, dashboard.Config(store.NewMemory(), addons.All()), dashtest.WalkOptions())
+	dashtest.Audit(t, dashboard.Config(store.NewMemory(), addons.Map()), dashtest.WalkOptions())
 }

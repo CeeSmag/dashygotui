@@ -1,32 +1,28 @@
 package addons
 
-// TEMPLATE: a menu option.
+// TEMPLATE: a row of a panel (an option).
 //
 // To use it:
-//  1. Copy this file to your addons directory as opt_<name>.go.
+//  1. Copy this file to your addons directory as <name>_opt.go, or run
+//     dashygotui new opt <name>.
 //  2. Change the import path of the dashboard package to your own.
-//  3. Pick a Number that no other option uses (a clash is a startup error that
-//     names both files) and the ID of a section declared in your dashboard file.
+//  3. Place it in addons.go, in the Items of a panel: myFeatureOpt
 //
-// Then run go generate ./... so the generated addons_gen.go lists the new value.
-// Nothing else is edited.
+// The map numbers it by its position. This file says only what it does.
 
 import (
 	"example.com/yourapp/dashboard"
 )
 
-var myFeatureOption = dashboard.Option{
-	Key:     "my_feature", // unique and stable; also the prefix for any Store keys
-	Section: "settings",   // a section declared in the dashboard file
-	Number:  42,           // typed on the keyboard to jump here; unique across the dashboard
-	Hotkey:  "y",          // optional: runs this option from any page; shown as "(y)"
-	Label:   "My Feature",
+var myFeatureOpt = dashboard.Option{
+	Label:  "My Feature",
+	Hotkey: "y", // optional: runs this option from any page; shown as "(y)"
 	// Badge is the row's current state, shown after the label. Optional.
 	Badge: func(c *dashboard.Ctx) string { return c.OnOff(true) },
 	// What Enter (or Space) does: set exactly one of
 	//   Do:    func(c) { ... }                  an action, with nothing to return
-	//   Opens: "view_id"                        open a registered view
+	//   Opens: "view_id"                        open a view by its ID
 	//   Modal: func(c) Modal { return ... }     open a pop-up
 	//   Run:   func(c) tea.Cmd { ... }          when you must return a command
-	Do: func(c *dashboard.Ctx) { c.Flash("My feature ran") },
+	Do: func(c *dashboard.Ctx) { c.Flash("My Feature ran") },
 }

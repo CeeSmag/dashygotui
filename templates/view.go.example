@@ -1,35 +1,35 @@
 package addons
 
-// TEMPLATE: a full-screen view and the option that opens it.
+// TEMPLATE: a full-screen view.
 //
 // To use it:
-//  1. Copy this file to your addons directory as view_<name>.go.
+//  1. Copy this file to your addons directory as <name>_view.go, or run
+//     dashygotui new view <name>.
 //  2. Change the import path of the dashboard package to your own.
-//  3. Pick an unused option Number and a section declared in your dashboard file.
-//  4. Run go generate ./... so the generated addons_gen.go lists the new value.
+//  3. Place it in addons.go, in the Items of a panel: myFeatureView
+//     The row opens it. A view with no row of its own goes in Map.Views
+//     instead, and is opened by its ID.
 //
-// The view and the option that opens it are one declaration: Entry registers
-// the option (and, with HotkeyHint, advertises its hotkey in the footer). A view
-// draws a status panel above a menu, or set Body to draw everything yourself.
-// Body with Follow is a log; with Framed it is a panel. The Back key (Esc or b)
-// returns to the page. Your dashboard package needs the alias
-// `type Entry = dashygotui.Entry[State]` next to its other aliases.
+// A view draws its Body. Follow makes it a log, Scroll scrolls it, Framed puts it
+// in a panel. The Back key (Esc or b) returns. For a full page of panels opened
+// from a row, use a sub-page instead (dashygotui new page <name>).
 
 import (
+	"fmt"
+
 	"example.com/yourapp/dashboard"
 	"github.com/CeeSmag/dashygotui"
-	"github.com/CeeSmag/dashygotui/panel"
 )
 
-var myView = dashboard.View{
-	ID: "my_view", Title: "My View", Subtitle: "details",
-	Entry: &dashboard.Entry{Section: "actions", Number: 43}, // Label defaults to Title; Mode to TITLE
-	Status: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
-		return []string{panel.Row(c.Theme(), "Hello", "from my view")}
-	},
-	// Items is a fixed menu, numbered by position. Each row says what it does:
-	// Do (an action), Opens (another view), Modal (a pop-up) or Run (a command).
-	Items: []dashboard.Option{
-		{Label: "Do Something", Note: "a muted note", Do: func(c *dashboard.Ctx) { c.Flash("Did something") }},
+var myFeatureView = dashboard.View{
+	ID: "my_feature", Title: "My Feature", Scroll: true, Framed: true,
+	// Entry is how the row that opens the view looks. Optional.
+	Entry: &dashboard.Entry{Note: "full screen"},
+	Body: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
+		var rows []string
+		for i := 1; i <= 50; i++ {
+			rows = append(rows, fmt.Sprintf("line %d of My Feature", i))
+		}
+		return rows
 	},
 }

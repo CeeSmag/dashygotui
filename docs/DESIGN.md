@@ -285,6 +285,6 @@ Each phase ends with `make check` passing and is one commit.
 | 0 | This decision | no | done |
 | 1 | The map in the library beside the v0.4 API: `Config.Map`, `Panel`, sub-pages, `Widget.Tick`, numbering by position, map-path errors | no | done |
 | 2 | `dashygotui check` for the map layout (A1, A2, A13 and C1 adapted), beside the v0.4 layout | no | done |
-| 3 | The three examples move onto the map, and with them the templates, `new`, `init` and the scripts that use the demo | no | |
+| 3 | The three examples move onto the map, and with them the templates, `new`, `init` and the scripts that use the demo | no | done |
 | 4 | The v0.4 placement API, `gen` and A11 removed; rules and docs final; v0.5.0 | yes | |
 | 5 | The first production application moves onto v0.5.0 | n/a | |

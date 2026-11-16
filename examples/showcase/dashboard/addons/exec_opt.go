@@ -1,0 +1,38 @@
+package addons
+
+import (
+	"context"
+	"os/exec"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/CeeSmag/dashygotui"
+	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
+)
+
+// Run External Command: Context.Exec suspends the dashboard, runs a program
+// attached to the terminal, and resumes. The outcome arrives as a TaskResult
+// tagged "exec", which an OnResult hook turns into a footer message. (This one
+// needs a Unix shell; elsewhere it reports the error.)
+
+const execTag = "exec"
+
+var execOption = dashboard.Option{
+	Label: "Run External Command",
+	Run: func(c *dashboard.Ctx) tea.Cmd {
+		cmd := exec.CommandContext(context.Background(), "sh", "-c", `printf '\nHello from a child process.\n\nThe dashboard is suspended while this runs.\n'; printf 'Press Enter to return... '; read _`)
+		return c.Exec(cmd, execTag)
+	},
+}
+
+var execResult = dashboard.Hook{Result: func(c *dashboard.Ctx, res dashygotui.TaskResult) (bool, tea.Cmd) {
+	if res.Tag != execTag {
+		return false, nil
+	}
+	if res.Err != nil {
+		c.FlashError("External command failed: " + res.Err.Error())
+	} else {
+		c.Flash("External command finished")
+	}
+	return true, nil
+}}

@@ -1,7 +1,7 @@
-// Package dashboard is the foundation of the demo application's dashboard: it
-// declares the pages and the sections on them and builds the dashboard. It
-// never imports the addons package; main passes the addons in (addons.All, a
-// generated list of every addon file's values).
+// Package dashboard is the frame of the demo application's dashboard: the
+// state it shows, the poll that fills it, the header, and the short type names
+// the addon files use. What the dashboard contains, and where, is the map in
+// addons/addons.go; main passes it in. This package never imports addons.
 package dashboard
 
 import (
@@ -32,43 +32,41 @@ type State struct {
 // into it before the dashboard starts, and the Logs addon shows it.
 var Logs = logs.NewBuffer(2000)
 
-// Short names for the generic types, so addon files stay terse.
+// Short names for the generic types, so the addon files and the map stay terse.
 type (
+	// Map is what the dashboard contains and where: addons/addons.go.
+	Map = dashygotui.Map[State]
+	// Page is a tab, or a sub-page when it is a row of a panel.
+	Page = dashygotui.Page[State]
+	// Panel is one panel of a page: a widget, or a list of rows.
+	Panel = dashygotui.Panel[State]
+	// Addon is anything a panel's rows take.
+	Addon = dashygotui.Addon[State]
 	// Ctx is the handle every addon callback receives.
 	Ctx = dashygotui.Context[State]
-	// Option is a numbered row in a section.
+	// Option is a numbered row.
 	Option = dashygotui.Option[State]
-	// Widget is a read-only panel on a page.
+	// Widget is a read-only panel.
 	Widget = dashygotui.Widget[State]
 	// View is a full-screen view.
 	View = dashygotui.View[State]
-	// Entry is the menu option that opens a view.
+	// Entry is how the row that opens a view or a sub-page looks.
 	Entry = dashygotui.Entry[State]
 	// Modal is a pop-up.
 	Modal = dashygotui.Modal[State]
-	// Addon is anything the dashboard takes in Config.Addons.
-	Addon = dashygotui.Addon[State]
+	// Shortcut is a key that works on every page, or everywhere.
+	Shortcut = dashygotui.Shortcut[State]
 	// Hook reacts to ticks, messages and task results.
 	Hook = dashygotui.Hook[State]
 )
 
 // Config returns the dashboard's configuration. st keeps the user's settings;
-// addons are the features, addons.All() in the application.
-func Config(st dashygotui.Store, addons []Addon) dashygotui.Config[State] {
+// mp is what the dashboard contains, addons.Map() in the application.
+func Config(st dashygotui.Store, mp Map) dashygotui.Config[State] {
 	return dashygotui.Config[State]{
-		Title:  "Demo",
-		Addons: addons,
-		Store:  st,
-		Pages: []dashygotui.Page[State]{
-			{ID: "monitor", Title: "Monitor", Layout: dashygotui.LayoutAuto},
-			{ID: "control", Title: "Control", ShortTitle: "Ctl"},
-			{ID: "theme", Title: "Theme"},
-		},
-		Sections: []dashygotui.SectionSpec[State]{
-			{ID: "actions", Page: "control", Order: 10, Title: "Quick Actions", Subtitle: "things to do"},
-			{ID: "settings", Page: "control", Order: 20, Title: "Settings", Subtitle: "saved between runs"},
-			{ID: "appearance", Page: "theme", Title: "Appearance", Subtitle: "colours and spacing"},
-		},
+		Title:    "Demo",
+		Map:      mp,
+		Store:    st,
 		Poll:     poll(time.Now()),
 		Interval: time.Second,
 		Header: func(c *Ctx) []panel.Segment {
@@ -83,8 +81,8 @@ func Config(st dashygotui.Store, addons []Addon) dashygotui.Config[State] {
 }
 
 // Run shows the dashboard and returns why it ended.
-func Run(ctx context.Context, st dashygotui.Store, addons []Addon) (dashygotui.ExitInfo, error) {
-	d, err := dashygotui.New(Config(st, addons))
+func Run(ctx context.Context, st dashygotui.Store, mp Map) (dashygotui.ExitInfo, error) {
+	d, err := dashygotui.New(Config(st, mp))
 	if err != nil {
 		return dashygotui.ExitInfo{}, fmt.Errorf("building the dashboard: %w", err)
 	}

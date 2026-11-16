@@ -1,5 +1,6 @@
-// Package dashboard is the foundation of the buildwatch dashboard: the state, the
-// pages and sections. Addons, passed in by main, add everything else.
+// Package dashboard is the frame of the buildwatch dashboard: the state, the poll
+// and the short type names. What it contains, and where, is the map in
+// addons/addons.go, which main passes in.
 package dashboard
 
 import (
@@ -37,52 +38,50 @@ func (s State) Failed() int {
 
 // Short names for the generic types.
 type (
+	// Map is what the dashboard contains and where: addons/addons.go.
+	Map = dashygotui.Map[State]
+	// Page is a tab, or a sub-page when it is a row of a panel.
+	Page = dashygotui.Page[State]
+	// Panel is one panel of a page: a widget, or a list of rows.
+	Panel = dashygotui.Panel[State]
 	// Ctx is the handle every addon callback receives.
 	Ctx = dashygotui.Context[State]
-	// Option is a numbered row in a section.
+	// Option is a numbered row.
 	Option = dashygotui.Option[State]
-	// Widget is a read-only panel on a page.
+	// Widget is a read-only panel.
 	Widget = dashygotui.Widget[State]
 	// View is a full-screen view.
 	View = dashygotui.View[State]
-	// Entry is the menu option that opens a view.
+	// Entry is how the row that opens a view or a sub-page looks.
 	Entry = dashygotui.Entry[State]
 	// Modal is a pop-up.
 	Modal = dashygotui.Modal[State]
 	// Shortcut is a key binding that is not a menu row.
 	Shortcut = dashygotui.Shortcut[State]
-	// Addon is anything the dashboard takes in Config.Addons.
+	// Addon is anything a panel's rows take.
 	Addon = dashygotui.Addon[State]
 	// Hook reacts to ticks, messages and task results.
 	Hook = dashygotui.Hook[State]
 )
 
 // Config returns the dashboard's configuration. A nil st keeps settings in
-// memory; addons are the features, addons.All() in the application.
-func Config(st dashygotui.Store, addons []Addon) dashygotui.Config[State] {
+// memory; mp is what the dashboard contains, addons.Map() in the application.
+func Config(st dashygotui.Store, mp Map) dashygotui.Config[State] {
 	if st == nil {
 		st = store.NewMemory()
 	}
 	return dashygotui.Config[State]{
-		Title:  "Buildwatch",
-		Addons: addons,
-		Store:  st,
-		Pages: []dashygotui.Page[State]{
-			{ID: "builds", Title: "Builds"},
-			{ID: "settings", Title: "Settings"},
-		},
-		Sections: []dashygotui.SectionSpec[State]{
-			{ID: "actions", Page: "builds", Title: "Actions"},
-			{ID: "prefs", Page: "settings", Title: "Preferences", Subtitle: "saved between runs"},
-		},
+		Title:    "Buildwatch",
+		Map:      mp,
+		Store:    st,
 		Poll:     poll(time.Now()),
 		Interval: 2 * time.Second,
 	}
 }
 
 // Run shows the dashboard and returns why it ended.
-func Run(ctx context.Context, st dashygotui.Store, addons []Addon) (dashygotui.ExitInfo, error) {
-	d, err := dashygotui.New(Config(st, addons))
+func Run(ctx context.Context, st dashygotui.Store, mp Map) (dashygotui.ExitInfo, error) {
+	d, err := dashygotui.New(Config(st, mp))
 	if err != nil {
 		return dashygotui.ExitInfo{}, fmt.Errorf("building the dashboard: %w", err)
 	}

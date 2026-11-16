@@ -181,12 +181,13 @@ func TestCheck(t *testing.T) {
 	})
 }
 
-// app builds a module with one addon and returns its directory.
+// app builds a module with an addons package (its map) and returns its
+// directory.
 func app(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	write(t, dir, "go.mod", "module example.com/app\n\ngo 1.27\n\nrequire github.com/CeeSmag/dashygotui v0.3.0\n")
-	write(t, dir, "internal/ui/addons/opt_first.go", "package addons\n\nfunc init() {\n\t_ = struct{ Number int }{Number: 7}\n}\n")
+	write(t, dir, "internal/ui/addons/addons.go", "package addons\n\nfunc Map() {}\n")
 	return dir
 }
 
@@ -197,20 +198,20 @@ func TestNewWritesAnAddonFromATemplate(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("code %d, stderr %q", code, errOut)
 	}
-	if !strings.Contains(out, "opt_storage_limit.go") {
-		t.Errorf("out %q", out)
+	if !strings.Contains(out, "storage_limit_opt.go") || !strings.Contains(out, "addons.go, in the Items of a panel: storageLimitOpt") {
+		t.Errorf("out %q: want the file and where to place it in the map", out)
 	}
-	b, err := os.ReadFile(filepath.Join(dir, "internal/ui/addons/opt_storage_limit.go"))
+	b, err := os.ReadFile(filepath.Join(dir, "internal/ui/addons/storage_limit_opt.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := string(b)
-	for _, want := range []string{"package addons", `"example.com/app/internal/ui"`, `"storage_limit"`, `"Storage Limit"`, "Number: 8"} {
+	for _, want := range []string{"package addons", `"example.com/app/internal/ui"`, "var storageLimitOpt", `"Storage Limit"`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the new file lacks %q:\n%s", want, got)
 		}
 	}
-	if strings.Contains(got, "yourapp") || strings.Contains(got, "my_feature") {
+	if strings.Contains(got, "yourapp") || strings.Contains(got, "my_feature") || strings.Contains(got, "myFeature") {
 		t.Errorf("template placeholders were left behind:\n%s", got)
 	}
 
@@ -226,7 +227,7 @@ func TestNewWritesEveryKind(t *testing.T) {
 		if code, _, errOut := runCLI(t, "new", kind, "thing"); code != exitOK {
 			t.Errorf("%s: code %d, stderr %q", kind, code, errOut)
 		}
-		if _, err := os.Stat(filepath.Join(dir, "internal/ui/addons", kind+"_thing.go")); err != nil {
+		if _, err := os.Stat(filepath.Join(dir, "internal/ui/addons", "thing_"+kind+".go")); err != nil {
 			t.Errorf("%s: %v", kind, err)
 		}
 	}
@@ -252,8 +253,8 @@ func TestNewRejectsBadInput(t *testing.T) {
 func TestNewNeedsExactlyOneAddonsDirectory(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, "go.mod", "module example.com/app\n")
-	write(t, dir, "a/addons/opt_x.go", "package addons\n")
-	write(t, dir, "b/addons/opt_y.go", "package addons\n")
+	write(t, dir, "a/addons/addons.go", "package addons\n")
+	write(t, dir, "b/addons/addons.go", "package addons\n")
 	t.Chdir(dir)
 	if code, _, errOut := runCLI(t, "new", "opt", "z"); code != exitUsage || !strings.Contains(errOut, "several addons directories") {
 		t.Errorf("code %d, stderr %q", code, errOut)
