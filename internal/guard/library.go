@@ -173,10 +173,10 @@ var addonFileName = regexp.MustCompile(`^(opt|widget|view|modal|shortcut)_[a-z0-
 
 func AddonNameViolations(rel string) []string {
 	base := path.Base(rel)
-	if addonFileName.MatchString(base) || isSupportFile(rel) {
+	if addonFileName.MatchString(base) || isSupportFile(rel) || mapFileName.MatchString(base) || base == MapFile {
 		return nil
 	}
-	return []string{fmt.Sprintf("%s: addon files must be named opt_*.go, widget_*.go, view_*.go, modal_*.go or shortcut_*.go", rel)}
+	return []string{fmt.Sprintf("%s: addon files must be named <name>_<kind>.go (kinds: %s) beside the map, addons.go, or in the v0.4 layout opt_*.go, widget_*.go, view_*.go, modal_*.go or shortcut_*.go", rel, strings.Join(MapKinds(), ", "))}
 }
 
 // --- Rule: addons never depend on each other (sections 3 and 10) ---

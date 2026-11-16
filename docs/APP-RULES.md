@@ -38,6 +38,14 @@ reviewer sees it. An allow comment with no reason is itself an error (X1).
 | A9 | No `Run` that only opens a view or only returns nil. | `Opens: "<view>"`, `Do: func(c) {...}`, or an `Entry` on the view. |
 | A11 | The addons package has an `addons_gen.go`, and it matches what `dashygotui gen` would write now. | Run `go generate ./...` (the first time, `dashygotui gen -state <import path>.State`). Never edit the file by hand. |
 | A12 | No `init()` in an addons package. | Declare the addon as a value; the generated list picks it up. |
+| A13 | With a map (`addons/addons.go`), every addon declared in a feature file is placed in the map. | Add it to a panel, `Shortcuts`, `Hooks` or `Views` in `addons.go`, or delete the file. |
+
+**An addons package laid out around a map** (`addons.go`, see `DESIGN.md`, "the
+map") is checked by the same rules, adapted: A1 wants `<name>_<kind>.go` feature
+files (`opt`, `widget`, `view`, `page`, `modal`, `shortcut`, `hook`) and no
+`doc.go` or `addons_gen.go`; A2 also forbids a feature to use any other
+application package, or anything of the `dashboard` package but its types; A11
+does not apply; A13 does.
 
 (A10, a variable captured in `init` and changed by a callback, was retired in v0.4.0:
 A12 forbids `init` altogether, and A3 forbids assigning to an addon value.)

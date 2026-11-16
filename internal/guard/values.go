@@ -23,16 +23,23 @@ func hasGenFile(files []Source) (Source, bool) {
 }
 
 // valueFindings applies A3, A11 and A12 to the files of the addons package in
-// dir.
-func valueFindings(dir string, files []Source) []Finding {
+// dir. mapLayout says the package is laid out around a map (addons.go), which
+// has no generated list and names its files <name>_<kind>.go.
+func valueFindings(dir string, files []Source, mapLayout bool) []Finding {
 	var out []Finding
 	at := func(rule string, s Source, n ast.Node, msg, hint string) {
 		out = append(out, Finding{Rule: rule, File: s.Rel, Line: s.Line(n.Pos()), Msg: msg, Hint: hint})
 	}
+	isAddon := IsAddonFile
+	if mapLayout {
+		isAddon = IsFeatureFile
+	}
 
 	// A11: the generated list is there, and is what gen would write now.
 	gen, ok := hasGenFile(files)
-	if !ok {
+	if mapLayout {
+		// The map lists the addons; mapFindings reports a leftover generated list.
+	} else if !ok {
 		out = append(out, Finding{Rule: "A11", File: path.Join(dir, GenFile), Line: 1,
 			Msg:  "the addons package has no " + GenFile + ", so main has no list of its addons",
 			Hint: "run dashygotui gen -state <import path of the dashboard package>.State in " + dir})
@@ -59,8 +66,11 @@ func valueFindings(dir string, files []Source) []Finding {
 			case *ast.FuncDecl:
 				// A12: no init.
 				if d.Recv == nil && d.Name.Name == "init" {
-					at("A12", s, d, "init() in an addons package",
-						"declare the addon as a top-level value; the generated list picks it up")
+					hint := "declare the addon as a top-level value; the generated list picks it up"
+					if mapLayout {
+						hint = "declare the addon as a top-level value and place it in " + MapFile
+					}
+					at("A12", s, d, "init() in an addons package", hint)
 				}
 			case *ast.GenDecl:
 				if d.Tok != token.VAR {
@@ -72,7 +82,7 @@ func valueFindings(dir string, files []Source) []Finding {
 					for _, id := range vs.Names {
 						names[id.Name] = true
 					}
-					if msg := valueSpecProblem(s, vs); msg != "" {
+					if msg := valueSpecProblem(s, vs, isAddon, mapLayout); msg != "" {
 						at("A3", s, vs, msg, "declare one unexported addon per var, as a composite literal; keep other values in the dashboard package")
 					}
 				}
@@ -82,7 +92,7 @@ func valueFindings(dir string, files []Source) []Finding {
 
 	// A3: an addon value is never assigned to.
 	for _, s := range files {
-		if !IsAddonFile(s.Rel) {
+		if !isAddon(s.Rel) {
 			continue
 		}
 		report := func(e ast.Expr, n ast.Node) {
@@ -118,16 +128,22 @@ func valueFindings(dir string, files []Source) []Finding {
 
 // valueSpecProblem says what is wrong with a top-level var of an addons package
 // with a generated list, or "" when it is a proper addon value.
-func valueSpecProblem(s Source, vs *ast.ValueSpec) string {
+func valueSpecProblem(s Source, vs *ast.ValueSpec, isAddon func(string) bool, mapLayout bool) string {
+	exports := "All"
+	if mapLayout {
+		exports = "Map"
+	}
 	switch {
-	case !IsAddonFile(s.Rel):
+	case mapLayout && path.Base(s.Rel) == MapFile:
+		return "package-level variable " + joinNames(vs.Names) + " in the map: the map places addons, each declared in its own file"
+	case !isAddon(s.Rel):
 		return "package-level variable " + joinNames(vs.Names) + " outside an addon file"
 	case len(vs.Names) != 1 || len(vs.Values) != 1:
 		return "package-level variables " + joinNames(vs.Names) + " declared together: declare one addon per var"
 	case vs.Names[0].Name == "_":
 		return "a blank package-level variable is not an addon"
 	case vs.Names[0].IsExported():
-		return "addon " + vs.Names[0].Name + " is exported: addon names are unexported, the package exports only All"
+		return "addon " + vs.Names[0].Name + " is exported: addon names are unexported, the package exports only " + exports
 	}
 	lit, ok := vs.Values[0].(*ast.CompositeLit)
 	if !ok || !namedType(lit.Type) {

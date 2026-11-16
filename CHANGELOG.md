@@ -26,6 +26,11 @@ still works beside it until v0.5.0.
   a ready-made addon such as `stdaddons.LogView` is placed the same way.
 - **`Widget.Tick`**: a widget that samples on every tick is one value, without a
   separate `Hook`.
+- **`dashygotui check` knows the map layout.** An addons directory with an
+  `addons.go` is checked as one: feature files are named `<name>_<kind>.go` (A1); a
+  feature uses no sibling file, no other application package and nothing of the
+  `dashboard` package but its types (A2); every addon is placed in the map (new rule
+  A13); adding a feature may edit `addons.go` (C1).
 - Mistakes in a map are reported with their place in it, such as
   `Control > Quick Actions > row 3: option "Old" sets Section, Number or Order`.
 
