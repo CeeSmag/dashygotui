@@ -1,6 +1,8 @@
 package dashygotui
 
 import (
+	"time"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/CeeSmag/dashygotui/panel"
@@ -101,6 +103,11 @@ type Widget[S any] struct {
 	// than the width are truncated and missing rows are left blank, but
 	// returning exactly the right size is faster and clearer. Required.
 	Render func(*Context[S], Size) []string
+	// Tick is called on every refresh tick, for a widget that samples data over
+	// time (a graph's history, say): the [Hook] Tick of the widget itself, so the
+	// widget is one value. It runs on the update loop and must not block.
+	// Optional.
+	Tick func(*Context[S], time.Time) tea.Cmd
 }
 
 // View is a full-screen page opened from an option or a shortcut with
@@ -202,6 +209,10 @@ type View[S any] struct {
 	// more detail only while the view is open. Like OnLeave, it is not called when
 	// the dashboard quits. Optional.
 	Session func(*Context[S]) (end func())
+
+	// sub is the page this view draws, when the view is a page placed as a row
+	// of a [Map]: a sub-page.
+	sub *pageDef[S]
 }
 
 // hasOptions reports whether the view has a menu of rows.
@@ -298,4 +309,12 @@ type Page[S any] struct {
 	// more detail. Like [View.Session], it is not called when the dashboard
 	// quits, and a pop-up over the page does not end it. Optional.
 	Session func(*Context[S]) (end func())
+	// Panels are what the page shows, in order: each a widget or a list of rows.
+	// Used in a [Map]; a page of [Config.Pages] takes its sections and widgets
+	// from [Config.Sections] and the addons instead.
+	Panels []Panel[S]
+	// Entry is how the row that opens the page looks when the page is placed as
+	// a row of a panel: a sub-page. Its Label defaults to the page's Title. It
+	// is not used on a tab. Optional.
+	Entry *Entry[S]
 }

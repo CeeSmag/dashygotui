@@ -169,6 +169,12 @@ func (m *model[S]) stepRate(delta int) {
 func (m *model[S]) menus() [][]Option[S] {
 	if m.view != "" {
 		v := m.d.views[m.view]
+		if v.sub != nil {
+			if m.subFallback(v) {
+				return nil
+			}
+			return defMenus(*v.sub)
+		}
 		if v.Body != nil || !v.hasOptions() {
 			return nil
 		}
@@ -182,10 +188,15 @@ func (m *model[S]) pageMenus(idx int) [][]Option[S] {
 	if m.pageFallback(idx) {
 		return nil // the compact view shows no options, so none can be selected
 	}
+	return defMenus(m.d.pages[idx])
+}
+
+// defMenus returns the menus of a page's panels that have rows.
+func defMenus[S any](p pageDef[S]) [][]Option[S] {
 	var out [][]Option[S]
-	for _, p := range m.d.pages[idx].panels {
-		if len(p.opts) > 0 {
-			out = append(out, p.opts)
+	for _, panel := range p.panels {
+		if len(panel.opts) > 0 {
+			out = append(out, panel.opts)
 		}
 	}
 	return out

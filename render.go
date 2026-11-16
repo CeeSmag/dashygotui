@@ -139,14 +139,7 @@ func (m *model[S]) shortcutHint(s Shortcut[S]) panel.Hint {
 // autoHints builds the footer hint strip from what the current page offers.
 func (m *model[S]) autoHints() []panel.Hint {
 	th := m.th
-	menus := m.menus()
-	var hints []panel.Hint
-	if len(menus) >= 1 {
-		hints = append(hints, m.hint(th.G.UpDown, "Move", th.Key, 60), m.hint(th.G.Enter, "Open", th.Key, 55))
-	}
-	if len(menus) >= 2 {
-		hints = append(hints, m.hint(th.G.LeftRight, "Panel", th.Key, 50))
-	}
+	hints := m.navHints(m.menus())
 	if n := len(m.d.pages); n > 1 {
 		hints = append(hints, m.hint("Tab", fmt.Sprintf("Page %d/%d", (m.page+1)%n+1, n), th.Key, 70))
 	}
@@ -164,6 +157,33 @@ func (m *model[S]) autoHints() []panel.Hint {
 		m.hint("+/-", "Rate", th.Key, 35),
 		m.hint("q", "Quit", th.Red, 1000),
 	)
+}
+
+// navHints are the footer hints for moving through menus.
+func (m *model[S]) navHints(menus [][]Option[S]) []panel.Hint {
+	th := m.th
+	var hints []panel.Hint
+	if len(menus) >= 1 {
+		hints = append(hints, m.hint(th.G.UpDown, "Move", th.Key, 60), m.hint(th.G.Enter, "Open", th.Key, 55))
+	}
+	if len(menus) >= 2 {
+		hints = append(hints, m.hint(th.G.LeftRight, "Panel", th.Key, 50))
+	}
+	return hints
+}
+
+// menuHints are a sub-page's footer hints: moving through its menus, and the
+// hotkeys its rows advertise.
+func (m *model[S]) menuHints(menus [][]Option[S]) []panel.Hint {
+	hints := m.navHints(menus)
+	for _, menu := range menus {
+		for _, o := range menu {
+			if o.Hotkey != "" && o.HotkeyHint != "" {
+				hints = append(hints, m.toneHint(Hint{Key: cmp.Or(o.HotkeyDisplay, o.Hotkey), Label: o.HotkeyHint, Tone: o.HotkeyTone, Prio: 40}))
+			}
+		}
+	}
+	return hints
 }
 
 // renderPage draws a page's panels into body rows, inset by the page-to-section
@@ -232,10 +252,10 @@ func (m *model[S]) sectionPanel(def panelDef[S], inter, w, h int) []string {
 	spec := def.sec
 	var badge string
 	switch {
-	case spec.Badge != nil:
-		badge = spec.Badge(m.ctx)
+	case spec.badge != nil:
+		badge = spec.badge(m.ctx)
 	default:
-		noun := spec.Noun
+		noun := spec.noun
 		if noun == "" {
 			noun = "option"
 		}
@@ -246,7 +266,7 @@ func (m *model[S]) sectionPanel(def panelDef[S], inter, w, h int) []string {
 		badge = m.th.Muted.Render(fmt.Sprintf("[%d %s]", n, noun))
 	}
 	body := m.menuBody(def.opts, inter, w-4, h-2, true)
-	return panel.Panel(m.th, spec.Title, badge, spec.Subtitle, w, h, body)
+	return panel.Panel(m.th, spec.title, badge, spec.subtitle, w, h, body)
 }
 
 // menuBody lays options out as body rows: one per row where they fit, two
@@ -391,6 +411,13 @@ func (m *model[S]) useFallback(p Page[S], cols, body int) bool {
 func (m *model[S]) pageFallback(idx int) bool {
 	w, h := layout.InsetSize(m.cols, m.rows, m.spacing.TerminalPage, layout.MinCols, layout.MinRows)
 	return m.useFallback(m.d.pages[idx].page, w, max(h-3, 1))
+}
+
+// subFallback reports whether the sub-page that view v draws is shown as its
+// fallback at the current terminal size, by the same arithmetic viewScreen
+// uses.
+func (m *model[S]) subFallback(v View[S]) bool {
+	return m.useFallback(v.sub.page, m.cols, max(m.rows-2, 1))
 }
 
 // fallbackPanel draws a page's Fallback rows in a panel titled with the page.

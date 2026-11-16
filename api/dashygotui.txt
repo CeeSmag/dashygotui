@@ -130,6 +130,7 @@ dashygotui: field Config.Glyphs GlyphMode
 dashygotui: field Config.Header func(*Context[S]) []panel.Segment
 dashygotui: field Config.Interval time.Duration
 dashygotui: field Config.Keys KeyMap
+dashygotui: field Config.Map Map[S]
 dashygotui: field Config.OnForceQuit func(*Context[S]) tea.Cmd
 dashygotui: field Config.Pages []Page[S]
 dashygotui: field Config.Palette string
@@ -178,6 +179,10 @@ dashygotui: field KeyMap.Right key.Binding
 dashygotui: field KeyMap.Select key.Binding
 dashygotui: field KeyMap.Slower key.Binding
 dashygotui: field KeyMap.Up key.Binding
+dashygotui: field Map.Hooks []Hook[S]
+dashygotui: field Map.Pages []Page[S]
+dashygotui: field Map.Shortcuts []Shortcut[S]
+dashygotui: field Map.Views []View[S]
 dashygotui: field Option.Badge func(*Context[S]) string
 dashygotui: field Option.Do func(*Context[S])
 dashygotui: field Option.Hotkey string
@@ -202,15 +207,24 @@ dashygotui: field OutlineOption.Label string
 dashygotui: field OutlineOption.Number int
 dashygotui: field OutlineOption.Page string
 dashygotui: field Page.Badge func(*Context[S]) string
+dashygotui: field Page.Entry *Entry[S]
 dashygotui: field Page.Fallback func(*Context[S], Size) []string
 dashygotui: field Page.FallbackBelow Size
 dashygotui: field Page.FallbackWhen func(Size) bool
 dashygotui: field Page.ID string
 dashygotui: field Page.Layout Layout
+dashygotui: field Page.Panels []Panel[S]
 dashygotui: field Page.Session func(*Context[S]) (end func())
 dashygotui: field Page.ShortTitle string
 dashygotui: field Page.TinyTitle string
 dashygotui: field Page.Title string
+dashygotui: field Panel.Badge func(*Context[S]) string
+dashygotui: field Panel.Items []Addon[S]
+dashygotui: field Panel.Noun string
+dashygotui: field Panel.Number int
+dashygotui: field Panel.Subtitle string
+dashygotui: field Panel.Title string
+dashygotui: field Panel.Widget Widget[S]
 dashygotui: field SectionSpec.Badge func(*Context[S]) string
 dashygotui: field SectionSpec.ID string
 dashygotui: field SectionSpec.Noun string
@@ -269,6 +283,7 @@ dashygotui: field Widget.Order int
 dashygotui: field Widget.Page string
 dashygotui: field Widget.Render func(*Context[S], Size) []string
 dashygotui: field Widget.Subtitle string
+dashygotui: field Widget.Tick func(*Context[S], time.Time) tea.Cmd
 dashygotui: field Widget.Title string
 dashygotui: func (b BackgroundMode) String() string
 dashygotui: func (c *Context[S]) Back()
@@ -323,6 +338,7 @@ dashygotui: func (g GlyphMode) String() string
 dashygotui: func (h Hook[S]) Addons() []Addon[S]
 dashygotui: func (i Invalid[S]) Addons() []Addon[S]
 dashygotui: func (o Option[S]) Addons() []Addon[S]
+dashygotui: func (p Page[S]) Addons() []Addon[S]
 dashygotui: func (s Shortcut[S]) Addons() []Addon[S]
 dashygotui: func (v View[S]) Addons() []Addon[S]
 dashygotui: func (w Widget[S]) Addons() []Addon[S]
@@ -355,11 +371,13 @@ dashygotui: type Hook[S any] struct
 dashygotui: type Invalid[S any] struct
 dashygotui: type KeyMap struct
 dashygotui: type Layout = layout.Mode
+dashygotui: type Map[S any] struct
 dashygotui: type Modal[S any] interface
 dashygotui: type Option[S any] struct
 dashygotui: type Outline struct
 dashygotui: type OutlineOption struct
 dashygotui: type Page[S any] struct
+dashygotui: type Panel[S any] struct
 dashygotui: type ResultModal[S any] interface
 dashygotui: type Scope int
 dashygotui: type ScrollableModal[S any] interface

@@ -14,6 +14,7 @@ Config describes a dashboard. Pages are required; the rest have sensible default
 | --- | --- | --- |
 | `Title` | `string` | Title names the application in the header and the terminal window title. |
 | `Addons` | `[]Addon[S]` | Addons are the dashboard's options, widgets, views, shortcuts and hooks. An application passes the list that dashygotui gen writes (addons.All()); a test passes the few it needs. Each is checked when [New] runs. An empty list is a dashboard with pages and sections only. |
+| `Map` | `Map[S]` | Map is what the dashboard contains and where: its pages, their panels and rows, and the dashboard's shortcuts and hooks. It replaces Pages, Sections and Addons; set one or the other. |
 | `Pages` | `[]Page[S]` | Pages are the dashboard tabs, in tab order. At least one is required. |
 | `Sections` | `[]SectionSpec[S]` | Sections are the option containers on the pages. Options and widgets refer to pages and sections declared here by ID. |
 | `Poll` | `func(ctx context.Context) (S, error)` | Poll fetches the application state. It is called at Interval, in the background, and once at start. When nil the state stays the zero value of S and nothing is polled. |
@@ -36,6 +37,17 @@ Config describes a dashboard. Pages are required; the rest have sensible default
 | `Timer` | `func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd` | Timer creates the command that delivers a message after d. Default [tea.Tick]. It is a test seam: the dashtest package substitutes timers it can fire on demand, so tests never sleep. |
 | `Exec` | `func(cmd tea.ExecCommand, done tea.ExecCallback) tea.Cmd` | Exec creates the command that hands the terminal to cmd and, when it ends, delivers done's message: what [Context.Exec] runs. Default [tea.Exec]. It is a test seam: the dashtest package records the command instead, and the test decides how it ends. |
 
+### `Map`
+
+Map is what a dashboard contains and where: its pages, the panels on each page, the rows in each panel, and the keys and hooks that belong to the whole dashboard. An application writes it in one file (addons/addons.go), so the map is the only place anything is placed; an addon says only what it does. Give it to [New] in [Config.Map].
+
+| Field | Type | What it does |
+| --- | --- | --- |
+| `Pages` | `[]Page[S]` | Pages are the dashboard's tabs, in tab order. At least one is required. |
+| `Shortcuts` | `[]Shortcut[S]` | Shortcuts are the keys that work on every page, or everywhere. |
+| `Hooks` | `[]Hook[S]` | Hooks react to ticks, messages and task results for the whole dashboard. |
+| `Views` | `[]View[S]` | Views are views with no row of their own: opened by a shortcut, by an option's Opens, by [Context.OpenView] or by [Config.StartView]. Each needs an ID. A view placed as a row of a panel is not listed here. |
+
 ### `Page`
 
 Page declares one tab of the dashboard. Pages appear in the order they are listed in [Config.Pages].
@@ -52,6 +64,22 @@ Page declares one tab of the dashboard. Pages appear in the order they are liste
 | `FallbackBelow` | `Size` | FallbackBelow is the page body size under which Fallback is used: when the body is narrower than Cols or shorter than Rows. A zero field is ignored. Fallback needs FallbackBelow or FallbackWhen, not both. |
 | `FallbackWhen` | `func(Size) bool` | FallbackWhen decides for any rule FallbackBelow cannot say, such as "narrow and short, or very short". It receives the size of the page body. Fallback needs FallbackBelow or FallbackWhen, not both. |
 | `Session` | `func(*Context[S]) (end func())` | Session is called when the page becomes the one on screen and returns the function to call when it stops being: when the user moves to another page or opens a view over it. Coming back starts a new session. Use it for work that only matters while the page is visible, such as asking a backend for more detail. Like [View.Session], it is not called when the dashboard quits, and a pop-up over the page does not end it. Optional. |
+| `Panels` | `[]Panel[S]` | Panels are what the page shows, in order: each a widget or a list of rows. Used in a [Map]; a page of [Config.Pages] takes its sections and widgets from [Config.Sections] and the addons instead. |
+| `Entry` | `*Entry[S]` | Entry is how the row that opens the page looks when the page is placed as a row of a panel: a sub-page. Its Label defaults to the page's Title. It is not used on a tab. Optional. |
+
+### `Panel`
+
+Panel is one bordered panel of a page: one widget, or a list of numbered rows. Set Widget or Items, not both.
+
+| Field | Type | What it does |
+| --- | --- | --- |
+| `Title` | `string` | Title is shown in the panel's top border. Required for a list of rows; for a widget it replaces the widget's own Title. |
+| `Subtitle` | `string` | Subtitle is shown in the bottom border. For a widget it replaces the widget's own Subtitle. Optional. |
+| `Badge` | `func(*Context[S]) string` | Badge is shown in the top border, already styled. A list of rows shows a count, "[3 options]", by default; for a widget it replaces the widget's own Badge. Optional. |
+| `Noun` | `string` | Noun is the word the default count badge counts, "option" by default. |
+| `Number` | `int` | Number is the number of the first row; the rows after it count up from there. Without it the panel's rows continue from the rows before them, or start at 1. Optional. |
+| `Widget` | `Widget[S]` | Widget is the panel's widget. Optional. |
+| `Items` | `[]Addon[S]` | Items are the panel's rows, top to bottom: an [Option], a [View] (the row opens it), a [Page] (the row opens it as a sub-page), or a ready-made setting such as one from package stdaddons. |
 
 ### `SectionSpec`
 
@@ -120,6 +148,7 @@ Widget is a read-only panel on a page: a chart, a gauge, a status readout. Decla
 | `MinHeight` | `int` | MinHeight is the height in rows, borders included, the widget would like when panels are stacked. It defaults to 11. |
 | `Badge` | `func(*Context[S]) string` | Badge returns the state shown in the top border, already styled. Optional. |
 | `Render` | `func(*Context[S], Size) []string` | Render returns the panel's body rows for the given inner size. Rows wider than the width are truncated and missing rows are left blank, but returning exactly the right size is faster and clearer. Required. |
+| `Tick` | `func(*Context[S], time.Time) tea.Cmd` | Tick is called on every refresh tick, for a widget that samples data over time (a graph's history, say): the [Hook] Tick of the widget itself, so the widget is one value. It runs on the update loop and must not block. Optional. |
 
 ### `View`
 

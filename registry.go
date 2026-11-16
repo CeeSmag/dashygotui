@@ -142,6 +142,9 @@ func (w Widget[S]) register(r *registry[S], site string) {
 	}
 	r.widgetKeys[w.Key] = site
 	r.widgets = append(r.widgets, w)
+	if w.Tick != nil {
+		r.onTick = append(r.onTick, w.Tick)
+	}
 }
 
 func (v View[S]) register(r *registry[S], site string) {
@@ -184,7 +187,7 @@ func (v View[S]) register(r *registry[S], site string) {
 		}
 		seen[n] = it.Label
 	}
-	if v.Body == nil && !v.hasOptions() && v.Status == nil {
+	if v.Body == nil && !v.hasOptions() && v.Status == nil && v.sub == nil {
 		r.fail(site, "view %q draws nothing: set Body, Status, Options or Items", v.ID)
 		ok = false
 	}

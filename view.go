@@ -22,7 +22,17 @@ func (m *model[S]) viewKey(msg tea.KeyPressMsg) tea.Cmd {
 			return cmd
 		}
 	}
-	if v.hasOptions() && v.Body == nil {
+	if v.sub != nil {
+		name := strings.ToLower(msg.String())
+		for _, menu := range m.menus() {
+			for _, o := range menu {
+				if o.Hotkey != "" && o.Hotkey == name {
+					m.digits = ""
+					return o.run(m.ctx)
+				}
+			}
+		}
+	} else if v.hasOptions() && v.Body == nil {
 		name := strings.ToLower(msg.String())
 		for _, o := range m.viewOptions(v) {
 			if o.Hotkey != "" && o.Hotkey == name && o.actions() > 0 {
@@ -60,6 +70,8 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	var lines []string
 	scrollable := false
 	switch {
+	case v.sub != nil:
+		lines = m.renderPage(*v.sub, cols, body)
 	case v.Body != nil:
 		inner := m.bodySize(v, cols, rows)
 		var rowsOut []string
@@ -122,6 +134,9 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	var hints []panel.Hint
 	if v.hasOptions() && v.Body == nil {
 		hints = append(hints, m.hint(th.G.UpDown, "Move", th.Key, 60), m.hint(th.G.Enter, "Open", th.Key, 55))
+	}
+	if v.sub != nil {
+		hints = append(hints, m.menuHints(m.menus())...)
 	}
 	if scrollable {
 		hints = append(hints, m.hint(th.G.UpDown, "Scroll", th.Key, 60))

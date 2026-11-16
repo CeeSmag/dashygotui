@@ -31,6 +31,11 @@ type Config[S any] struct {
 	// list is a dashboard with pages and sections only.
 	Addons []Addon[S]
 
+	// Map is what the dashboard contains and where: its pages, their panels and
+	// rows, and the dashboard's shortcuts and hooks. It replaces Pages,
+	// Sections and Addons; set one or the other.
+	Map Map[S]
+
 	// Pages are the dashboard tabs, in tab order. At least one is required.
 	Pages []Page[S]
 	// Sections are the option containers on the pages. Options and widgets
@@ -138,9 +143,15 @@ type Dashboard[S any] struct {
 type panelDef[S any] struct {
 	id     string
 	order  int
-	sec    *SectionSpec[S]
+	sec    *section[S]
 	opts   []Option[S]
 	widget *Widget[S]
+}
+
+// section is how a panel of rows is drawn: its borders and its badge.
+type section[S any] struct {
+	title, subtitle, noun string
+	badge                 func(*Context[S]) string
 }
 
 // pageDef is a page with its panels already collected and sorted.
@@ -153,16 +164,28 @@ type pageDef[S any] struct {
 // reported at once, wrapped in [ErrInvalidConfig], and nothing starts until
 // [Dashboard.Run].
 func New[S any](cfg Config[S]) (*Dashboard[S], error) {
-	all := collect(cfg.Addons)
-	reg := all.contents()
 	keys := cfg.Keys.withDefaults()
-
-	var errs []error
-	if err := all.err(); err != nil {
-		errs = append(errs, err)
+	var (
+		errs  []error
+		all   *registry[S]
+		pages []pageDef[S]
+	)
+	if cfg.Map.used() {
+		if len(cfg.Pages)+len(cfg.Sections)+len(cfg.Addons) > 0 {
+			errs = append(errs, errors.New("Config.Map replaces Config.Pages, Sections and Addons: set one or the other"))
+		}
+		mp := compileMap(cfg.Map)
+		all, pages = mp.reg, mp.pages
+	} else {
+		all = collect(cfg.Addons)
+		var pageErrs []error
+		pages, pageErrs = buildPages(cfg, all.contents())
+		errs = append(errs, pageErrs...)
 	}
-	pages, pageErrs := buildPages(cfg, reg)
-	errs = append(errs, pageErrs...)
+	reg := all.contents()
+	if err := all.err(); err != nil {
+		errs = append([]error{err}, errs...)
+	}
 	for _, s := range reg.shortcuts {
 		if keys.reserved(s.Key, s.Scope == ScopePages) {
 			errs = append(errs, fmt.Errorf("shortcut %q is reserved for navigation or a digit", s.Key))
@@ -320,7 +343,8 @@ func buildPages[S any](cfg Config[S], reg registered[S]) ([]pageDef[S], []error)
 		slices.SortStableFunc(opts, func(a, b Option[S]) int {
 			return cmp.Or(cmp.Compare(a.order(), b.order()), cmp.Compare(a.Number, b.Number), cmp.Compare(a.Key, b.Key))
 		})
-		pages[pi].panels = append(pages[pi].panels, panelDef[S]{id: s.ID, order: s.Order, sec: &s, opts: opts})
+		pages[pi].panels = append(pages[pi].panels, panelDef[S]{id: s.ID, order: s.Order, opts: opts,
+			sec: &section[S]{title: s.Title, subtitle: s.Subtitle, noun: s.Noun, badge: s.Badge}})
 	}
 	for _, o := range reg.options {
 		if !secIDs[o.Section] {

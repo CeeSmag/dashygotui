@@ -5,6 +5,30 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [Unreleased]
+
+**The map.** An application can describe its whole dashboard in one place:
+`Config.Map` holds the pages, the panels on each page and the rows in each panel,
+and addons no longer say where they go. The decision and the phases toward v0.5.0
+are in `docs/DESIGN.md`. The v0.4 form (`Config.Pages`, `Sections`, `Addons`)
+still works beside it until v0.5.0.
+
+### Added
+
+- **`Map`** (`Pages`, `Shortcuts`, `Hooks`, `Views`) and **`Config.Map`**. Set it or
+  the v0.4 fields, not both.
+- **`Panel`**: one widget, or a list of rows (`Items`). Rows are numbered by
+  position across the tab pages; `Panel.Number` sets where a panel's count starts.
+- **`Page.Panels`** and **`Page.Entry`**. A `Page` placed as a row of a panel is a
+  sub-page: the row opens it full-screen with its own panels, its own numbering
+  from 1, its own hotkeys and its `Session`, and Back returns.
+- A `View` placed as a row is opened by that row (`Entry` says how the row looks);
+  a ready-made addon such as `stdaddons.LogView` is placed the same way.
+- **`Widget.Tick`**: a widget that samples on every tick is one value, without a
+  separate `Hook`.
+- Mistakes in a map are reported with their place in it, such as
+  `Control > Quick Actions > row 3: option "Old" sets Section, Number or Order`.
+
 ## [0.4.2] - 2026-11-16
 
 ### Added

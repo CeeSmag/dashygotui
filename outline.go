@@ -5,7 +5,8 @@ import "sort"
 // Outline describes what a dashboard contains. Tools and tests use it to walk a
 // dashboard without knowing its application; see dashtest.Audit.
 type Outline struct {
-	// Pages are the page IDs in tab order.
+	// Pages are the page IDs in tab order; a page with no ID is named by its
+	// Title.
 	Pages []string
 	// Views are the registered view IDs, sorted.
 	Views []string
@@ -28,11 +29,15 @@ type OutlineOption struct {
 func (d *Dashboard[S]) Outline() Outline {
 	var out Outline
 	for _, p := range d.pages {
-		out.Pages = append(out.Pages, p.page.ID)
+		name := p.page.ID
+		if name == "" {
+			name = p.page.Title
+		}
+		out.Pages = append(out.Pages, name)
 		for _, panel := range p.panels {
 			for _, o := range panel.opts {
 				out.Options = append(out.Options, OutlineOption{
-					Key: o.Key, Number: o.Number, Label: o.Label, Hotkey: o.Hotkey, Page: p.page.ID,
+					Key: o.Key, Number: o.Number, Label: o.Label, Hotkey: o.Hotkey, Page: name,
 				})
 			}
 		}

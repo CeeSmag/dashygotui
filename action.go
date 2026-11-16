@@ -97,6 +97,8 @@ func (r *registry[S]) registerAddon(it Addon[S], site string, depth int) {
 		r.fail(site, "%s", v.Reason)
 	case Hook[S]:
 		v.register(r, site)
+	case Page[S]:
+		r.fail(site, "page %q is an addon only in a Map: place it as a row of a Panel", v.Title)
 	case sited[S]:
 		r.registerAddon(v.addon, v.site, depth)
 	default:
