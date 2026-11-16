@@ -328,6 +328,24 @@ FallbackWhen: func(s dashygotui.Size) bool { return (s.Cols < 80 && s.Rows < 22)
 `Fallback` needs exactly one of `FallbackBelow` and `FallbackWhen`; anything else
 is a startup error.
 
+## Work that runs only while a page is shown
+
+A page's `Session` works like a view's: it is called when the page becomes the
+one on screen and returns the function to call when it stops being.
+
+```go
+{ID: "diag", Title: "Diagnostics", Session: func(c *Ctx) func() {
+	backend.WantDetail(true)
+	return func() { backend.WantDetail(false) }
+}},
+```
+
+The session ends when the user moves to another page or opens a view over the
+page, and a new one starts when they come back. A pop-up over the page does not
+end it. The page shown at start begins its session when the dashboard starts,
+unless `Config.StartView` covers it. Like a view's, the session is not ended
+when the dashboard quits.
+
 ## Modals
 
 Ready-made in [`modal`](../modal/): `Edit` (with `Validate`, `Submit` or a
@@ -551,6 +569,20 @@ func TestStorage(t *testing.T) {
 	d.RequireContains("Storage limit set to 75 GB.")
 	d.Tick()            // fire timers: refresh ticks, scheduled polls
 }
+```
+
+A command run with `c.Exec` is never started under `dashtest`: the driver records it
+and waits. `d.Execs()` lists the waiting commands as command lines, and
+`d.FinishExec(err)` ends the oldest one as if it had exited with `err` (nil for
+success), so the addon receives its `TaskResult` as it would in a terminal:
+
+```go
+d.Press("e")                          // edit the notes in the user's editor
+if got := d.Execs(); len(got) != 1 || got[0] != "vi notes.txt" {
+	t.Fatalf("Execs = %q", got)
+}
+d.FinishExec(nil)                     // the editor exited cleanly
+d.RequireContains("Notes saved.")
 ```
 
 Match menu rows with a whitespace-tolerant pattern such as `\[10\]\s+Storage`:

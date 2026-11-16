@@ -291,4 +291,11 @@ type Page[S any] struct {
 	// "narrow and short, or very short". It receives the size of the page body.
 	// Fallback needs FallbackBelow or FallbackWhen, not both.
 	FallbackWhen func(Size) bool
+	// Session is called when the page becomes the one on screen and returns the
+	// function to call when it stops being: when the user moves to another page
+	// or opens a view over it. Coming back starts a new session. Use it for work
+	// that only matters while the page is visible, such as asking a backend for
+	// more detail. Like [View.Session], it is not called when the dashboard
+	// quits, and a pop-up over the page does not end it. Optional.
+	Session func(*Context[S]) (end func())
 }

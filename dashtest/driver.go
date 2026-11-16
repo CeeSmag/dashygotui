@@ -10,6 +10,7 @@ package dashtest
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -32,15 +33,24 @@ type Driver struct {
 	model  tea.Model
 	now    time.Time
 	timers []func(time.Time) tea.Msg
+	execs  []pendingExec
 	quit   bool
 	cols   int
 	rows   int
 	notify func()
 }
 
+// pendingExec is a command the dashboard handed the terminal to, waiting for
+// the test to say how it ended.
+type pendingExec struct {
+	line string
+	done tea.ExecCallback
+}
+
 // New builds the dashboard described by cfg, sized cols x rows, starts it, and
-// runs its first commands (including the first poll). It overrides cfg.Clock
-// and cfg.Timer with the Driver's fake ones. A configuration error fails the
+// runs its first commands (including the first poll). It overrides cfg.Clock,
+// cfg.Timer and cfg.Exec with the Driver's fake ones: nothing is ever run in
+// the terminal (see [Driver.FinishExec]). A configuration error fails the
 // test.
 func New[S any](tb testing.TB, cfg dashygotui.Config[S], cols, rows int) *Driver {
 	tb.Helper()
@@ -49,6 +59,12 @@ func New[S any](tb testing.TB, cfg dashygotui.Config[S], cols, rows int) *Driver
 	cfg.Timer = func(_ time.Duration, fn func(time.Time) tea.Msg) tea.Cmd {
 		d.timers = append(d.timers, fn)
 		return func() tea.Msg { return nil } // the timer fires on Tick, not by itself
+	}
+	cfg.Exec = func(cmd tea.ExecCommand, done tea.ExecCallback) tea.Cmd {
+		return func() tea.Msg {
+			d.execs = append(d.execs, pendingExec{line: fmt.Sprint(cmd), done: done})
+			return nil // it ends on FinishExec, not by itself
+		}
 	}
 
 	dash, err := dashygotui.New(cfg)
@@ -149,6 +165,33 @@ func (d *Driver) Advance(delta time.Duration) {
 	d.tb.Helper()
 	d.now = d.now.Add(delta)
 	d.Tick()
+}
+
+// Execs returns the commands the dashboard has handed the terminal to with
+// Context.Exec and that have not finished yet, oldest first, each as its
+// command line (the arguments joined by spaces, such as "vi notes.txt"). Nothing is
+// actually run.
+func (d *Driver) Execs() []string {
+	out := make([]string, len(d.execs))
+	for i, e := range d.execs {
+		out[i] = e.line
+	}
+	return out
+}
+
+// FinishExec ends the oldest command in [Driver.Execs] as if it had exited
+// with err (nil for success) and delivers the outcome to the dashboard, as the
+// TaskResult that Context.Exec promises. It fails the test when no command is
+// waiting.
+func (d *Driver) FinishExec(err error) {
+	d.tb.Helper()
+	if len(d.execs) == 0 {
+		d.tb.Fatalf("dashtest: FinishExec: no command is waiting; the dashboard has not called Context.Exec")
+		return
+	}
+	e := d.execs[0]
+	d.execs = d.execs[1:]
+	d.Send(e.done(err))
 }
 
 // Now returns the fake clock's time.

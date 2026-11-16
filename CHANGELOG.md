@@ -5,6 +5,25 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [0.4.2] - 2026-11-16
+
+### Added
+
+- **`Page.Session`** does for a page what `View.Session` does for a view: it is
+  called when the page becomes the one on screen and returns the function to call
+  when it stops being (another page is chosen, or a view opens over it). Use it to
+  ask a backend for detail only while the page is visible. A pop-up does not end
+  it; quitting does not call the end function. Additive: existing pages are
+  unchanged.
+- **`Config.Exec`** is the command that hands the terminal to a program for
+  `Context.Exec`, a test seam like `Config.Timer`. The default is `tea.Exec`, so a
+  running dashboard behaves as before.
+- **`dashtest.Driver.Execs` and `Driver.FinishExec`**: under `dashtest`, a command
+  given to `Context.Exec` is recorded instead of run. `Execs` lists the waiting
+  command lines (`"vi notes.txt"`) and `FinishExec(err)` ends the oldest with that
+  outcome, delivering the `TaskResult` the addon expects. Until now a test could
+  not get past the point where the dashboard handed the terminal over.
+
 ## [0.4.1] - 2026-11-16
 
 ### Changed

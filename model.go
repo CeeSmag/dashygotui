@@ -100,6 +100,9 @@ type model[S any] struct {
 
 	ends map[string]func() // Session end functions of the views on screen or covered, by view ID
 
+	pageOn  int    // index of the page whose Session is running, or -1 when no page is on screen
+	pageEnd func() // that session's end function, if it returned one
+
 	viewScroll int // rows scrolled off the top of the open view's body (off the bottom, for a Tail view)
 	viewSeq    int // the open Tail view's Appended count when last looked at
 	viewTotal  int // rows the open Tail view's body had when last looked at
@@ -120,6 +123,7 @@ func newModel[S any](run context.Context, d *Dashboard[S]) *model[S] {
 		pageCur:  make([][]int, len(d.pages)),
 		pageSec:  make([]int, len(d.pages)),
 		palette:  theme.DefaultID,
+		pageOn:   -1,
 	}
 	m.ctx = &Context[S]{m: m}
 	if d.cfg.Spacing != nil {
@@ -235,6 +239,7 @@ func (m *model[S]) Init() tea.Cmd {
 	for _, id := range m.d.cfg.StartView {
 		m.openView(id)
 	}
+	m.syncPage()
 	cmds := []tea.Cmd{m.tickCmd(), m.pollCmd()}
 	cmds = append(cmds, m.queue...)
 	m.queue = nil

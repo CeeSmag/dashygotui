@@ -357,6 +357,7 @@ func (m *model[S]) cyclePage(delta int) {
 	m.saveCursor()
 	m.page = ((m.page+delta)%n + n) % n
 	m.restoreCursor()
+	m.syncPage()
 }
 
 // gotoPage switches to page idx and, when sect is not negative, focuses a
@@ -373,6 +374,7 @@ func (m *model[S]) gotoPage(idx, sect, row int) {
 	if sect >= 0 {
 		m.setCursor(sect, row)
 	}
+	m.syncPage()
 }
 
 // openView shows a registered view, remembering where it came from.
@@ -384,9 +386,35 @@ func (m *model[S]) openView(id string) {
 	m.leave(m.view)
 	m.stack = append(m.stack, m.view)
 	m.view = id
+	m.syncPage()
 	m.viewScroll, m.viewTotal = 0, 0
 	m.resetCursor()
 	m.enter(id)
+}
+
+// syncPage keeps the pages' Session in step with the screen: it ends the
+// session of a page that is no longer on screen (another page was chosen, or a
+// view opened over it) and starts the one of the page that now is. It does
+// nothing while the same page stays on screen.
+func (m *model[S]) syncPage() {
+	want := -1
+	if m.view == "" {
+		want = m.page
+	}
+	if want == m.pageOn {
+		return
+	}
+	if end := m.pageEnd; end != nil {
+		m.pageEnd = nil
+		end()
+	}
+	m.pageOn = want
+	if want < 0 {
+		return
+	}
+	if s := m.d.pages[want].page.Session; s != nil {
+		m.pageEnd = s(m.ctx)
+	}
 }
 
 // enter runs the OnEnter hook of view id, if it has one.
@@ -423,7 +451,9 @@ func (m *model[S]) leave(id string) {
 	}
 }
 
-// leaveViews closes every open view and returns to the dashboard pages.
+// leaveViews closes every open view and returns to the dashboard pages. It
+// does not start the page's Session: the caller moves to a page next, and
+// gotoPage starts the session of the page it lands on.
 func (m *model[S]) leaveViews() {
 	m.leave(m.view)
 	m.view, m.stack, m.viewScroll, m.viewTotal = "", nil, 0, 0
@@ -444,6 +474,7 @@ func (m *model[S]) back() {
 	m.viewScroll, m.viewTotal = 0, 0
 	if prev == "" {
 		m.restoreCursor()
+		m.syncPage()
 		return
 	}
 	m.resetCursor()

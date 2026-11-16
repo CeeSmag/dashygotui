@@ -34,6 +34,7 @@ Config describes a dashboard. Pages are required; the rest have sensible default
 | `AltScroll` | `bool` | AltScroll asks the terminal to turn the mouse wheel into arrow keys while the dashboard is up, which keeps text selection with the terminal. It is off by default. |
 | `Clock` | `func() time.Time` | Clock supplies the current time. Default [time.Now]; tests inject their own. |
 | `Timer` | `func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd` | Timer creates the command that delivers a message after d. Default [tea.Tick]. It is a test seam: the dashtest package substitutes timers it can fire on demand, so tests never sleep. |
+| `Exec` | `func(cmd tea.ExecCommand, done tea.ExecCallback) tea.Cmd` | Exec creates the command that hands the terminal to cmd and, when it ends, delivers done's message: what [Context.Exec] runs. Default [tea.Exec]. It is a test seam: the dashtest package records the command instead, and the test decides how it ends. |
 
 ### `Page`
 
@@ -50,6 +51,7 @@ Page declares one tab of the dashboard. Pages appear in the order they are liste
 | `Fallback` | `func(*Context[S], Size) []string` | Fallback draws a compact version of the page for terminals too small for the full layout, such as a one-panel summary. It receives the size of the page body and returns its rows; the dashboard draws them in a panel titled with the page's Title. While it is shown, the page's options cannot be selected (the page is read-only) and number keys skip it. Optional; FallbackBelow says when it applies. |
 | `FallbackBelow` | `Size` | FallbackBelow is the page body size under which Fallback is used: when the body is narrower than Cols or shorter than Rows. A zero field is ignored. Fallback needs FallbackBelow or FallbackWhen, not both. |
 | `FallbackWhen` | `func(Size) bool` | FallbackWhen decides for any rule FallbackBelow cannot say, such as "narrow and short, or very short". It receives the size of the page body. Fallback needs FallbackBelow or FallbackWhen, not both. |
+| `Session` | `func(*Context[S]) (end func())` | Session is called when the page becomes the one on screen and returns the function to call when it stops being: when the user moves to another page or opens a view over it. Coming back starts a new session. Use it for work that only matters while the page is visible, such as asking a backend for more detail. Like [View.Session], it is not called when the dashboard quits, and a pop-up over the page does not end it. Optional. |
 
 ### `SectionSpec`
 

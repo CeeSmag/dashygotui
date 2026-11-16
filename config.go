@@ -109,6 +109,11 @@ type Config[S any] struct {
 	// [tea.Tick]. It is a test seam: the dashtest package substitutes timers it
 	// can fire on demand, so tests never sleep.
 	Timer func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd
+	// Exec creates the command that hands the terminal to cmd and, when it
+	// ends, delivers done's message: what [Context.Exec] runs. Default
+	// [tea.Exec]. It is a test seam: the dashtest package records the command
+	// instead, and the test decides how it ends.
+	Exec func(cmd tea.ExecCommand, done tea.ExecCallback) tea.Cmd
 }
 
 // DefaultPollTimeout is the deadline of one Poll call when
@@ -214,6 +219,9 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 	}
 	if cfg.Timer == nil {
 		cfg.Timer = tea.Tick
+	}
+	if cfg.Exec == nil {
+		cfg.Exec = tea.Exec
 	}
 	if cfg.Getenv == nil {
 		cfg.Getenv = os.Getenv

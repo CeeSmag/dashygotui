@@ -62,7 +62,9 @@ chart: type StreamOpts struct
 chart: type WaveScaler struct
 dashtest: func (d *Driver) Advance(delta time.Duration)
 dashtest: func (d *Driver) Contains(s string) bool
+dashtest: func (d *Driver) Execs() []string
 dashtest: func (d *Driver) Exit() dashygotui.ExitInfo
+dashtest: func (d *Driver) FinishExec(err error)
 dashtest: func (d *Driver) Lines() []string
 dashtest: func (d *Driver) Model() tea.Model
 dashtest: func (d *Driver) Notify()
@@ -122,6 +124,7 @@ dashygotui: field Config.AltScroll bool
 dashygotui: field Config.Background BackgroundMode
 dashygotui: field Config.Clock func() time.Time
 dashygotui: field Config.DetectTTY func() bool
+dashygotui: field Config.Exec func(cmd tea.ExecCommand, done tea.ExecCallback) tea.Cmd
 dashygotui: field Config.Getenv func(string) string
 dashygotui: field Config.Glyphs GlyphMode
 dashygotui: field Config.Header func(*Context[S]) []panel.Segment
@@ -204,6 +207,7 @@ dashygotui: field Page.FallbackBelow Size
 dashygotui: field Page.FallbackWhen func(Size) bool
 dashygotui: field Page.ID string
 dashygotui: field Page.Layout Layout
+dashygotui: field Page.Session func(*Context[S]) (end func())
 dashygotui: field Page.ShortTitle string
 dashygotui: field Page.TinyTitle string
 dashygotui: field Page.Title string

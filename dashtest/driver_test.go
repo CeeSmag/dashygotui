@@ -2,6 +2,8 @@ package dashtest_test
 
 import (
 	"context"
+	"errors"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -236,6 +238,61 @@ func TestRequireHelpersFailTheTest(t *testing.T) {
 		t.Errorf("message = %q", msg)
 	}
 	d.RequireContains("Probe") // and the passing case does not fail
+}
+
+func TestExecWaitsForFinishExec(t *testing.T) {
+	var results []dashygotui.TaskResult
+	editor := func(c *dashygotui.Config[state]) {
+		c.Addons = append(c.Addons,
+			dashygotui.Shortcut[state]{Key: "l", Run: func(c *ctx) tea.Cmd {
+				// Never run: the driver only records it.
+				return c.Exec(&exec.Cmd{Path: "vi", Args: []string{"vi", "notes.txt"}}, "edit")
+			}},
+			dashygotui.Hook[state]{Result: func(_ *ctx, res dashygotui.TaskResult) (bool, tea.Cmd) {
+				results = append(results, res)
+				return true, nil
+			}})
+	}
+	d := dashtest.New(t, config(editor), 100, 30)
+	if got := d.Execs(); len(got) != 0 {
+		t.Fatalf("Execs before any = %q", got)
+	}
+
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{name: "success", err: nil},
+		{name: "failure", err: errors.New("exit status 1")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results = nil
+			d.Press("l")
+			if got := d.Execs(); len(got) != 1 || got[0] != "vi notes.txt" {
+				t.Fatalf("Execs = %q, want [vi notes.txt]", got)
+			}
+			if len(results) != 0 {
+				t.Fatalf("a result arrived before FinishExec: %+v", results)
+			}
+			d.FinishExec(tt.err)
+			if len(d.Execs()) != 0 {
+				t.Errorf("Execs after FinishExec = %q, want none", d.Execs())
+			}
+			if len(results) != 1 || results[0].Tag != "edit" || !errors.Is(results[0].Err, tt.err) {
+				t.Errorf("results = %+v, want one %q result with err %v", results, "edit", tt.err)
+			}
+		})
+	}
+}
+
+func TestFinishExecWithNothingWaitingFails(t *testing.T) {
+	rec := &recorder{TB: t}
+	d := dashtest.New(rec, config(), 100, 30)
+	msg := mustFail(t, func() { d.FinishExec(nil) })
+	if !strings.Contains(msg, "no command is waiting") {
+		t.Errorf("message = %q", msg)
+	}
 }
 
 func TestNewFailsOnABrokenConfig(t *testing.T) {

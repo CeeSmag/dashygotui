@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/modal"
@@ -254,6 +256,71 @@ func TestSessionEndsWhenCoveredAndStartsWhenUncovered(t *testing.T) {
 	d.Press("esc")    // back to the page
 	if got := strings.Join(events, ","); got != "a+,a-,a+,a-" {
 		t.Errorf("events = %q", got)
+	}
+}
+
+func TestPageSessionFollowsThePageOnScreen(t *testing.T) {
+	f := newFixture(t)
+	var events []string
+	session := func(name string) func(*ctx) func() {
+		return func(*ctx) func() {
+			events = append(events, name+"+")
+			return func() { events = append(events, name+"-") }
+		}
+	}
+	f.cfg.Pages[0].Session = session("monitor")
+	f.cfg.Pages[2].Session = session("theme")
+	v := plainView(f.reg, "v")
+	v.Keys = func(c *ctx, msg tea.KeyPressMsg) (tea.Cmd, bool) {
+		if msg.String() == "g" {
+			c.GotoPage("monitor")
+			return nil, true
+		}
+		return nil, false
+	}
+	f.reg.Add(v,
+		dashygotui.Shortcut[state]{Key: "x", Opens: "v"},
+		dashygotui.Shortcut[state]{Key: "n", Do: func(c *ctx) {
+			c.OpenModal(&modal.Notice[state]{Title: "Notice", Lines: []string{"hello"}})
+		}})
+	d := f.driver(100, 24)
+
+	step := func(want string, keys ...string) {
+		t.Helper()
+		events = nil
+		d.Press(keys...)
+		if got := strings.Join(events, ","); got != want {
+			t.Fatalf("after %v: events = %q, want %q", keys, got, want)
+		}
+	}
+	if got := strings.Join(events, ","); got != "monitor+" {
+		t.Fatalf("at start: events = %q, want the first page's session", got)
+	}
+	step("", "n", "esc")              // a pop-up over the page does not end it
+	step("monitor-", "1")             // a number on another page moves there
+	step("theme+", "tab")             // a page without a session in between
+	step("theme-", "x")               // a view over the page ends it
+	step("theme+", "esc")             // back on the page: a new session
+	step("theme-,monitor+", "x", "g") // GotoPage from a view starts only the page it lands on
+	step("monitor-,theme+", "shift+tab")
+}
+
+func TestPageSessionWaitsForTheStartView(t *testing.T) {
+	f := newFixture(t)
+	var events []string
+	f.cfg.Pages[0].Session = func(*ctx) func() {
+		events = append(events, "begin")
+		return func() { events = append(events, "end") }
+	}
+	f.reg.Add(plainView(f.reg, "v"))
+	f.cfg.StartView = []string{"v"}
+	d := f.driver(100, 24)
+	if len(events) != 0 {
+		t.Fatalf("events = %q, want none while the start view covers the page", events)
+	}
+	d.Press("esc")
+	if got := strings.Join(events, ","); got != "begin" {
+		t.Errorf("events = %q, want the page's session once the view closes", got)
 	}
 }
 
