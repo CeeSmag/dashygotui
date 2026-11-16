@@ -11,55 +11,26 @@ import (
 	"github.com/CeeSmag/dashygotui/panel"
 )
 
-// Logs registers a full-screen log view of buf, and an option that opens it.
+// LogView is a full-screen log view of Buffer and the option that opens it.
+// Declare it as an addon:
+//
+//	var logView = stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Section: "views", Number: 52}
 //
 // The view shows the newest entry on top and scrolls with the arrow keys (or j
 // and k), PgUp and PgDn; Home returns to the live top and End jumps to the
 // oldest entry. Scrolled away from the top, it keeps the line being read while
-// new entries arrive. The f key cycles the minimum level shown. Use [LogsWith]
-// for category tabs.
+// new entries arrive. The f key cycles the minimum level shown. Entries filed
+// under a category with [logs.Buffer.In] get a strip of tabs along the top,
+// "All" first; CategoryKey moves along them, each tab keeps its own scroll
+// position, and a tab you are not on shows how many entries arrived since you
+// left it.
 //
-// Divert the application's logger into buf before the dashboard starts:
+// Divert the application's logger into Buffer before the dashboard starts:
 //
 //	restore := buf.Divert(log.Default())
 //	defer restore()
 //
 // The option's badge counts the entries, and the errors among them.
-func Logs[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section string, number int, setup ...Setup) {
-	LogsWith(reg, buf, section, number, LogOptions{}, setup...)
-}
-
-// LogOptions tunes [LogsWith].
-type LogOptions struct {
-	// Categories are tabs always shown, in this order, ahead of any category
-	// the buffer meets later. Optional.
-	Categories []string
-	// CategoryKey is the key that selects the next category tab; the same letter
-	// in upper case selects the previous one. It overrides the scrolling keys.
-	// Without it the tabs cannot be switched.
-	CategoryKey string
-}
-
-// LogsWith is [Logs] with category tabs. Entries are filed under a category with
-// [logs.Buffer.In]; the view shows a strip of tabs along the top, "All" first,
-// with the selected one in brackets. CategoryKey moves along them, wrapping
-// round. Each category keeps its own scroll position, and a tab you are not on
-// shows how many entries arrived since you left it.
-func LogsWith[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section string, number int, opts LogOptions, setup ...Setup) {
-	v := LogView[S]{Buffer: buf, Section: section, Number: number, Categories: opts.Categories, CategoryKey: opts.CategoryKey}
-	if len(setup) > 0 {
-		v.Hotkey, v.Order = setup[0].Hotkey, setup[0].Order
-	}
-	reg.Add(v)
-}
-
-// LogView is a full-screen log view of Buffer and the option that opens it: the
-// value form of [Logs] and [LogsWith]. Declare it as an addon:
-//
-//	var logView = stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Section: "views", Number: 52}
-//
-// Divert the application's logger into Buffer before the dashboard starts. The
-// option's badge counts the entries, and the errors among them.
 type LogView[S any] struct {
 	// Buffer is the log buffer shown. Required.
 	Buffer *logs.Buffer

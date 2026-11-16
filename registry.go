@@ -4,32 +4,17 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
-	"maps"
-	"path/filepath"
-	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
 
-// Registry collects the options, widgets, views, shortcuts and hooks that
-// addons register. An application creates exactly one for its state type S,
-// declares it as a package-level variable in its dashboard file, and addons
-// register with it from init().
-//
-// A registry is safe for concurrent use. Registration never panics: a mistake
-// is recorded together with the "file.go:line" of the offending call and
-// reported by [Registry.Validate] and [New], before the UI starts.
-//
-// Call the registration methods directly, e.g. dashboard.Registry.Add(...).
-// The recorded site is the immediate caller, so a wrapper function would hide
-// the real location.
-type Registry[S any] struct {
-	mu     sync.Mutex
-	frozen bool
-
+// registry collects and checks the addons of one dashboard while [New] builds
+// it. Each addon is recorded with the place [At] says it is declared, so a
+// mistake is reported with that place, and every mistake is kept rather than
+// the first: [New] reports them all at once.
+type registry[S any] struct {
 	options   []Option[S]
 	widgets   []Widget[S]
 	views     []View[S]
@@ -38,7 +23,7 @@ type Registry[S any] struct {
 	onResult  []func(*Context[S], TaskResult) (bool, tea.Cmd)
 	onMsg     []func(*Context[S], tea.Msg) tea.Cmd
 
-	// Where each unique thing was first registered, for duplicate messages.
+	// Where each unique thing was first declared, for duplicate messages.
 	optionKeys  map[string]string
 	optionNums  map[int]string
 	widgetKeys  map[string]string
@@ -49,9 +34,10 @@ type Registry[S any] struct {
 	errs []error
 }
 
-// NewRegistry returns an empty registry for state type S.
-func NewRegistry[S any]() *Registry[S] {
-	return &Registry[S]{
+// collect checks items and returns what they add up to. An item without [At]
+// is named by its index in the list.
+func collect[S any](items []Addon[S]) *registry[S] {
+	r := &registry[S]{
 		optionKeys:  map[string]string{},
 		optionNums:  map[int]string{},
 		widgetKeys:  map[string]string{},
@@ -59,63 +45,22 @@ func NewRegistry[S any]() *Registry[S] {
 		shortcutKey: map[string]string{},
 		hotkeys:     map[string]string{},
 	}
-}
-
-// callerSite returns "file.go:line" of the code that called the Registry
-// method calling callerSite, which is the addon's registration call.
-func callerSite() string {
-	_, file, line, ok := runtime.Caller(2)
-	if !ok {
-		return "unknown:0"
+	for i, it := range items {
+		r.registerAddon(it, fmt.Sprintf("Config.Addons[%d]", i), 0)
 	}
-	return fmt.Sprintf("%s:%d", filepath.Base(file), line)
+	return r
 }
 
-// begin locks the registry and reports whether registration is still allowed.
-// The caller must unlock.
-func (r *Registry[S]) begin(site, what string) bool {
-	r.mu.Lock()
-	if r.frozen {
-		r.errs = append(r.errs, &RegistrationError{Site: site, Msg: what + " registered after the dashboard was created"})
-		return false
-	}
-	return true
+func (r *registry[S]) fail(site, format string, args ...any) {
+	r.errs = append(r.errs, &AddonError{Site: site, Msg: fmt.Sprintf(format, args...)})
 }
 
-func (r *Registry[S]) fail(site, format string, args ...any) {
-	r.errs = append(r.errs, &RegistrationError{Site: site, Msg: fmt.Sprintf(format, args...)})
-}
-
-// Option registers a numbered row for a section.
-func (r *Registry[S]) Option(o Option[S]) { o.register(r, callerSite()) }
-
-// Add registers any number of options, shortcuts, views and widgets in one
-// call, so an addon that adds several things reads as one declaration:
-//
-//	dashboard.Registry.Add(dashboard.Option{...}, dashboard.View{...})
-//
-// It does the same as calling [Registry.Option], [Registry.Shortcut],
-// [Registry.View] and [Registry.Widget] for each, and records the call site of
-// Add itself for error messages.
-func (r *Registry[S]) Add(items ...Addon[S]) {
-	site := callerSite()
-	for _, it := range items {
-		r.registerAddon(it, site, 0)
-	}
-}
-
-func (o Option[S]) register(r *Registry[S], site string) {
-	if !r.begin(site, "option") {
-		r.mu.Unlock()
-		return
-	}
-	defer r.mu.Unlock()
+func (o Option[S]) register(r *registry[S], site string) {
 	r.addOption(site, o)
 }
 
-// addOption validates and stores an option. The registry must be locked and
-// not frozen.
-func (r *Registry[S]) addOption(site string, o Option[S]) {
+// addOption validates and stores an option.
+func (r *registry[S]) addOption(site string, o Option[S]) {
 	ok := true
 	switch {
 	case strings.TrimSpace(o.Key) == "":
@@ -170,16 +115,7 @@ func (r *Registry[S]) addOption(site string, o Option[S]) {
 	r.options = append(r.options, o)
 }
 
-// Widget registers a read-only panel for a page.
-func (r *Registry[S]) Widget(w Widget[S]) { w.register(r, callerSite()) }
-
-func (w Widget[S]) register(r *Registry[S], site string) {
-	if !r.begin(site, "widget") {
-		r.mu.Unlock()
-		return
-	}
-	defer r.mu.Unlock()
-
+func (w Widget[S]) register(r *registry[S], site string) {
 	ok := true
 	switch {
 	case strings.TrimSpace(w.Key) == "":
@@ -208,16 +144,7 @@ func (w Widget[S]) register(r *Registry[S], site string) {
 	r.widgets = append(r.widgets, w)
 }
 
-// View registers a full-screen view that [Context.OpenView] can open.
-func (r *Registry[S]) View(v View[S]) { v.register(r, callerSite()) }
-
-func (v View[S]) register(r *Registry[S], site string) {
-	if !r.begin(site, "view") {
-		r.mu.Unlock()
-		return
-	}
-	defer r.mu.Unlock()
-
+func (v View[S]) register(r *registry[S], site string) {
 	ok := true
 	switch {
 	case strings.TrimSpace(v.ID) == "":
@@ -302,16 +229,7 @@ func (v View[S]) register(r *Registry[S], site string) {
 	}
 }
 
-// Shortcut registers a global key binding for the dashboard pages.
-func (r *Registry[S]) Shortcut(s Shortcut[S]) { s.register(r, callerSite()) }
-
-func (s Shortcut[S]) register(r *Registry[S], site string) {
-	if !r.begin(site, "shortcut") {
-		r.mu.Unlock()
-		return
-	}
-	defer r.mu.Unlock()
-
+func (s Shortcut[S]) register(r *registry[S], site string) {
 	ok := true
 	switch {
 	case s.Key == "":
@@ -336,12 +254,7 @@ func (s Shortcut[S]) register(r *Registry[S], site string) {
 	r.shortcuts = append(r.shortcuts, s)
 }
 
-func (h Hook[S]) register(r *Registry[S], site string) {
-	if !r.begin(site, "hook") {
-		r.mu.Unlock()
-		return
-	}
-	defer r.mu.Unlock()
+func (h Hook[S]) register(r *registry[S], site string) {
 	if h.Tick == nil && h.Msg == nil && h.Result == nil {
 		r.fail(site, "hook sets none of Tick, Msg and Result")
 		return
@@ -357,64 +270,10 @@ func (h Hook[S]) register(r *Registry[S], site string) {
 	}
 }
 
-// OnTick registers a hook called on every refresh tick, for addons that sample
-// data over time. The hook runs on the update loop and must not block.
-func (r *Registry[S]) OnTick(fn func(*Context[S], time.Time) tea.Cmd) {
-	site := callerSite()
-	if !r.begin(site, "tick hook") {
-		r.mu.Unlock()
-		return
-	}
-	defer r.mu.Unlock()
-	if fn == nil {
-		r.fail(site, "tick hook is nil")
-		return
-	}
-	r.onTick = append(r.onTick, fn)
-}
+// err returns every mistake recorded, joined, or nil.
+func (r *registry[S]) err() error { return errors.Join(r.errs...) }
 
-// OnResult registers a hook that sees the result of every background task.
-// Return handled == true to stop other hooks and the default footer message.
-func (r *Registry[S]) OnResult(fn func(*Context[S], TaskResult) (handled bool, cmd tea.Cmd)) {
-	site := callerSite()
-	if !r.begin(site, "result hook") {
-		r.mu.Unlock()
-		return
-	}
-	defer r.mu.Unlock()
-	if fn == nil {
-		r.fail(site, "result hook is nil")
-		return
-	}
-	r.onResult = append(r.onResult, fn)
-}
-
-// OnMsg registers a hook for messages the dashboard does not recognise, so an
-// addon can handle the messages of its own commands. Every hook sees every such
-// message, whatever another hook returned; the commands they return are run
-// together. Return nil to ignore a message.
-func (r *Registry[S]) OnMsg(fn func(*Context[S], tea.Msg) tea.Cmd) {
-	site := callerSite()
-	if !r.begin(site, "message hook") {
-		r.mu.Unlock()
-		return
-	}
-	defer r.mu.Unlock()
-	if fn == nil {
-		r.fail(site, "message hook is nil")
-		return
-	}
-	r.onMsg = append(r.onMsg, fn)
-}
-
-// Validate returns every registration mistake recorded so far, joined, or nil.
-func (r *Registry[S]) Validate() error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return errors.Join(r.errs...)
-}
-
-// registered is an immutable copy of what was registered.
+// registered is what the addons added up to.
 type registered[S any] struct {
 	options   []Option[S]
 	widgets   []Widget[S]
@@ -425,49 +284,10 @@ type registered[S any] struct {
 	onMsg     []func(*Context[S], tea.Msg) tea.Cmd
 }
 
-// with returns a new, unfrozen registry holding everything r holds (its
-// mistakes included) and then items, each registered with the place [At]
-// recorded or, failing that, its index in the list. r itself is frozen, as [New]
-// promises, and is not changed otherwise.
-func (r *Registry[S]) with(items []Addon[S]) *Registry[S] {
-	out := NewRegistry[S]()
-	if r != nil {
-		r.mu.Lock()
-		r.frozen = true
-		out.options = append(out.options, r.options...)
-		out.widgets = append(out.widgets, r.widgets...)
-		out.views = append(out.views, r.views...)
-		out.shortcuts = append(out.shortcuts, r.shortcuts...)
-		out.onTick = append(out.onTick, r.onTick...)
-		out.onResult = append(out.onResult, r.onResult...)
-		out.onMsg = append(out.onMsg, r.onMsg...)
-		maps.Copy(out.optionKeys, r.optionKeys)
-		maps.Copy(out.optionNums, r.optionNums)
-		maps.Copy(out.widgetKeys, r.widgetKeys)
-		maps.Copy(out.viewIDs, r.viewIDs)
-		maps.Copy(out.shortcutKey, r.shortcutKey)
-		maps.Copy(out.hotkeys, r.hotkeys)
-		out.errs = append(out.errs, r.errs...)
-		r.mu.Unlock()
-	}
-	for i, it := range items {
-		out.registerAddon(it, fmt.Sprintf("Config.Addons[%d]", i), 0)
-	}
-	return out
-}
-
-// freeze stops further registration and returns a copy of the contents.
-func (r *Registry[S]) freeze() registered[S] {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.frozen = true
+// contents returns what was collected.
+func (r *registry[S]) contents() registered[S] {
 	return registered[S]{
-		options:   append([]Option[S](nil), r.options...),
-		widgets:   append([]Widget[S](nil), r.widgets...),
-		views:     append([]View[S](nil), r.views...),
-		shortcuts: append([]Shortcut[S](nil), r.shortcuts...),
-		onTick:    append([]func(*Context[S], time.Time) tea.Cmd(nil), r.onTick...),
-		onResult:  append([]func(*Context[S], TaskResult) (bool, tea.Cmd)(nil), r.onResult...),
-		onMsg:     append([]func(*Context[S], tea.Msg) tea.Cmd(nil), r.onMsg...),
+		options: r.options, widgets: r.widgets, views: r.views, shortcuts: r.shortcuts,
+		onTick: r.onTick, onResult: r.onResult, onMsg: r.onMsg,
 	}
 }

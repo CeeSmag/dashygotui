@@ -76,11 +76,43 @@ func TestEveryTopicHasADocument(t *testing.T) {
 	}
 }
 
+// generate writes the generated list of dir's addons package, as gen would.
+func generate(t *testing.T, dir string) {
+	t.Helper()
+	if code, out, errOut := runCLI(t, "gen", "-q", "-state", "example.com/app/dashboard.State", dir); code != exitOK {
+		t.Fatalf("gen %s: %d %s %s", dir, code, out, errOut)
+	}
+}
+
+// withGenerated returns files plus the doc.go and generated list of their
+// ui/addons package.
+func withGenerated(t *testing.T, files map[string]string) map[string]string {
+	t.Helper()
+	dir := t.TempDir()
+	for p, body := range files {
+		write(t, dir, p, body)
+	}
+	generate(t, filepath.Join(dir, "ui", "addons"))
+	out := map[string]string{}
+	for p, body := range files {
+		out[p] = body
+	}
+	for _, name := range []string{"doc.go", "addons_gen.go"} {
+		b, err := os.ReadFile(filepath.Join(dir, "ui", "addons", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		out["ui/addons/"+name] = string(b)
+	}
+	return out
+}
+
 func TestCheck(t *testing.T) {
-	good := "package addons\nimport \"fmt\"\nfunc init() { _ = fmt.Sprint(1) }\n"
+	good := "package addons\nimport \"fmt\"\nfunc f() { _ = fmt.Sprint(1) }\n"
 	t.Run("clean", func(t *testing.T) {
 		dir := t.TempDir()
 		write(t, dir, "ui/addons/opt_a.go", good)
+		generate(t, filepath.Join(dir, "ui", "addons"))
 		code, out, _ := runCLI(t, "check", dir)
 		if code != exitOK || !strings.Contains(out, "ok: 1 addon file(s)") {
 			t.Errorf("code %d, out %q", code, out)
@@ -88,8 +120,9 @@ func TestCheck(t *testing.T) {
 	})
 	t.Run("a broken rule fails", func(t *testing.T) {
 		dir := t.TempDir()
-		write(t, dir, "ui/addons/opt_a.go", "package addons\nimport \"time\"\nfunc init() {\n\ttime.Sleep(1)\n}\n")
+		write(t, dir, "ui/addons/opt_a.go", "package addons\nimport \"time\"\nfunc f() {\n\ttime.Sleep(1)\n}\n")
 		write(t, dir, "ui/addons/helpers.go", "package addons\n")
+		generate(t, filepath.Join(dir, "ui", "addons"))
 		code, out, _ := runCLI(t, "check", dir)
 		if code != exitFindings {
 			t.Fatalf("code %d, out %q", code, out)
@@ -102,7 +135,8 @@ func TestCheck(t *testing.T) {
 	})
 	t.Run("an allow comment excuses and is listed", func(t *testing.T) {
 		dir := t.TempDir()
-		write(t, dir, "ui/addons/opt_a.go", "package addons\nimport \"time\"\nfunc init() {\n\ttime.Sleep(1) //dashygotui:allow A4 hardware settle time\n}\n")
+		write(t, dir, "ui/addons/opt_a.go", "package addons\nimport \"time\"\nfunc f() {\n\ttime.Sleep(1) //dashygotui:allow A4 hardware settle time\n}\n")
+		generate(t, filepath.Join(dir, "ui", "addons"))
 		code, out, _ := runCLI(t, "check", dir)
 		if code != exitOK || !strings.Contains(out, "excused by //dashygotui:allow") || !strings.Contains(out, "hardware settle time") {
 			t.Errorf("code %d, out %q", code, out)
@@ -111,6 +145,7 @@ func TestCheck(t *testing.T) {
 	t.Run("gap markers are listed, a bare one fails", func(t *testing.T) {
 		dir := t.TempDir()
 		write(t, dir, "ui/addons/opt_a.go", good)
+		generate(t, filepath.Join(dir, "ui", "addons"))
 		write(t, dir, "ui/actions.go", "package ui\n// dashygotui:gap GAPS.md#restart needs OnSaved\nfunc f() {}\n")
 		code, out, _ := runCLI(t, "check", dir)
 		if code != exitOK || !strings.Contains(out, "marked //dashygotui:gap") || !strings.Contains(out, "GAPS.md#restart") {
@@ -306,10 +341,10 @@ func gitRepo(t *testing.T, files map[string]string) string {
 }
 
 func TestCheckChangedAppliesTheOneFileRule(t *testing.T) {
-	base := map[string]string{
+	base := withGenerated(t, map[string]string{
 		"ui/dashboard.go":        "package ui\n",
 		"ui/addons/opt_first.go": "package addons\n",
-	}
+	})
 	t.Run("a clean tree", func(t *testing.T) {
 		dir := gitRepo(t, base)
 		code, out, _ := runCLI(t, "check", "-changed", dir)

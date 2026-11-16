@@ -10,9 +10,7 @@
 //	var theme = stdaddons.ThemePicker[dashboard.State]{Section: "appearance", Number: 20}
 //
 // Each expands into ordinary [dashygotui.Option] values, so it takes part in
-// number collision checks like any other. The functions that take a
-// [dashygotui.Registry] (Theme, Spacing and the rest) are the v0.3 form of the
-// same addons.
+// number collision checks like any other.
 package stdaddons
 
 import (
@@ -26,26 +24,9 @@ import (
 	"github.com/CeeSmag/dashygotui/theme"
 )
 
-// Setup tunes how a standard addon is registered. It is optional.
-type Setup struct {
-	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey.
-	Hotkey string
-	// Order sorts the option within its section, like [dashygotui.Option].Order.
-	Order int
-}
-
-// Theme registers an option that opens a colour palette picker. Moving the
-// highlight previews each palette live; Enter keeps one and saves the choice
-// and Esc restores the previous palette.
-func Theme[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Add(ThemePicker[S]{Section: section, Number: number}.with(setup))
-}
-
 // ThemePicker is an option that opens a colour palette picker. Moving the
 // highlight previews each palette live; Enter keeps one and saves the choice
 // and Esc restores the previous palette.
-//
-// It is the value form of [Theme]: declare it as an addon.
 type ThemePicker[S any] struct {
 	// Section is the section the option appears in. Required.
 	Section string
@@ -55,13 +36,6 @@ type ThemePicker[S any] struct {
 	Hotkey string
 	// Order sorts the option within its section. Optional.
 	Order int
-}
-
-func (a ThemePicker[S]) with(setup []Setup) ThemePicker[S] {
-	if len(setup) > 0 {
-		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
-	}
-	return a
 }
 
 // Addons implements [dashygotui.Addon].
@@ -110,14 +84,9 @@ func openThemePicker[S any](ctx *dashygotui.Context[S]) {
 	})
 }
 
-// RefreshRate registers an option that opens a refresh-rate picker.
-func RefreshRate[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Add(RefreshRatePicker[S]{Section: section, Number: number}.with(setup))
-}
-
 // RefreshRatePicker is an option that opens a refresh-rate picker.
 //
-// It is the value form of [RefreshRate]: declare it as an addon.
+// Declare it as an addon.
 type RefreshRatePicker[S any] struct {
 	// Section is the section the option appears in. Required.
 	Section string
@@ -127,13 +96,6 @@ type RefreshRatePicker[S any] struct {
 	Hotkey string
 	// Order sorts the option within its section. Optional.
 	Order int
-}
-
-func (a RefreshRatePicker[S]) with(setup []Setup) RefreshRatePicker[S] {
-	if len(setup) > 0 {
-		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
-	}
-	return a
 }
 
 // Addons implements [dashygotui.Addon].
@@ -212,16 +174,10 @@ func gaps(both string) []gap {
 	}
 }
 
-// Spacing registers an option that opens the spacing menu: the four gaps
-// that frame the dashboard, each adjusted with a live slider, plus a reset.
-func Spacing[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Add(SpacingMenu[S]{Section: section, Number: number}.with(setup))
-}
-
 // SpacingMenu is an option that opens the spacing menu: the four gaps that
 // frame the dashboard, each adjusted with a live slider, plus a reset.
 //
-// It is the value form of [Spacing]: declare it as an addon.
+// Declare it as an addon.
 type SpacingMenu[S any] struct {
 	// Section is the section the option appears in. Required.
 	Section string
@@ -231,13 +187,6 @@ type SpacingMenu[S any] struct {
 	Hotkey string
 	// Order sorts the option within its section. Optional.
 	Order int
-}
-
-func (a SpacingMenu[S]) with(setup []Setup) SpacingMenu[S] {
-	if len(setup) > 0 {
-		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
-	}
-	return a
 }
 
 // Addons implements [dashygotui.Addon].

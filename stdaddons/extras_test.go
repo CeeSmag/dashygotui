@@ -10,6 +10,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/logs"
 	"github.com/CeeSmag/dashygotui/stdaddons"
 	"github.com/CeeSmag/dashygotui/store"
@@ -18,15 +19,15 @@ import (
 // extras is a dashboard with the display picker, the log view, and a hotkeyed
 // theme picker.
 func extras(buf *logs.Buffer, st dashygotui.Store, term string) dashygotui.Config[state] {
-	r := dashygotui.NewRegistry[state]()
-	stdaddons.Theme(r, "look", 20, stdaddons.Setup{Hotkey: "m"})
-	stdaddons.Display(r, "look", 23)
-	stdaddons.Background(r, "look", 25)
-	stdaddons.Transparency(r, "look", 26, stdaddons.Setup{Hotkey: "y"})
-	stdaddons.Logs(r, buf, "look", 24, stdaddons.Setup{Hotkey: "g"})
+	r := collect.New[state]()
+	r.Add(stdaddons.ThemePicker[state]{Section: "look", Number: 20, Hotkey: "m"})
+	r.Add(stdaddons.DisplayPicker[state]{Section: "look", Number: 23})
+	r.Add(stdaddons.BackgroundPicker[state]{Section: "look", Number: 25})
+	r.Add(stdaddons.TransparencyToggle[state]{Section: "look", Number: 26, Hotkey: "y"})
+	r.Add(stdaddons.LogView[state]{Buffer: buf, Section: "look", Number: 24, Hotkey: "g"})
 	return dashygotui.Config[state]{
 		Title:    "T",
-		Registry: r,
+		Addons:   []dashygotui.Addon[state]{r},
 		Store:    st,
 		Getenv:   func(k string) string { return map[string]string{"TERM": term}[k] },
 		Pages:    []dashygotui.Page[state]{{ID: "p", Title: "Page"}},

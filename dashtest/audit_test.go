@@ -10,6 +10,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/modal"
 )
 
@@ -51,7 +52,7 @@ func audit(t *testing.T, cfg dashygotui.Config[auditState], opts ...dashtest.Aud
 
 // goodConfig is a small dashboard that obeys every rule.
 func goodConfig() dashygotui.Config[auditState] {
-	r := dashygotui.NewRegistry[auditState]()
+	r := collect.New[auditState]()
 	r.Add(
 		dashygotui.Option[auditState]{Key: "about", Section: "s", Number: 1, Label: "About",
 			Modal: func(*actx) dashygotui.Modal[auditState] {
@@ -64,7 +65,7 @@ func goodConfig() dashygotui.Config[auditState] {
 			Render: func(*actx, dashygotui.Size) []string { return []string{"ok"} }},
 	)
 	return dashygotui.Config[auditState]{
-		Title: "T", Registry: r,
+		Title: "T", Addons: []dashygotui.Addon[auditState]{r},
 		Pages:    []dashygotui.Page[auditState]{{ID: "p", Title: "Page"}},
 		Sections: []dashygotui.SectionSpec[auditState]{{ID: "s", Page: "p", Title: "Section"}},
 		Poll:     func(context.Context) (auditState, error) { return auditState{}, nil },
@@ -79,7 +80,7 @@ func TestAuditPassesAWellBehavedDashboard(t *testing.T) {
 
 func TestAuditFailsOnABrokenRegistration(t *testing.T) {
 	cfg := goodConfig()
-	cfg.Registry.Add(dashygotui.Option[auditState]{Key: "dup", Section: "s", Number: 1, Label: "Clash",
+	collect.From(cfg).Add(dashygotui.Option[auditState]{Key: "dup", Section: "s", Number: 1, Label: "Clash",
 		Do: func(*actx) {}}) // [1] is About
 	errs := audit(t, cfg)
 	if len(errs) == 0 || !strings.Contains(errs[0], "building the dashboard") || !strings.Contains(errs[0], "reuses number 1") {
@@ -89,7 +90,7 @@ func TestAuditFailsOnABrokenRegistration(t *testing.T) {
 
 func TestAuditCatchesAPanicWithItsLocation(t *testing.T) {
 	cfg := goodConfig()
-	cfg.Registry.Add(dashygotui.Widget[auditState]{Key: "boom", Page: "p", Title: "Boom",
+	collect.From(cfg).Add(dashygotui.Widget[auditState]{Key: "boom", Page: "p", Title: "Boom",
 		Render: func(*actx, dashygotui.Size) []string { panic("kaboom") }})
 	errs := audit(t, cfg)
 	found := false
@@ -105,7 +106,7 @@ func TestAuditCatchesAPanicWithItsLocation(t *testing.T) {
 
 func TestAuditCatchesGlyphsTheConsoleCannotShow(t *testing.T) {
 	cfg := goodConfig()
-	cfg.Registry.Add(dashygotui.Widget[auditState]{Key: "glyph", Page: "p", Title: "Glyph",
+	collect.From(cfg).Add(dashygotui.Widget[auditState]{Key: "glyph", Page: "p", Title: "Glyph",
 		Render: func(*actx, dashygotui.Size) []string { return []string{"done ✓"} }})
 	errs := audit(t, cfg)
 	found := false
@@ -127,7 +128,7 @@ func TestAuditCatchesGlyphsTheConsoleCannotShow(t *testing.T) {
 func TestAuditWalksOptionsOnlyWhenAsked(t *testing.T) {
 	cfg := goodConfig()
 	opened := 0
-	cfg.Registry.Add(dashygotui.Option[auditState]{Key: "probe", Section: "s", Number: 9, Label: "Probe",
+	collect.From(cfg).Add(dashygotui.Option[auditState]{Key: "probe", Section: "s", Number: 9, Label: "Probe",
 		Do: func(*actx) { opened++ }})
 	if audit(t, cfg); opened != 0 {
 		t.Fatalf("Audit ran an option without WalkOptions (%d times)", opened)

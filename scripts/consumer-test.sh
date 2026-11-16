@@ -5,7 +5,7 @@
 #   1. a copy of the demo app, depending on this tree through a replace directive
 #   2. `dashygotui init`, then `dashygotui new` for every addon kind
 #   3. the app must build and `dashygotui check` must pass
-#   4. a deliberately bad addon per rule (A1..A12, G1) must make `check` fail with
+#   4. a deliberately bad addon per rule (A1..A9, A11, A12, G1) must make `check` fail with
 #      exactly that rule
 set -euo pipefail
 
@@ -26,7 +26,7 @@ module example.com/consumer
 
 go 1.27
 
-require github.com/CeeSmag/dashygotui v0.3.0
+require github.com/CeeSmag/dashygotui v0.4.0
 
 tool github.com/CeeSmag/dashygotui/cmd/dashygotui
 
@@ -48,11 +48,11 @@ cd "$app"
 
 # 2. init and new
 "$cli" init >/dev/null
-if grep -q 'dashygotui@v0.3.0 rules' AGENTS.md && [ -f CLAUDE.md ] && [ -f GAPS.md ]; then step "init writes AGENTS.md, CLAUDE.md, GAPS.md"; else bad "init"; fi
+if grep -q 'dashygotui@v0.4.0 rules' AGENTS.md && [ -f CLAUDE.md ] && [ -f GAPS.md ]; then step "init writes AGENTS.md, CLAUDE.md, GAPS.md"; else bad "init"; fi
 
 # the Claude Code skill and hook
 "$cli" init -claude >/dev/null
-if [ -f .claude/skills/dashygotui/SKILL.md ] && grep -q 'cmd/dashygotui@v0.3.0 check -q' .claude/settings.json && python3 -c 'import json;json.load(open(".claude/settings.json"))'; then step "init -claude writes a skill and a valid hook"; else bad "init -claude"; fi
+if [ -f .claude/skills/dashygotui/SKILL.md ] && grep -q 'cmd/dashygotui@v0.4.0 check -q' .claude/settings.json && python3 -c 'import json;json.load(open(".claude/settings.json"))'; then step "init -claude writes a skill and a valid hook"; else bad "init -claude"; fi
 
 for kind in opt widget view modal shortcut; do
 	if "$cli" new "$kind" scaffold >/dev/null 2>"$scratch/err"; then step "new $kind"; else bad "new $kind: $(cat "$scratch/err")"; fi
@@ -113,18 +113,6 @@ var badOption = dashboard.Option{Key: "bad", Section: "control", Number: 999, La
 	Run: func(c *dashboard.Ctx) tea.Cmd { c.Flash("x"); return nil }}
 GO
 expect A9; reset
-cat >"$dir/opt_bad.go" <<'GO'
-package addons
-
-import "example.com/consumer/dashboard"
-
-func init() {
-	count := 0
-	dashboard.Registry.Add(dashboard.Option{Key: "bad", Section: "control", Number: 998, Label: "Bad",
-		Do: func(c *dashboard.Ctx) { count++; c.Flash("x") }})
-}
-GO
-expect A10; reset
 # A11: an addon added without regenerating the list
 printf 'package addons\nimport "example.com/consumer/dashboard"\nvar lateOption = dashboard.Option{Key: "late", Section: "control", Number: 997, Label: "Late", Do: func(*dashboard.Ctx) {}}\n' >"$dir/opt_bad.go"; expect A11; reset
 printf 'package addons\nfunc init() {}\n' >"$dir/opt_bad.go";                                            expect A12; reset

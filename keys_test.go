@@ -8,6 +8,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/modal"
 )
 
@@ -89,7 +90,7 @@ func TestHotkeysAreValidated(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := dashygotui.NewRegistry[state]()
+			r := collect.New[state]()
 			tt.register(r)
 			if got := errText(t, baseConfig(r)); !strings.Contains(got, tt.want) {
 				t.Errorf("error = %q, want it to mention %q", got, tt.want)
@@ -99,7 +100,7 @@ func TestHotkeysAreValidated(t *testing.T) {
 }
 
 func TestEverywhereShortcutMayTakeAForceKey(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Shortcut(dashygotui.Shortcut[state]{Key: "ctrl+q", Scope: dashygotui.ScopeEverywhere, Run: noop})
 	if msg := errText(t, baseConfig(r)); msg != "" {
 		t.Fatalf("a global shortcut on ctrl+q should be allowed: %s", msg)

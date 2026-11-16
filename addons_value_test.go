@@ -46,35 +46,6 @@ func TestNoAddonsIsAValidDashboard(t *testing.T) {
 	d.RequireContains("TestApp", "Monitor")
 }
 
-func TestAddonsAndRegistryTogether(t *testing.T) {
-	t.Parallel()
-	r := dashygotui.NewRegistry[state]()
-	r.Option(validOption("old", 1))
-	c := valueConfig(validOption("new", 1))
-	c.Registry = r
-	msg := errText(t, c)
-	if !strings.Contains(msg, `option "new" reuses number 1`) {
-		t.Fatalf("a clash between the registry and Addons is not reported: %s", msg)
-	}
-	c.Addons = []dashygotui.Addon[state]{validOption("new", 2)}
-	if msg := errText(t, c); msg != "" {
-		t.Fatalf("New with both: %s", msg)
-	}
-}
-
-func TestNewDoesNotChangeTheRegistry(t *testing.T) {
-	t.Parallel()
-	r := dashygotui.NewRegistry[state]()
-	r.Option(validOption("old", 1))
-	c := valueConfig(validOption("new", 2))
-	c.Registry = r
-	for range 2 { // a second dashboard from the same registry must not see the first one's addons twice
-		if msg := errText(t, c); msg != "" {
-			t.Fatal(msg)
-		}
-	}
-}
-
 func TestAtNamesTheDeclarationInErrors(t *testing.T) {
 	t.Parallel()
 	msg := errText(t, valueConfig(

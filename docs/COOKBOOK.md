@@ -2,12 +2,14 @@
 
 The shortest correct form for each common need. If an addon is longer than these,
 look here first. `S` is your state type; in the examples `dashboard` is the
-application's package with aliases `Ctx`, `Option`, `View`, `Entry`, `Shortcut`.
+application's package with aliases `Ctx`, `Option`, `View`, `Entry`, `Shortcut`,
+`Hook`, `Addon`. Each addon is a top-level `var` in its own file; after adding,
+renaming or deleting a file, run `go generate ./...` to rewrite `addons_gen.go`.
 
 ## Open a view from a menu row
 
 ```go
-dashboard.Registry.Add(dashboard.Option{Key: "logs", Section: "tools", Number: 5, Label: "Logs", Opens: "logs"})
+var logsOption = dashboard.Option{Key: "logs", Section: "tools", Number: 5, Label: "Logs", Opens: "logs"}
 ```
 
 Not `Run: func(c) tea.Cmd { return OpenView(...) }`. `Opens` is checked at startup.
@@ -15,15 +17,15 @@ Not `Run: func(c) tea.Cmd { return OpenView(...) }`. `Opens` is checked at start
 ## Declare a view and the way into it together
 
 ```go
-dashboard.Registry.Add(dashboard.View{
+var diagView = dashboard.View{
 	ID: "diag", Title: "Diagnostics",
 	Entry: &dashboard.Entry{Section: "tools", Number: 16, Hotkey: "d", HotkeyHint: "Diagnostics"},
-	Status: func(c *dashboard.Ctx, _ dashygotui.Size) []string { return lines(c) },
+	Status: func(c *dashboard.Ctx, _ dashygotui.Size) []string { return diagLines(c) },
 	Items: []dashboard.Option{
-		{Label: "Run Check", Note: "tests everything", Do: runCheck},
+		{Label: "Run Check", Note: "tests everything", Do: diagRunCheck},
 		{Label: "Live Log", Opens: "log"},
 	},
-})
+}
 ```
 
 `Entry` creates the option, hotkey and footer hint. `Items` rows are numbered by
@@ -44,12 +46,10 @@ One line each, remembered in the `Store`, with a badge, a pop-up, validation and
 confirmation:
 
 ```go
-dashboard.Registry.Add(
-	stdaddons.Toggle[State]{Key: "notify", Section: "settings", Number: 11, Label: "Notifications", Default: true},
-	stdaddons.Number[State]{Key: "limit", Section: "settings", Number: 10, Label: "Storage Limit", Unit: "GB", Min: 1, Max: 1000, Default: 50},
-	stdaddons.Pick[State]{Key: "region", Section: "settings", Number: 13, Label: "Region", Items: regions},
-	stdaddons.Text[State]{Key: "name", Section: "settings", Number: 18, Label: "Display Name"},
-)
+var notifySetting = stdaddons.Toggle[State]{Key: "notify", Section: "settings", Number: 11, Label: "Notifications", Default: true}
+var limitSetting = stdaddons.Number[State]{Key: "limit", Section: "settings", Number: 10, Label: "Storage Limit", Unit: "GB", Min: 1, Max: 1000, Default: 50}
+var regionSetting = stdaddons.Pick[State]{Key: "region", Section: "settings", Number: 13, Label: "Region", Items: []modal.Item{{Label: "eu"}, {Label: "us"}}}
+var nameSetting = stdaddons.Text[State]{Key: "name", Section: "settings", Number: 18, Label: "Display Name"}
 ```
 
 Each takes an `OnChange` to apply the new value (restart a service, say). To keep
@@ -72,7 +72,13 @@ panel with the scroll position in its border. `Body` is given the size to fill.
 
 ## Show a number that changes: a graph
 
-`chart.Stream` / `chart.DualStream`: `Push` on each tick, `Render` on each frame.
+`chart.Stream` / `chart.DualStream`: `Push` on each tick (a `Hook` with `Tick`),
+`Render` on each frame.
+
+## React to every tick, a message of your own, or a task's result
+
+`var sampler = dashboard.Hook{Tick: ..., Msg: ..., Result: ...}`: set the ones you
+need. Every `Msg` sees every message the dashboard does not handle itself.
 
 ## Start in a view
 
@@ -86,8 +92,18 @@ panel with the scroll position in its border. `Body` is given the size to fill.
 
 `history := dashygotui.Local[[]float64](c, "cpu")` returns a pointer to a value that
 belongs to this dashboard (zero on first use); `LocalWith(c, "key", func() *T {...})`
-builds it first. Not a variable captured in `init`: that is shared by every dashboard
-in the process.
+builds it first. Not a package-level variable: that is shared by every dashboard in
+the process.
+
+## Several alike rows from one file
+
+A small type of the file's own with an `Addons()` method, one value per row:
+`var gotoCharts = jump{number: 60, page: "charts"}` (see the showcase's `opt_goto.go`).
+
+## Test with only some addons
+
+`cfg.Addons = []dashboard.Addon{backupOption, restartOption}` (in the addons
+package's own tests), or `addons.All()` for the whole dashboard.
 
 `State` is replaced by every poll, so it is the wrong place for UI state.
 

@@ -115,6 +115,8 @@ dashygotui: const ToneGood
 dashygotui: const ToneInfo
 dashygotui: const ToneMuted
 dashygotui: const ToneWarn
+dashygotui: field AddonError.Msg string
+dashygotui: field AddonError.Site string
 dashygotui: field Config.Addons []Addon[S]
 dashygotui: field Config.AltScroll bool
 dashygotui: field Config.Background BackgroundMode
@@ -131,7 +133,6 @@ dashygotui: field Config.Palette string
 dashygotui: field Config.Palettes []theme.Palette
 dashygotui: field Config.Poll func(ctx context.Context) (S, error)
 dashygotui: field Config.PollTimeout time.Duration
-dashygotui: field Config.Registry *Registry[S]
 dashygotui: field Config.Sections []SectionSpec[S]
 dashygotui: field Config.Spacing *Spacing
 dashygotui: field Config.StartView []string
@@ -206,8 +207,6 @@ dashygotui: field Page.Layout Layout
 dashygotui: field Page.ShortTitle string
 dashygotui: field Page.TinyTitle string
 dashygotui: field Page.Title string
-dashygotui: field RegistrationError.Msg string
-dashygotui: field RegistrationError.Site string
 dashygotui: field SectionSpec.Badge func(*Context[S]) string
 dashygotui: field SectionSpec.ID string
 dashygotui: field SectionSpec.Noun string
@@ -315,20 +314,11 @@ dashygotui: func (d *Dashboard[S]) Model(ctx context.Context) tea.Model
 dashygotui: func (d *Dashboard[S]) Notify()
 dashygotui: func (d *Dashboard[S]) Outline() Outline
 dashygotui: func (d *Dashboard[S]) Run(ctx context.Context) (ExitInfo, error)
-dashygotui: func (e *RegistrationError) Error() string
+dashygotui: func (e *AddonError) Error() string
 dashygotui: func (g GlyphMode) String() string
 dashygotui: func (h Hook[S]) Addons() []Addon[S]
 dashygotui: func (i Invalid[S]) Addons() []Addon[S]
 dashygotui: func (o Option[S]) Addons() []Addon[S]
-dashygotui: func (r *Registry[S]) Add(items ...Addon[S])
-dashygotui: func (r *Registry[S]) OnMsg(fn func(*Context[S], tea.Msg) tea.Cmd)
-dashygotui: func (r *Registry[S]) OnResult(fn func(*Context[S], TaskResult) (handled bool, cmd tea.Cmd))
-dashygotui: func (r *Registry[S]) OnTick(fn func(*Context[S], time.Time) tea.Cmd)
-dashygotui: func (r *Registry[S]) Option(o Option[S])
-dashygotui: func (r *Registry[S]) Shortcut(s Shortcut[S])
-dashygotui: func (r *Registry[S]) Validate() error
-dashygotui: func (r *Registry[S]) View(v View[S])
-dashygotui: func (r *Registry[S]) Widget(w Widget[S])
 dashygotui: func (s Shortcut[S]) Addons() []Addon[S]
 dashygotui: func (v View[S]) Addons() []Addon[S]
 dashygotui: func (w Widget[S]) Addons() []Addon[S]
@@ -337,7 +327,6 @@ dashygotui: func DefaultKeyMap() KeyMap
 dashygotui: func DefaultSpacing() Spacing
 dashygotui: func LocalWith[T, S any](c *Context[S], key string, init func() *T) *T
 dashygotui: func Local[T, S any](c *Context[S], key string) *T
-dashygotui: func NewRegistry[S any]() *Registry[S]
 dashygotui: func New[S any](cfg Config[S]) (*Dashboard[S], error)
 dashygotui: func RefreshIntervals() []time.Duration
 dashygotui: method Addon.Addons func() []Addon[S]
@@ -348,6 +337,7 @@ dashygotui: method ScrollableModal.ScrollMax func(ctx *Context[S], size Size) in
 dashygotui: method Sender.Send func(msg tea.Msg)
 dashygotui: method Store.Get func(key string, dst any) (found bool, err error)
 dashygotui: method Store.Set func(key string, v any) error
+dashygotui: type AddonError struct
 dashygotui: type Addon[S any] interface
 dashygotui: type BackgroundMode int
 dashygotui: type Config[S any] struct
@@ -366,8 +356,6 @@ dashygotui: type Option[S any] struct
 dashygotui: type Outline struct
 dashygotui: type OutlineOption struct
 dashygotui: type Page[S any] struct
-dashygotui: type RegistrationError struct
-dashygotui: type Registry[S any] struct
 dashygotui: type ResultModal[S any] interface
 dashygotui: type Scope int
 dashygotui: type ScrollableModal[S any] interface
@@ -562,8 +550,6 @@ stdaddons: field DisplayPicker.Hotkey string
 stdaddons: field DisplayPicker.Number int
 stdaddons: field DisplayPicker.Order int
 stdaddons: field DisplayPicker.Section string
-stdaddons: field LogOptions.Categories []string
-stdaddons: field LogOptions.CategoryKey string
 stdaddons: field LogView.Buffer *logs.Buffer
 stdaddons: field LogView.Categories []string
 stdaddons: field LogView.CategoryKey string
@@ -601,8 +587,6 @@ stdaddons: field RefreshRatePicker.Hotkey string
 stdaddons: field RefreshRatePicker.Number int
 stdaddons: field RefreshRatePicker.Order int
 stdaddons: field RefreshRatePicker.Section string
-stdaddons: field Setup.Hotkey string
-stdaddons: field Setup.Order int
 stdaddons: field SpacingMenu.Hotkey string
 stdaddons: field SpacingMenu.Number int
 stdaddons: field SpacingMenu.Order int
@@ -651,22 +635,12 @@ stdaddons: func (n Number[S]) Addons() []dashygotui.Addon[S]
 stdaddons: func (p Pick[S]) Addons() []dashygotui.Addon[S]
 stdaddons: func (t Text[S]) Addons() []dashygotui.Addon[S]
 stdaddons: func (t Toggle[S]) Addons() []dashygotui.Addon[S]
-stdaddons: func Background[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
-stdaddons: func Display[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
-stdaddons: func LogsWith[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section string, number int, opts LogOptions, setup ...Setup)
-stdaddons: func Logs[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section string, number int, setup ...Setup)
-stdaddons: func RefreshRate[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
-stdaddons: func Spacing[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
-stdaddons: func Theme[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
-stdaddons: func Transparency[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup)
 stdaddons: type BackgroundPicker[S any] struct
 stdaddons: type DisplayPicker[S any] struct
-stdaddons: type LogOptions struct
 stdaddons: type LogView[S any] struct
 stdaddons: type Number[S any] struct
 stdaddons: type Pick[S any] struct
 stdaddons: type RefreshRatePicker[S any] struct
-stdaddons: type Setup struct
 stdaddons: type SpacingMenu[S any] struct
 stdaddons: type Text[S any] struct
 stdaddons: type ThemePicker[S any] struct

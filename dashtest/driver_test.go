@@ -10,6 +10,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 )
 
 type state struct{ N int }
@@ -63,11 +64,11 @@ func mustFail(t *testing.T, f func()) (msg string) {
 }
 
 func config(opts ...func(*dashygotui.Config[state])) dashygotui.Config[state] {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Option(dashygotui.Option[state]{Key: "inc", Section: "s", Number: 1, Label: "Increment", Run: func(*ctx) tea.Cmd { return nil }})
 	c := dashygotui.Config[state]{
 		Title:    "Probe",
-		Registry: r,
+		Addons:   []dashygotui.Addon[state]{r},
 		Pages:    []dashygotui.Page[state]{{ID: "p", Title: "Page"}},
 		Sections: []dashygotui.SectionSpec[state]{{ID: "s", Page: "p", Title: "Section"}},
 	}
@@ -159,7 +160,7 @@ func TestTickFiresEachTimerOnce(t *testing.T) {
 	var ticks []time.Time
 	d := dashtest.New(t, config(func(c *dashygotui.Config[state]) {
 		c.Poll = func(context.Context) (state, error) { polls++; return state{N: polls}, nil }
-		c.Registry.OnTick(func(_ *ctx, now time.Time) tea.Cmd { ticks = append(ticks, now); return nil })
+		collect.From(*c).OnTick(func(_ *ctx, now time.Time) tea.Cmd { ticks = append(ticks, now); return nil })
 	}), 100, 30)
 
 	if polls != 1 || len(ticks) != 0 {
@@ -178,8 +179,8 @@ func TestTickFiresEachTimerOnce(t *testing.T) {
 func TestPressAndTypeDeliverKeys(t *testing.T) {
 	var got []string
 	d := dashtest.New(t, config(func(c *dashygotui.Config[state]) {
-		c.Registry.Shortcut(dashygotui.Shortcut[state]{Key: "x", Run: func(*ctx) tea.Cmd { got = append(got, "x"); return nil }})
-		c.Registry.Shortcut(dashygotui.Shortcut[state]{Key: "y", Run: func(*ctx) tea.Cmd { got = append(got, "y"); return nil }})
+		collect.From(*c).Shortcut(dashygotui.Shortcut[state]{Key: "x", Run: func(*ctx) tea.Cmd { got = append(got, "x"); return nil }})
+		collect.From(*c).Shortcut(dashygotui.Shortcut[state]{Key: "y", Run: func(*ctx) tea.Cmd { got = append(got, "y"); return nil }})
 	}), 100, 30)
 	d.Press("x", "y")
 	d.Type("yx", "x")
@@ -209,7 +210,7 @@ func TestSendIgnoresNilAndUnknownMessages(t *testing.T) {
 func TestBatchedCommandsAllRun(t *testing.T) {
 	var ran []string
 	d := dashtest.New(t, config(func(c *dashygotui.Config[state]) {
-		c.Registry.Shortcut(dashygotui.Shortcut[state]{Key: "z", Run: func(*ctx) tea.Cmd {
+		collect.From(*c).Shortcut(dashygotui.Shortcut[state]{Key: "z", Run: func(*ctx) tea.Cmd {
 			return tea.Batch(
 				func() tea.Msg { ran = append(ran, "one"); return nil },
 				func() tea.Msg { ran = append(ran, "two"); return nil },

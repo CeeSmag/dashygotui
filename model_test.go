@@ -12,6 +12,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/panel"
 	"github.com/CeeSmag/dashygotui/store"
 	"github.com/CeeSmag/dashygotui/text"
@@ -29,7 +30,7 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	f := &fixture{t: t, reg: dashygotui.NewRegistry[state]()}
+	f := &fixture{t: t, reg: collect.New[state]()}
 	f.cfg = baseConfig(f.reg)
 	f.cfg.Poll = func(context.Context) (state, error) {
 		f.polls++
@@ -763,7 +764,7 @@ func TestWidgetMinHeightAndBadge(t *testing.T) {
 }
 
 func TestOptionsAreOrderedByOrderThenNumber(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	c := baseConfig(r)
 	r.Option(option{Key: "c", Section: "actions", Number: 3, Label: "C", Run: noop})
 	r.Option(option{Key: "a", Section: "actions", Number: 9, Order: 1, Label: "A", Run: noop})
@@ -785,7 +786,7 @@ func TestOptionsAreOrderedByOrderThenNumber(t *testing.T) {
 
 func TestRegistrationOrderDoesNotAffectLayout(t *testing.T) {
 	build := func(reverse bool) string {
-		r := dashygotui.NewRegistry[state]()
+		r := collect.New[state]()
 		opts := []option{validOption("a", 1), validOption("b", 2), validOption("c", 3)}
 		if reverse {
 			opts[0], opts[2] = opts[2], opts[0]

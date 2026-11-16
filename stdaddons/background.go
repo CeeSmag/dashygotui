@@ -18,17 +18,22 @@ import (
 //   - Off (transparent): never touch the terminal's colours, so a transparent or
 //     blurred terminal shows through.
 //
+// BackgroundPicker is an option that lets the user choose how the palette's
+// background reaches the terminal, and turn it off:
+//
+//   - Terminal: ask the terminal to use the palette's background and foreground.
+//     The terminal's own colours come back when the dashboard exits. A
+//     transparent terminal usually stays transparent.
+//   - Paint: do that, and also paint every cell, for terminals that ignore the
+//     request (some multiplexers and older terminals). Painted cells are opaque.
+//   - Off (transparent): never touch the terminal's colours, so a transparent or
+//     blurred terminal shows through.
+//
 // Moving the highlight previews each mode live; Enter keeps one and saves it,
 // Esc restores the previous mode. Palettes with no background of their own, and
 // TTY mode, are unaffected by this setting.
-func Background[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Add(BackgroundPicker[S]{Section: section, Number: number}.with(setup))
-}
-
-// BackgroundPicker is an option that lets the user choose how the palette's
-// background reaches the terminal (Terminal, Paint or Off); see [Background].
 //
-// It is the value form of [Background]: declare it as an addon.
+// Declare it as an addon.
 type BackgroundPicker[S any] struct {
 	// Section is the section the option appears in. Required.
 	Section string
@@ -38,13 +43,6 @@ type BackgroundPicker[S any] struct {
 	Hotkey string
 	// Order sorts the option within its section. Optional.
 	Order int
-}
-
-func (a BackgroundPicker[S]) with(setup []Setup) BackgroundPicker[S] {
-	if len(setup) > 0 {
-		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
-	}
-	return a
 }
 
 // Addons implements [dashygotui.Addon].
@@ -92,19 +90,13 @@ func openBackgroundPicker[S any](ctx *dashygotui.Context[S]) {
 	})
 }
 
-// Transparency registers a one-key switch for a transparent background: on
+// TransparencyToggle is a one-key switch for a transparent background: on
 // leaves the terminal's own background alone (so a transparent, blurred or
 // wallpapered terminal shows through), off brings the themed background back in
-// the mode that was in use before. It changes the same setting as [Background],
-// so the two always agree.
-func Transparency[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Add(TransparencyToggle[S]{Section: section, Number: number}.with(setup))
-}
-
-// TransparencyToggle is a one-key switch for a transparent background; see
-// [Transparency].
+// the mode that was in use before. It changes the same setting as
+// [BackgroundPicker], so the two always agree.
 //
-// It is the value form of [Transparency]: declare it as an addon.
+// Declare it as an addon.
 type TransparencyToggle[S any] struct {
 	// Section is the section the option appears in. Required.
 	Section string
@@ -114,13 +106,6 @@ type TransparencyToggle[S any] struct {
 	Hotkey string
 	// Order sorts the option within its section. Optional.
 	Order int
-}
-
-func (a TransparencyToggle[S]) with(setup []Setup) TransparencyToggle[S] {
-	if len(setup) > 0 {
-		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
-	}
-	return a
 }
 
 // Addons implements [dashygotui.Addon].

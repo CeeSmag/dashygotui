@@ -10,19 +10,15 @@ reviewer sees it. An allow comment with no reason is itself an error (X1).
 
 ## The shape of an application
 
-> **Migration in progress.** Until v0.4.0 (phase 4 of the plan in `DESIGN.md`) an
-> application may still use the v0.3 form: addons registering from `init()` into a
-> `Registry` declared in the dashboard file. Rules A11 and A12 apply only to an
-> addons package that has an `addons_gen.go`.
-
 - **One feature, one file.** Adding an option, widget, view, shortcut or pop-up
   means adding one hand-written file in `addons/` and running `go generate ./...`,
   which rewrites the generated `addons_gen.go`. No other file is edited by hand.
   Deleting an addon file and regenerating leaves the application building and
   running.
 - An addon is a value: each top-level `var` in an addon file is an unexported
-  `Option`, `Widget`, `View`, `Shortcut`, `Hook` or `stdaddons` value. There is no
-  `init()`.
+  `Option`, `Widget`, `View`, `Shortcut`, `Hook` or `stdaddons` value (or a type
+  of the file's own with an `Addons` method). There is no `init()`. Helpers in
+  the file are package-level too: name them after the file so files do not clash.
 - The `dashboard` package declares the pages and the sections. `main` passes
   `addons.All()` to it; nothing else imports `addons`.
 - Addons reach the library through the `*Context` their callbacks are given.
@@ -40,9 +36,11 @@ reviewer sees it. An allow comment with no reason is itself an error (X1).
 | A7 | No `tea.Quit`, `tea.Println`, `tea.Printf`, `tea.ExecProcess` or `tea.Exec`. | `Context.Quit`, `Context.Exec`. |
 | A8 | No struct embedding a library modal, and no type defined from one. | Use the modal's fields; if it lacks one, record a gap. |
 | A9 | No `Run` that only opens a view or only returns nil. | `Opens: "<view>"`, `Do: func(c) {...}`, or an `Entry` on the view. |
-| A10 | No variable declared in `init` and changed by a callback (`n++`, `list = append(...)`, `m[k] = v`): it is shared by every dashboard in the process. | `dashygotui.Local` (see "Where an addon keeps its state"). |
-| A11 | `addons_gen.go` matches what `dashygotui gen` would write now. | Run `go generate ./...`. Never edit the file by hand. |
-| A12 | No `init()` in an addons package that has an `addons_gen.go`. | Declare the addon as a value; the generated list picks it up. |
+| A11 | The addons package has an `addons_gen.go`, and it matches what `dashygotui gen` would write now. | Run `go generate ./...` (the first time, `dashygotui gen -state <import path>.State`). Never edit the file by hand. |
+| A12 | No `init()` in an addons package. | Declare the addon as a value; the generated list picks it up. |
+
+(A10, a variable captured in `init` and changed by a callback, was retired in v0.4.0:
+A12 forbids `init` altogether, and A3 forbids assigning to an addon value.)
 
 **Where they apply.** A1 to A4, A6, A9, A11 and A12 apply to files in a directory named
 `addons`. A5 (raw styles), A7 and A8 apply to **every file that imports the
@@ -81,7 +79,7 @@ must say where the gap is recorded) and **X1** (an allow comment needs a reason)
   *this dashboard*. Do not keep it in a package-level variable: that is shared by
   every dashboard in the process, so two dashboards (a test, an embedding) corrupt
   each other and tests depend on their order. The check cannot see
-  such a variable when it is changed through a method (`series.Add(...)`) rather than assigned, so that case is on the author; A10 catches assignments, increments and element or field writes.
+  such a variable when it is changed through a method (`series.Add(...)`) rather than assigned, so that case is on the author; A3 catches assignments, increments and element or field writes to an addon value.
 - **The application's data:** the state type `S` that `Poll` returns.
 
 ## Conduct (for people and AI agents)

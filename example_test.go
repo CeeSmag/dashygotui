@@ -3,7 +3,6 @@ package dashygotui_test
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -15,31 +14,26 @@ import (
 // shop is the application state the examples show.
 type shop struct{ Orders int }
 
-// The registry is declared once, in the application's dashboard file. Addons
-// register with it from init(); in a test or an example, a fresh one is used.
+// An addon is a value, usually alone in its own file under addons/, where the
+// generated addons.All lists it. The dashboard file declares the pages and
+// sections and passes the list in Config.Addons.
 func Example() {
-	reg := dashygotui.NewRegistry[shop]()
-
-	// An addon: one self-contained registration, usually in its own file.
-	reg.Option(dashygotui.Option[shop]{
+	refund := dashygotui.Option[shop]{
 		Key: "refund", Section: "actions", Number: 1, Label: "Issue Refund",
 		Badge: func(c *dashygotui.Context[shop]) string { return c.Count(c.State().Orders, "orders") },
-		Run: func(c *dashygotui.Context[shop]) tea.Cmd {
-			c.Flash("Refund issued")
-			return nil
-		},
-	})
-	reg.Widget(dashygotui.Widget[shop]{
+		Do:    func(c *dashygotui.Context[shop]) { c.Flash("Refund issued") },
+	}
+	orders := dashygotui.Widget[shop]{
 		Key: "orders", Page: "main", Title: "Orders",
 		Render: func(c *dashygotui.Context[shop], _ dashygotui.Size) []string {
 			return []string{panel.Row(c.Theme(), "Open", fmt.Sprint(c.State().Orders))}
 		},
-	})
+	}
 
 	// The dashboard file: pages, sections, and how to fetch the state.
 	dash, err := dashygotui.New(dashygotui.Config[shop]{
 		Title:    "Shop",
-		Registry: reg,
+		Addons:   []dashygotui.Addon[shop]{refund, orders}, // addons.All() in an application
 		Pages:    []dashygotui.Page[shop]{{ID: "main", Title: "Main"}},
 		Sections: []dashygotui.SectionSpec[shop]{{ID: "actions", Page: "main", Title: "Actions"}},
 		Poll: func(context.Context) (shop, error) {
@@ -57,35 +51,32 @@ func Example() {
 	// Output: dashboard ready
 }
 
-// A mistake in an addon is recorded, not panicked on, and reported before the
-// UI starts, naming the file and line of each offending registration.
-func ExampleRegistry_Validate() {
-	reg := dashygotui.NewRegistry[shop]()
+// A mistake in an addon is reported before the UI starts, naming the place
+// each offending addon is declared: the place At records, as the generated
+// list does for every addon.
+func ExampleAt() {
 	run := func(*dashygotui.Context[shop]) tea.Cmd { return nil }
-	reg.Option(dashygotui.Option[shop]{Key: "a", Section: "actions", Number: 7, Label: "A", Run: run})
-	reg.Option(dashygotui.Option[shop]{Key: "b", Section: "actions", Number: 7, Label: "B", Run: run})
-
-	err := reg.Validate()
-	// The message ends in "(first used at example_test.go:NN)"; print the part
-	// that does not depend on line numbers.
-	msg := err.Error()
-	fmt.Println(strings.Contains(msg, `option "b" reuses number 7`))
-	fmt.Println(strings.HasPrefix(msg, "example_test.go:"))
-	// Output:
-	// true
-	// true
+	_, err := dashygotui.New(dashygotui.Config[shop]{
+		Pages:    []dashygotui.Page[shop]{{ID: "main", Title: "Main"}},
+		Sections: []dashygotui.SectionSpec[shop]{{ID: "actions", Page: "main", Title: "Actions"}},
+		Addons: []dashygotui.Addon[shop]{
+			dashygotui.At[shop]("opt_a.go:5", dashygotui.Option[shop]{Key: "a", Section: "actions", Number: 7, Label: "A", Run: run}),
+			dashygotui.At[shop]("opt_b.go:5", dashygotui.Option[shop]{Key: "b", Section: "actions", Number: 7, Label: "B", Run: run}),
+		},
+	})
+	fmt.Println(err)
+	// Output: invalid dashboard configuration: opt_b.go:5: option "b" reuses number 7 (first used at opt_a.go:5)
 }
 
 // New reports every problem at once, wrapped in ErrInvalidConfig.
 func ExampleNew_invalid() {
-	reg := dashygotui.NewRegistry[shop]()
-	reg.Option(dashygotui.Option[shop]{
+	ghost := dashygotui.Option[shop]{
 		Key: "ghost", Section: "nowhere", Number: 1, Label: "Ghost",
-		Run: func(*dashygotui.Context[shop]) tea.Cmd { return nil },
-	})
+		Do: func(*dashygotui.Context[shop]) {},
+	}
 	_, err := dashygotui.New(dashygotui.Config[shop]{
-		Registry: reg,
-		Pages:    []dashygotui.Page[shop]{{ID: "main", Title: "Main"}},
+		Addons: []dashygotui.Addon[shop]{ghost},
+		Pages:  []dashygotui.Page[shop]{{ID: "main", Title: "Main"}},
 	})
 	fmt.Println(err)
 	// Output: invalid dashboard configuration: option "ghost" targets unknown section "nowhere"

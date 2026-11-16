@@ -6,7 +6,7 @@
 // Run it with the version of the library the application uses, so the rules
 // match the API it compiles against:
 //
-//	go run github.com/CeeSmag/dashygotui/cmd/dashygotui@v0.3.0 rules
+//	go run github.com/CeeSmag/dashygotui/cmd/dashygotui@v0.4.0 rules
 //
 // Usage:
 //

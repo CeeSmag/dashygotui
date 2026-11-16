@@ -7,20 +7,11 @@ import (
 	"github.com/CeeSmag/dashygotui/modal"
 )
 
-// Display registers an option that opens a display-mode picker: Auto (detect the
-// Linux console), Unicode, or TTY (a conservative symbol set, shade-block graphs
-// and the 16-colour palette, for terminals with a small font). Moving the
-// highlight previews each mode live; Enter keeps one and saves it, Esc restores
-// the previous mode.
-func Display[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Add(DisplayPicker[S]{Section: section, Number: number}.with(setup))
-}
-
 // DisplayPicker is an option that opens a display-mode picker: Auto (detect
 // the Linux console), Unicode, or TTY. Moving the highlight previews each mode
 // live; Enter keeps one and saves it, Esc restores the previous mode.
 //
-// It is the value form of [Display]: declare it as an addon.
+// Declare it as an addon.
 type DisplayPicker[S any] struct {
 	// Section is the section the option appears in. Required.
 	Section string
@@ -30,13 +21,6 @@ type DisplayPicker[S any] struct {
 	Hotkey string
 	// Order sorts the option within its section. Optional.
 	Order int
-}
-
-func (a DisplayPicker[S]) with(setup []Setup) DisplayPicker[S] {
-	if len(setup) > 0 {
-		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
-	}
-	return a
 }
 
 // Addons implements [dashygotui.Addon].

@@ -116,7 +116,7 @@ func (c *Context[S]) Quit(reason, message string) tea.Cmd {
 }
 
 // RunTask runs fn in the background and reports its result through the
-// registered [Registry.OnResult] hooks, the open modal, or, by default, the
+// [Hook] Result functions, the open modal, or, by default, the
 // footer. pending, if not empty, is shown in the footer meanwhile. fn must
 // return when ctx is cancelled.
 func (c *Context[S]) RunTask(tag, pending string, fn func(ctx context.Context) (string, error)) tea.Cmd {

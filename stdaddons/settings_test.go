@@ -10,6 +10,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/modal"
 	"github.com/CeeSmag/dashygotui/stdaddons"
 	"github.com/CeeSmag/dashygotui/store"
@@ -18,10 +19,10 @@ import (
 // settingsApp is a dashboard whose only addons are the given settings.
 func settingsApp(t *testing.T, st dashygotui.Store, addons ...dashygotui.Addon[state]) *dashtest.Driver {
 	t.Helper()
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(addons...)
 	return dashtest.New(t, dashygotui.Config[state]{
-		Title: "T", Registry: r, Store: st,
+		Title: "T", Addons: []dashygotui.Addon[state]{r}, Store: st,
 		Pages:    []dashygotui.Page[state]{{ID: "p", Title: "Page"}},
 		Sections: []dashygotui.SectionSpec[state]{{ID: "s", Page: "p", Title: "Settings"}},
 		Poll:     func(context.Context) (state, error) { return state{}, nil },
@@ -165,9 +166,9 @@ func TestSettingsWithBadSpecsAreStartupErrors(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			r := dashygotui.NewRegistry[state]()
+			r := collect.New[state]()
 			r.Add(tc.addon)
-			err := r.Validate()
+			err := collect.Errors(r)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("Validate = %v, want it to mention %q", err, tc.want)
 			}
@@ -224,12 +225,12 @@ func TestSecretTextIsNeverShown(t *testing.T) {
 }
 
 func TestSettingsNumberCollisionsAreReported(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(
 		stdaddons.Toggle[state]{Key: "a", Section: "s", Number: 1, Label: "A"},
 		stdaddons.Number[state]{Key: "b", Section: "s", Number: 1, Label: "B", Min: 1, Max: 2, Default: 1},
 	)
-	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "reuses number 1") {
+	if err := collect.Errors(r); err == nil || !strings.Contains(err.Error(), "reuses number 1") {
 		t.Errorf("Validate = %v", err)
 	}
 }

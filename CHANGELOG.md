@@ -5,48 +5,53 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
-## [Unreleased]
+## [0.4.0] - 2026-11-16
 
-The road to v0.4.0, where addons become values (see `docs/DESIGN.md`).
+**Addons are values.** An addon is an unexported top-level value in its own file;
+`dashygotui gen` (run by `go generate`) writes `addons_gen.go`, whose `All()` lists
+them, and the application passes that list to `New` in `Config.Addons`. There is no
+`init()` and no registry. Adding a feature is still one hand-written file. The
+decision and its costs are in `docs/DESIGN.md`. This release breaks the API; see
+**Removed** and **Migrating from 0.3**.
 
 ### Added
 
+- **`Config.Addons`** takes the dashboard's addons as a list. A dashboard with no
+  addons at all is valid, so deleting the last addon file keeps it building.
+- **`At(site, addon)`** records where an addon is declared, so startup errors name
+  that place; without it an error names the addon's index, such as `Config.Addons[2]`.
+- **`Hook`** is an addon with `Tick`, `Msg` and `Result` functions.
+- **`stdaddons.ThemePicker`, `RefreshRatePicker`, `SpacingMenu`, `DisplayPicker`,
+  `BackgroundPicker`, `TransparencyToggle` and `LogView`**: the ready-made addons as
+  values, with optional `Hotkey` and `Order` fields.
+- **`dashygotui gen`** writes `addons_gen.go`. `-state` names the state type
+  (`<import path>.<Type>`) and is recorded in the file's header, so a later `gen`
+  needs no flags; `-all` regenerates every list under a directory. A package without
+  a `doc.go` gets one with the `//go:generate` line. `dashygotui new` regenerates the
+  list and renames a template's Go names after the addon; the agent hook that `init` writes runs
+  `gen -all` before the check.
+- **Rules A11 and A12** in `dashygotui check`: every addons package has an
+  `addons_gen.go` that matches what `gen` writes now (A11), and no `init()` (A12).
+  `doc.go` and `addons_gen.go` are exempt from A1, A2 and the one-file rule C1, and
+  `make deletion-test` regenerates the list after deleting an addon.
 - **`Config.PollTimeout`** (default `DefaultPollTimeout`, ten seconds; negative for no
   deadline). A poll that runs past it fails with an error wrapping
   `context.DeadlineExceeded` and the next poll starts on schedule, so a poll that
   never returns can no longer freeze the dashboard.
-- **Addons as values** (phase 1 of the plan in `docs/DESIGN.md`), next to the registry:
-  - `Config.Addons` takes the dashboard's addons as a list. `Config.Registry` is now
-    optional and its addons are used together with the list; a dashboard with no addons
-    at all is valid.
-  - `At(site, addon)` records where an addon is declared, so startup errors name that
-    place; without it an error names the addon's index, such as `Config.Addons[2]`.
-  - `Hook` is an addon with `Tick`, `Msg` and `Result` functions, the value form of
-    `Registry.OnTick`, `OnMsg` and `OnResult`.
-  - `stdaddons.ThemePicker`, `RefreshRatePicker`, `SpacingMenu`, `DisplayPicker`,
-    `BackgroundPicker`, `TransparencyToggle` and `LogView` are the value forms of
-    `stdaddons.Theme`, `RefreshRate`, `Spacing`, `Display`, `Background`,
-    `Transparency` and `Logs`/`LogsWith`.
-- **`dashygotui gen`** (phase 2) writes `addons_gen.go`, whose `All()` lists every
-  top-level var of the package's addon files wrapped in `At`. `-state` names the state
-  type (`<import path>.<Type>`) and is recorded in the file's header, so a later `gen`
-  needs no flags; `-all` regenerates every list under a directory. A package without a
-  `doc.go` gets one with the `//go:generate` line. `dashygotui new` regenerates the list
-  when the package has one, and the agent hook that `init` writes runs `gen -all` before the check.
-- **Rules for addons as values**, applied to an addons package that has an
-  `addons_gen.go`: **A11** (the list is what `gen` writes now), **A12** (no `init()`),
-  and **A3** in its value form (each package-level var is one unexported addon literal,
-  never assigned to). `doc.go` and `addons_gen.go` are exempt from A1, A2 and from the
-  one-file rule C1. `make deletion-test` regenerates the list after deleting an addon.
-- **The examples and templates are values** (phase 3). `showcase`, `demo` and
-  `buildwatch` declare every addon as a value, list them with a generated
-  `addons_gen.go`, and pass `addons.All()` to the dashboard; their dashboard packages
-  no longer declare a `Registry`. The templates in `templates/` are values too, and
-  `dashygotui new` renames a template's Go names after the addon, so two addons made
-  from one template do not clash.
 - **Poll failures are visible.** While the latest poll failed, the footer shows
-  `STALE` in place of the refresh rate, and the footer says `poll failed: <reason>`
-  once when the data goes stale (unless an addon's own message is showing).
+  `STALE` in place of the refresh rate, and says `poll failed: <reason>` once when the
+  data goes stale (unless an addon's own message is showing).
+
+### Changed
+
+- **Every `OnMsg` hook (now `Hook.Msg`) sees every message.** Before, the first hook
+  that returned a command hid the message from the rest, so the outcome depended on
+  the order the hooks were registered in. The commands of all hooks are run together.
+- **Rule A3** now says what a package-level variable of an addon file must be: one
+  unexported addon literal of a named type, never assigned to.
+- **`RegistrationError` is now `AddonError`.** Its `Site` is the place `At` recorded,
+  or the addon's index in `Config.Addons`.
+- The examples and templates declare their addons as values.
 
 ### Fixed
 
@@ -58,11 +63,35 @@ The road to v0.4.0, where addons become values (see `docs/DESIGN.md`).
   vanished after 30 seconds, and when two tasks ran, the first one ending removed the
   second one's message.
 
-### Changed
+### Removed
 
-- **Every `Registry.OnMsg` hook now sees every message.** Before, the first hook that
-  returned a command hid the message from the rest, so the outcome depended on the
-  order the hooks were registered in. The commands of all hooks are run together.
+- **`Registry`**, `NewRegistry` and all of its methods (`Add`, `Option`, `Widget`,
+  `View`, `Shortcut`, `OnTick`, `OnMsg`, `OnResult`, `Validate`), and
+  **`Config.Registry`**. Use `Config.Addons`.
+- **`stdaddons.Theme`, `RefreshRate`, `Spacing`, `Display`, `Background`,
+  `Transparency`, `Logs`, `LogsWith`**, and their **`Setup`** and **`LogOptions`**
+  types. Use the value types above.
+- **Rule A10** (state captured in `init`): A12 forbids `init`, and A3 forbids
+  assigning to an addon value.
+
+### Migrating from 0.3
+
+1. In each addon file, turn `func init() { dashboard.Registry.Add(x, y) }` into
+   `var xOption = x` and `var yView = y` (unexported names, one per value).
+   `Registry.OnTick(fn)` becomes `var xTick = dashboard.Hook{Tick: fn}`, and
+   `stdaddons.Theme(dashboard.Registry, "s", 20, stdaddons.Setup{Hotkey: "m"})`
+   becomes `var themeOption = stdaddons.ThemePicker[dashboard.State]{Section: "s",
+   Number: 20, Hotkey: "m"}`.
+2. Helpers that lived inside `init` become package-level functions and constants;
+   name them after their file so two files do not clash.
+3. In the dashboard file, delete `var Registry`, add `type Addon =
+   dashygotui.Addon[State]` and `type Hook = dashygotui.Hook[State]`, and take the
+   addons as a parameter: `Config{Addons: addons, ...}`.
+4. Run `dashygotui gen -state <import path of the dashboard package>.State
+   ./dashboard/addons` once; it writes `doc.go` and `addons_gen.go`. Add
+   `tool github.com/CeeSmag/dashygotui/cmd/dashygotui` to `go.mod`; from then on
+   `go generate ./...` keeps the list current.
+5. In `main`, replace the blank import with `addons.All()`, passed to the dashboard.
 
 ## [0.3.0] - 2026-11-11
 

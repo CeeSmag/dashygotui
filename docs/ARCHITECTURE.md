@@ -3,25 +3,29 @@
 ## The idea
 
 A dashboard is a **foundation** plus **addons**. The foundation declares pages
-and sections; each addon is one self-registering file. Getting that to work in Go
-without global magic or code generation drives most of the design.
+and sections; each addon is one file of values. Getting "add a file and it
+appears" without `init()` or global state drives most of the design.
 
 ```
-main.go ──imports──▶ dashboard         pages, sections, the one Registry, Run
-        └─blank────▶ dashboard/addons  opt_*.go widget_*.go view_*.go modal_*.go
+main.go ──imports──▶ dashboard         pages, sections, Run
+        └─imports──▶ dashboard/addons  opt_*.go widget_*.go view_*.go modal_*.go
+                                       doc.go (//go:generate), addons_gen.go (All)
 addons ──imports──▶ dashboard ──imports──▶ dashygotui
 dashboard never imports addons
 ```
 
-An addon's `init()` runs only if its package is imported, so `main` imports the
-addons package once, blank. Every file in it then registers with the
-`Registry` that `dashboard` declares.
+Go cannot list a package's variables at run time, so `dashygotui gen` (run by
+`go generate`) writes `addons_gen.go`: a function `All` that returns every
+top-level `var` of the addon files, each wrapped in `At("file.go:line", ...)`.
+`main` passes `addons.All()` to the dashboard, which takes the list in
+`Config.Addons`. Adding a file and regenerating is the whole change; `dashygotui
+check` (rule A11) fails while the list is stale.
 
 ## Packages
 
 | Package | Role |
 | --- | --- |
-| `dashygotui` (root) | `Config`, `Dashboard`, `Registry`, `Context`, `Local` (per-dashboard addon state), the Bubble Tea model, keys, `Run` |
+| `dashygotui` (root) | `Config`, `Dashboard`, `Addon`, `At`, `Hook`, `Context`, `Local` (per-dashboard addon state), the Bubble Tea model, keys, `Run` |
 | `text` | ANSI- and wide-character-aware width, truncation, padding, wrapping |
 | `theme` | `Palette`, the symbol sets (`Glyphs`) and the immutable `Theme` built from them |
 | `panel` | bordered panels, stacking, joining, overlay, header and footer fitting |
@@ -31,7 +35,7 @@ addons package once, blank. Every file in it then registers with the
 | `stdaddons` | opt-in addons: theme picker, spacing sliders, refresh rate, display mode, background, log view, and the one-line settings `Toggle`, `Number`, `Pick`, `Text` |
 | `store` | `Store` implementations: JSON file, in-memory |
 | `dashtest` | terminal-free test driver with a fake clock and timers, and `Audit` |
-| `cmd/dashygotui` | the companion command: `rules`, `check`, `new`, `init` (standard library only) |
+| `cmd/dashygotui` | the companion command: `rules`, `check`, `new`, `gen`, `init` (standard library only) |
 | `docs`, `templates` | the design documents and addon templates, embedded for the command |
 | `internal/guard` | the source-level rules, shared by the library's guard tests and the command |
 | `layout` | page arrangement, spacing and edge insets; pure and non-generic (re-exported by the root as `Layout` and `Spacing`) |
@@ -39,31 +43,28 @@ addons package once, blank. Every file in it then registers with the
 Leaf packages (`text`, `theme`, `panel`, `chart`, `layout`) know nothing
 about Bubble Tea or application state and are tested without them.
 
-## Why generics, and where the global lives
+## Why generics, and why there is no global
 
 `Dashboard[S]` is parameterised by the application's state type `S`, so addons
-receive a typed `*Context[S]` and never type-assert. Go cannot declare a generic
-package-level variable, so the library cannot own a global registry for an
-unknown `S`. The library supplies `Registry[S]`; the **application** declares
-the single instance in its dashboard file. That one variable is the only global
-in an application; the library has none.
-
-Tests inject their own registry, and an addon's own state lives in `Local`, per dashboard,
-so nothing leaks between tests.
+receive a typed `*Context[S]` and never type-assert. An addon is a value of a
+generic type (`Option[S]`, `Hook[S]`, ...), and a dashboard is built from a list of
+them, so neither the library nor the application needs a package-level registry:
+the list is passed in, the way Go code passes its dependencies. A test passes the
+addons it needs; two dashboards in one program pass two lists. An addon's own state
+lives in `Local`, per dashboard, so nothing leaks between them.
 
 ## Lifecycle
 
-1. **`init()`**: each addon calls `Registry.Add(...)` (options, widgets, views, shortcuts, settings)
-   or one of the hooks `Registry.OnTick/OnResult/OnMsg`.
-   Mistakes are recorded with the caller's `file:line`; nothing panics.
-2. **`New(cfg)`**: freezes the registry, then validates everything together:
-   registration mistakes, unknown pages and sections, duplicate IDs, reserved
-   shortcut keys. All problems are reported at once, wrapped in
-   `ErrInvalidConfig`. Panels are collected and sorted by `Order`.
+1. **`go generate`**: `dashygotui gen` lists the addon values in `addons_gen.go`.
+2. **`New(cfg)`**: expands `Config.Addons` (an addon may stand for several) and
+   validates everything together: mistakes in addons (each named by the place `At`
+   recorded), unknown pages and sections, duplicate IDs, reserved shortcut keys.
+   All problems are reported at once, wrapped in `ErrInvalidConfig`; nothing
+   panics. Panels are collected and sorted by `Order`. `New` reads the list once.
 3. **`Run(ctx)`**: starts Bubble Tea. Settings load from the `Store`.
 
-Registration order is irrelevant: Go runs `init()` in file-name order, so the
-registry orders panels and options by explicit `Order`, then `Number`/`Key`.
+The order of the list is irrelevant: it follows file names, so panels and options
+are ordered by explicit `Order`, then `Number`/`Key`.
 
 ## Data flow
 
@@ -203,6 +204,7 @@ for the library and for the applications built on it (the charter is in
   documents and the addon templates (`docs.FS`, `templates.FS`), so `go run
   ...@<version> rules` always prints rules that match the API an application
   compiles against. `init` writes the instruction files, `new` scaffolds an addon,
+  `gen` writes the addon list,
   `check` lints.
 - **The library governs itself.** `api/dashygotui.txt` is a snapshot of the exported
   API (a change needs `CHANGELOG.md`: `make api-check`); `docs/REFERENCE.md` is

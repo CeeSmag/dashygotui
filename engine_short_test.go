@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/CeeSmag/dashygotui"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/modal"
 )
 
@@ -66,14 +67,14 @@ func TestShortcutActionsOpensDoModal(t *testing.T) {
 }
 
 func TestExactlyOneActionIsRequired(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(
 		option{Key: "none", Section: "actions", Number: 1, Label: "None"},
 		option{Key: "two", Section: "actions", Number: 2, Label: "Two", Opens: "v", Do: func(*ctx) {}},
 		dashygotui.Shortcut[state]{Key: "q1"},
 		dashygotui.Shortcut[state]{Key: "q2", Opens: "v", Do: func(*ctx) {}},
 	)
-	err := r.Validate()
+	err := validate(r)
 	if err == nil {
 		t.Fatal("want errors")
 	}
@@ -89,7 +90,7 @@ func TestExactlyOneActionIsRequired(t *testing.T) {
 }
 
 func TestOpensMustNameARegisteredView(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(
 		option{Key: "o", Section: "actions", Number: 1, Label: "O", Opens: "nope"},
 		dashygotui.Shortcut[state]{Key: "x", Opens: "nada"},
@@ -106,9 +107,9 @@ func TestOpensMustNameARegisteredView(t *testing.T) {
 }
 
 func TestAddRejectsNil(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(nil)
-	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "nil addon") {
+	if err := validate(r); err == nil || !strings.Contains(err.Error(), "nil addon") {
 		t.Errorf("Validate = %v", err)
 	}
 }
@@ -162,11 +163,11 @@ func TestViewItemsAreNumberedByPosition(t *testing.T) {
 }
 
 func TestViewItemsAndOptionsAreExclusive(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(dashygotui.View[state]{ID: "v", Title: "V",
 		Items:   []option{{Label: "A", Do: func(*ctx) {}}},
 		Options: func(*ctx) []option { return nil }})
-	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "both Options and Items") {
+	if err := validate(r); err == nil || !strings.Contains(err.Error(), "both Options and Items") {
 		t.Errorf("Validate = %v", err)
 	}
 }
@@ -201,9 +202,9 @@ func TestViewFollowAndFramed(t *testing.T) {
 }
 
 func TestFollowAndFramedNeedABody(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(dashygotui.View[state]{ID: "v", Title: "V", Follow: true, Status: func(*ctx, dashygotui.Size) []string { return nil }})
-	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "Follow or Framed") {
+	if err := validate(r); err == nil || !strings.Contains(err.Error(), "Follow or Framed") {
 		t.Errorf("Validate = %v", err)
 	}
 }
@@ -302,23 +303,23 @@ func TestTailHoldsItsPlaceInABoundedHistory(t *testing.T) {
 }
 
 func TestAppendedNeedsTail(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(dashygotui.View[state]{ID: "v", Title: "V", Scroll: true, Appended: func(*ctx) int { return 0 },
 		Body: func(*ctx, dashygotui.Size) []string { return nil }})
-	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "Appended but not Tail") {
+	if err := validate(r); err == nil || !strings.Contains(err.Error(), "Appended but not Tail") {
 		t.Errorf("Validate = %v", err)
 	}
 }
 
 func TestViewItemNumbersMustBeUnique(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(dashygotui.View[state]{ID: "v", Title: "V", Items: []option{
 		{Label: "A", Do: func(*ctx) {}},            // numbered 1 by position
 		{Number: 1, Label: "B", Do: func(*ctx) {}}, // explicit 1: clash
 		{Number: 7, Label: "C", Do: func(*ctx) {}},
 		{Label: "D", Do: func(*ctx) {}}, // numbered 4 by position, fine
 	}})
-	err := r.Validate()
+	err := validate(r)
 	if err == nil || !strings.Contains(err.Error(), `item "B" has number 1, which "A" already has`) {
 		t.Fatalf("Validate = %v", err)
 	}
@@ -328,17 +329,17 @@ func TestViewItemNumbersMustBeUnique(t *testing.T) {
 }
 
 func TestOptionKeyMayNotUseTheLibrariesPrefix(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(option{Key: dashygotui.ReservedKeyPrefix + "palette", Section: "actions", Number: 90, Label: "X", Do: func(*ctx) {}})
-	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "reserved for the library") {
+	if err := validate(r); err == nil || !strings.Contains(err.Error(), "reserved for the library") {
 		t.Errorf("Validate = %v", err)
 	}
 }
 
 func TestInvalidRecordsAReasonAtTheCallSite(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Add(dashygotui.Invalid[state]{Reason: "this setting makes no sense"})
-	err := r.Validate()
+	err := validate(r)
 	if err == nil || !strings.Contains(err.Error(), "this setting makes no sense") || !strings.Contains(err.Error(), "engine_short_test.go:") {
 		t.Errorf("Validate = %v", err)
 	}

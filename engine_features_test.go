@@ -12,6 +12,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/text"
 )
 
@@ -62,7 +63,7 @@ func TestNotifyDuringAPollPollsAgain(t *testing.T) {
 }
 
 func TestNotifyIsHarmlessWhenNotRunning(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	dash, err := dashygotui.New(baseConfig(r))
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +72,7 @@ func TestNotifyIsHarmlessWhenNotRunning(t *testing.T) {
 }
 
 func TestAttachAndDetach(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	dash, err := dashygotui.New(baseConfig(r))
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +92,7 @@ func TestAttachAndDetach(t *testing.T) {
 }
 
 func TestNotifyFromManyGoroutines(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	dash, err := dashygotui.New(baseConfig(r))
 	if err != nil {
 		t.Fatal(err)
@@ -255,7 +256,7 @@ func TestScrollingViewSurvivesEverySize(t *testing.T) {
 }
 
 func TestScrollNeedsABody(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.View(dashygotui.View[state]{ID: "v", Title: "V", Scroll: true,
 		Status: func(*ctx, dashygotui.Size) []string { return nil }})
 	if msg := errText(t, withRegistry(r)); !strings.Contains(msg, "Scroll") {
@@ -402,13 +403,13 @@ func TestPageFallbackRespectsEachDimension(t *testing.T) {
 }
 
 func TestPageFallbackNeedsASize(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	c := baseConfig(r)
 	c.Pages[0].Fallback = func(*ctx, dashygotui.Size) []string { return nil }
 	if msg := errText(t, c); !strings.Contains(msg, "FallbackBelow") {
 		t.Errorf("error = %q", msg)
 	}
-	c = baseConfig(dashygotui.NewRegistry[state]())
+	c = baseConfig(collect.New[state]())
 	c.Pages[0].FallbackBelow = dashygotui.Size{Cols: 10}
 	if msg := errText(t, c); !strings.Contains(msg, "no Fallback") {
 		t.Errorf("error = %q", msg)
@@ -500,7 +501,7 @@ func TestTailViewHomeGoesToTheOldestAndStops(t *testing.T) {
 }
 
 func TestTailNeedsScroll(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.View(dashygotui.View[state]{ID: "v", Title: "V", Tail: true,
 		Body: func(*ctx, dashygotui.Size) []string { return nil }})
 	if msg := errText(t, withRegistry(r)); !strings.Contains(msg, "Tail") {

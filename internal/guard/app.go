@@ -120,16 +120,15 @@ func Rules() map[string]string {
 	return map[string]string{
 		"A1":  "addon files are named opt_*.go, widget_*.go, view_*.go, modal_*.go or shortcut_*.go",
 		"A2":  "addons never use declarations from a sibling addon file",
-		"A3":  "an addon has no package-level mutable variable; with a generated list, each package-level var is one unexported addon literal, never assigned to",
+		"A3":  "each package-level var of an addon file is one unexported addon literal, never assigned to",
 		"A4":  "an addon starts no goroutines, sleeps, exits, prints, or panics",
 		"A5":  "an addon draws with theme styles, never raw lipgloss styles or colour literals",
 		"A6":  "text written by an addon is plain ASCII; symbols come from the theme",
 		"A7":  "an addon ends, prints and runs programs through the Context, never through tea",
 		"A8":  "an addon does not wrap or embed a library modal",
 		"A9":  "an addon uses Opens and Do instead of a Run that only opens a view or returns nil",
-		"A10": "an addon keeps no state in a variable captured from init and changed by a callback; use dashygotui.Local",
-		"A11": "addons_gen.go matches what dashygotui gen writes now; run go generate ./...",
-		"A12": "an addons package with a generated list has no init()",
+		"A11": "every addons package has an addons_gen.go, and it matches what dashygotui gen writes now; run go generate ./...",
+		"A12": "an addons package has no init()",
 		"C1":  "a change that adds an addon edits no other Go file (dashygotui check -changed)",
 		"G1":  "a //dashygotui:gap marker says where the gap is recorded",
 		"X1":  "a //dashygotui:allow comment names a rule and gives a reason",
@@ -150,7 +149,7 @@ func CheckApp(srcs []Source) Report {
 		if addon {
 			byDir[dirOf(s.Rel)] = append(byDir[dirOf(s.Rel)], s)
 		} else if importsLibrary(s.File) {
-			rep.add(s, sourceFindings(s, false, false))
+			rep.add(s, sourceFindings(s, false))
 		}
 	}
 	dirs := make([]string, 0, len(byDir))
@@ -160,21 +159,18 @@ func CheckApp(srcs []Source) Report {
 	sort.Strings(dirs)
 	for _, d := range dirs {
 		files := byDir[d]
-		gen, values := hasGenFile(files)
 		var addons []Source // the files that are addons, not doc.go and the generated list
 		for _, s := range files {
 			if isSupportFile(s.Rel) {
 				continue
 			}
 			addons = append(addons, s)
-			rep.add(s, sourceFindings(s, true, values))
+			rep.add(s, sourceFindings(s, true))
 		}
 		if len(addons) > 0 { // every addon may have been deleted, leaving doc.go and the list
 			rep.add(Source{}, couplingFindings(addons), addons...)
 		}
-		if values {
-			rep.add(Source{}, valueFindings(files, gen), files...)
-		}
+		rep.add(Source{}, valueFindings(d, files), files...)
 	}
 	rep.sort()
 	return rep
@@ -369,9 +365,9 @@ func importsLibrary(f *ast.File) bool {
 
 // sourceFindings applies the rules to one file. addon is true for a file in an
 // addons directory, which every rule applies to; elsewhere only the app-wide
-// rules (A5 styles, A7, A8) apply. values is true in an addons package with a
-// generated list, whose package-level variables are addons (see valueFindings).
-func sourceFindings(s Source, addon, values bool) []Finding {
+// rules (A5 styles, A7, A8) apply. The rules about an addons package as a whole
+// (A3, A11, A12) are valueFindings'.
+func sourceFindings(s Source, addon bool) []Finding {
 	var out []Finding
 	at := func(rule string, n ast.Node, msg, hint string) {
 		out = append(out, Finding{Rule: rule, File: s.Rel, Line: s.Line(n.Pos()), Msg: msg, Hint: hint})
@@ -384,32 +380,6 @@ func sourceFindings(s Source, addon, values bool) []Finding {
 			out = append(out, Finding{Rule: "A1", File: s.Rel, Line: 1,
 				Msg:  "addon file names start with opt_, widget_, view_, modal_ or shortcut_",
 				Hint: "rename the file, for example opt_" + strings.TrimSuffix(baseName(s.Rel), ".go") + ".go"})
-		}
-		// A3: package-level mutable variables. With a generated list they are
-		// addons, checked by valueFindings.
-		for _, d := range f.Decls {
-			if values {
-				break
-			}
-			gd, ok := d.(*ast.GenDecl)
-			if !ok || gd.Tok != token.VAR {
-				continue
-			}
-			for _, spec := range gd.Specs {
-				vs := spec.(*ast.ValueSpec)
-				if allReadOnly(vs) {
-					continue
-				}
-				at("A3", vs, "package-level variable "+joinNames(vs.Names), "use dashygotui.Local for per-dashboard state, or the Store for saved settings")
-			}
-		}
-	}
-
-	if addon {
-		// A10: state captured from init.
-		for _, m := range capturedMutations(f) {
-			at("A10", m.node, fmt.Sprintf("%s is declared in init and changed by a callback: it is shared by every dashboard in the process", m.name),
-				"keep it with dashygotui.Local (per dashboard), or in the Store if it must be saved")
 		}
 	}
 
@@ -639,135 +609,6 @@ func calleeIs(call *ast.CallExpr, name string) bool {
 		return f.Sel.Name == name
 	}
 	return false
-}
-
-// mutation is a change, inside a callback, to a variable captured from init.
-type mutation struct {
-	name string
-	node ast.Node
-}
-
-// capturedMutations finds variables declared at the top of an init function (other
-// than functions) that a function literal in it assigns to, increments, or changes
-// the elements or fields of: state shared by every dashboard in the process. It
-// reports the first change of each variable. Changing an object through a method
-// (series.Add) is not seen; the check is a net for the common cases.
-func capturedMutations(f *ast.File) []mutation {
-	var out []mutation
-	for _, d := range f.Decls {
-		fd, ok := d.(*ast.FuncDecl)
-		if !ok || fd.Recv != nil || fd.Name.Name != "init" || fd.Body == nil {
-			continue
-		}
-		declared := map[string]bool{}
-		for _, st := range fd.Body.List {
-			switch st := st.(type) {
-			case *ast.DeclStmt:
-				if gd, ok := st.Decl.(*ast.GenDecl); ok && gd.Tok == token.VAR {
-					for _, spec := range gd.Specs {
-						vs := spec.(*ast.ValueSpec)
-						if len(vs.Values) == 1 {
-							if _, isFunc := vs.Values[0].(*ast.FuncLit); isFunc {
-								continue
-							}
-						}
-						for _, id := range vs.Names {
-							declared[id.Name] = true
-						}
-					}
-				}
-			case *ast.AssignStmt:
-				if st.Tok != token.DEFINE {
-					continue
-				}
-				for i, l := range st.Lhs {
-					if id, ok := l.(*ast.Ident); ok {
-						if len(st.Rhs) == len(st.Lhs) {
-							if _, isFunc := st.Rhs[i].(*ast.FuncLit); isFunc {
-								continue
-							}
-						}
-						declared[id.Name] = true
-					}
-				}
-			}
-		}
-		if len(declared) == 0 {
-			continue
-		}
-		seen := map[string]bool{}
-		ast.Inspect(fd.Body, func(n ast.Node) bool {
-			fl, ok := n.(*ast.FuncLit)
-			if !ok {
-				return true
-			}
-			own := ownNames(fl)
-			report := func(e ast.Expr, at ast.Node) {
-				if id := rootIdent(e); id != nil && declared[id.Name] && !own[id.Name] && !seen[id.Name] {
-					seen[id.Name] = true
-					out = append(out, mutation{name: id.Name, node: at})
-				}
-			}
-			ast.Inspect(fl.Body, func(m ast.Node) bool {
-				switch m := m.(type) {
-				case *ast.AssignStmt:
-					if m.Tok != token.DEFINE {
-						for _, l := range m.Lhs {
-							report(l, m)
-						}
-					}
-				case *ast.IncDecStmt:
-					report(m.X, m)
-				}
-				return true
-			})
-			return true
-		})
-	}
-	return out
-}
-
-// ownNames are the names a function literal declares itself: its parameters,
-// results, and anything defined inside it. An assignment to one of those is not a
-// change to a captured variable.
-func ownNames(fl *ast.FuncLit) map[string]bool {
-	own := map[string]bool{}
-	for _, list := range []*ast.FieldList{fl.Type.Params, fl.Type.Results} {
-		if list == nil {
-			continue
-		}
-		for _, f := range list.List {
-			for _, id := range f.Names {
-				own[id.Name] = true
-			}
-		}
-	}
-	ast.Inspect(fl.Body, func(n ast.Node) bool {
-		switch n := n.(type) {
-		case *ast.AssignStmt:
-			if n.Tok == token.DEFINE {
-				for _, l := range n.Lhs {
-					if id, ok := l.(*ast.Ident); ok {
-						own[id.Name] = true
-					}
-				}
-			}
-		case *ast.ValueSpec:
-			for _, id := range n.Names {
-				own[id.Name] = true
-			}
-		case *ast.RangeStmt:
-			if n.Tok == token.DEFINE {
-				for _, e := range []ast.Expr{n.Key, n.Value} {
-					if id, ok := e.(*ast.Ident); ok {
-						own[id.Name] = true
-					}
-				}
-			}
-		}
-		return true
-	})
-	return own
 }
 
 // rootIdent is the variable an assignment target is rooted in: x for x, x[i],

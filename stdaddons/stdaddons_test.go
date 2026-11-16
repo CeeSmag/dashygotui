@@ -9,6 +9,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/panel"
 	"github.com/CeeSmag/dashygotui/stdaddons"
 	"github.com/CeeSmag/dashygotui/store"
@@ -21,13 +22,13 @@ type ctx = dashygotui.Context[state]
 // harness is a dashboard with all three standard addons; its header shows the live
 // palette, spacing and interval so a test can watch them change.
 func harness(st dashygotui.Store) dashygotui.Config[state] {
-	r := dashygotui.NewRegistry[state]()
-	stdaddons.Theme(r, "look", 20)
-	stdaddons.Spacing(r, "look", 21)
-	stdaddons.RefreshRate(r, "look", 22)
+	r := collect.New[state]()
+	r.Add(stdaddons.ThemePicker[state]{Section: "look", Number: 20})
+	r.Add(stdaddons.SpacingMenu[state]{Section: "look", Number: 21})
+	r.Add(stdaddons.RefreshRatePicker[state]{Section: "look", Number: 22})
 	return dashygotui.Config[state]{
 		Title:    "T",
-		Registry: r,
+		Addons:   []dashygotui.Addon[state]{r},
 		Store:    st,
 		Pages:    []dashygotui.Page[state]{{ID: "p", Title: "Page"}},
 		Sections: []dashygotui.SectionSpec[state]{{ID: "look", Page: "p", Title: "Look"}},
@@ -203,10 +204,10 @@ func TestRefreshIntervalsAreFastestFirstAndIndependent(t *testing.T) {
 }
 
 func TestRegisteringTwiceIsReported(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
-	stdaddons.Theme(r, "look", 20)
-	stdaddons.Theme(r, "look", 30)
-	err := r.Validate()
+	r := collect.New[state]()
+	r.Add(stdaddons.ThemePicker[state]{Section: "look", Number: 20})
+	r.Add(stdaddons.ThemePicker[state]{Section: "look", Number: 30})
+	err := collect.Errors(r)
 	if err == nil || !strings.Contains(err.Error(), `duplicate option key "stdaddons.theme"`) {
 		t.Errorf("err = %v", err)
 	}

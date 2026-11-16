@@ -27,12 +27,9 @@ type Config[S any] struct {
 
 	// Addons are the dashboard's options, widgets, views, shortcuts and hooks.
 	// An application passes the list that dashygotui gen writes (addons.All());
-	// a test passes the few it needs. Each is checked when [New] runs.
+	// a test passes the few it needs. Each is checked when [New] runs. An empty
+	// list is a dashboard with pages and sections only.
 	Addons []Addon[S]
-
-	// Registry holds addons registered from init(), the form used up to v0.3.
-	// Optional: its addons are used together with Addons.
-	Registry *Registry[S]
 
 	// Pages are the dashboard tabs, in tab order. At least one is required.
 	Pages []Page[S]
@@ -150,15 +147,13 @@ type pageDef[S any] struct {
 // New validates cfg and its addons and returns a dashboard. Every problem is
 // reported at once, wrapped in [ErrInvalidConfig], and nothing starts until
 // [Dashboard.Run].
-//
-// New freezes cfg.Registry, when set: registering after it is an error.
 func New[S any](cfg Config[S]) (*Dashboard[S], error) {
-	all := cfg.Registry.with(cfg.Addons)
-	reg := all.freeze()
+	all := collect(cfg.Addons)
+	reg := all.contents()
 	keys := cfg.Keys.withDefaults()
 
 	var errs []error
-	if err := all.Validate(); err != nil {
+	if err := all.err(); err != nil {
 		errs = append(errs, err)
 	}
 	pages, pageErrs := buildPages(cfg, reg)

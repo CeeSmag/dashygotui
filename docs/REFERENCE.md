@@ -13,8 +13,7 @@ Config describes a dashboard. Pages are required; the rest have sensible default
 | Field | Type | What it does |
 | --- | --- | --- |
 | `Title` | `string` | Title names the application in the header and the terminal window title. |
-| `Addons` | `[]Addon[S]` | Addons are the dashboard's options, widgets, views, shortcuts and hooks. An application passes the list that dashygotui gen writes (addons.All()); a test passes the few it needs. Each is checked when [New] runs. |
-| `Registry` | `*Registry[S]` | Registry holds addons registered from init(), the form used up to v0.3. Optional: its addons are used together with Addons. |
+| `Addons` | `[]Addon[S]` | Addons are the dashboard's options, widgets, views, shortcuts and hooks. An application passes the list that dashygotui gen writes (addons.All()); a test passes the few it needs. Each is checked when [New] runs. An empty list is a dashboard with pages and sections only. |
 | `Pages` | `[]Page[S]` | Pages are the dashboard tabs, in tab order. At least one is required. |
 | `Sections` | `[]SectionSpec[S]` | Sections are the option containers on the pages. Options and widgets refer to pages and sections declared here by ID. |
 | `Poll` | `func(ctx context.Context) (S, error)` | Poll fetches the application state. It is called at Interval, in the background, and once at start. When nil the state stays the zero value of S and nothing is polled. |
@@ -68,7 +67,7 @@ SectionSpec declares a section: a bordered panel on a page that holds options. S
 
 ### `Option`
 
-Option is one numbered, selectable row in a section: the thing an addon adds to a menu. Register it with [Registry.Option].
+Option is one numbered, selectable row in a section: the thing an addon adds to a menu. Declare it as an addon (see [Config.Addons]).
 
 | Field | Type | What it does |
 | --- | --- | --- |
@@ -107,7 +106,7 @@ Entry describes the option that opens a view; see [View.Entry].
 
 ### `Widget`
 
-Widget is a read-only panel on a page: a chart, a gauge, a status readout. Register it with [Registry.Widget].
+Widget is a read-only panel on a page: a chart, a gauge, a status readout. Declare it as an addon (see [Config.Addons]).
 
 | Field | Type | What it does |
 | --- | --- | --- |
@@ -122,7 +121,7 @@ Widget is a read-only panel on a page: a chart, a gauge, a status readout. Regis
 
 ### `View`
 
-View is a full-screen page opened from an option or a shortcut with [Context.OpenView] and left with the Back key. Register it with [Registry.View]. A view draws a header, a body and a footer. The body is, in order of precedence, Body when set, otherwise a status panel (Status) above a menu of numbered rows (Options), either of which may be absent.
+View is a full-screen page opened from an option or a shortcut with [Context.OpenView] and left with the Back key. Declare it as an addon (see [Config.Addons]). A view draws a header, a body and a footer. The body is, in order of precedence, Body when set, otherwise a status panel (Status) above a menu of numbered rows (Options), either of which may be absent.
 
 | Field | Type | What it does |
 | --- | --- | --- |
@@ -365,7 +364,7 @@ Text is a text setting, edited in a one-line pop-up. Secret masks the input and 
 
 ### `ThemePicker`
 
-ThemePicker is an option that opens a colour palette picker. Moving the highlight previews each palette live; Enter keeps one and saves the choice and Esc restores the previous palette. It is the value form of [Theme]: declare it as an addon.
+ThemePicker is an option that opens a colour palette picker. Moving the highlight previews each palette live; Enter keeps one and saves the choice and Esc restores the previous palette.
 
 | Field | Type | What it does |
 | --- | --- | --- |
@@ -376,7 +375,7 @@ ThemePicker is an option that opens a colour palette picker. Moving the highligh
 
 ### `RefreshRatePicker`
 
-RefreshRatePicker is an option that opens a refresh-rate picker. It is the value form of [RefreshRate]: declare it as an addon.
+RefreshRatePicker is an option that opens a refresh-rate picker. Declare it as an addon.
 
 | Field | Type | What it does |
 | --- | --- | --- |
@@ -387,7 +386,7 @@ RefreshRatePicker is an option that opens a refresh-rate picker. It is the value
 
 ### `SpacingMenu`
 
-SpacingMenu is an option that opens the spacing menu: the four gaps that frame the dashboard, each adjusted with a live slider, plus a reset. It is the value form of [Spacing]: declare it as an addon.
+SpacingMenu is an option that opens the spacing menu: the four gaps that frame the dashboard, each adjusted with a live slider, plus a reset. Declare it as an addon.
 
 | Field | Type | What it does |
 | --- | --- | --- |
@@ -398,7 +397,7 @@ SpacingMenu is an option that opens the spacing menu: the four gaps that frame t
 
 ### `DisplayPicker`
 
-DisplayPicker is an option that opens a display-mode picker: Auto (detect the Linux console), Unicode, or TTY. Moving the highlight previews each mode live; Enter keeps one and saves it, Esc restores the previous mode. It is the value form of [Display]: declare it as an addon.
+DisplayPicker is an option that opens a display-mode picker: Auto (detect the Linux console), Unicode, or TTY. Moving the highlight previews each mode live; Enter keeps one and saves it, Esc restores the previous mode. Declare it as an addon.
 
 | Field | Type | What it does |
 | --- | --- | --- |
@@ -409,7 +408,7 @@ DisplayPicker is an option that opens a display-mode picker: Auto (detect the Li
 
 ### `BackgroundPicker`
 
-BackgroundPicker is an option that lets the user choose how the palette's background reaches the terminal (Terminal, Paint or Off); see [Background]. It is the value form of [Background]: declare it as an addon.
+Background registers an option that lets the user choose how the palette's background reaches the terminal, and turn it off: - Terminal: ask the terminal to use the palette's background and foreground. The terminal's own colours come back when the dashboard exits. A transparent terminal usually stays transparent. - Paint: do that, and also paint every cell, for terminals that ignore the request (some multiplexers and older terminals). Painted cells are opaque. - Off (transparent): never touch the terminal's colours, so a transparent or blurred terminal shows through. BackgroundPicker is an option that lets the user choose how the palette's background reaches the terminal, and turn it off: - Terminal: ask the terminal to use the palette's background and foreground. The terminal's own colours come back when the dashboard exits. A transparent terminal usually stays transparent. - Paint: do that, and also paint every cell, for terminals that ignore the request (some multiplexers and older terminals). Painted cells are opaque. - Off (transparent): never touch the terminal's colours, so a transparent or blurred terminal shows through. Moving the highlight previews each mode live; Enter keeps one and saves it, Esc restores the previous mode. Palettes with no background of their own, and TTY mode, are unaffected by this setting. Declare it as an addon.
 
 | Field | Type | What it does |
 | --- | --- | --- |
@@ -420,7 +419,7 @@ BackgroundPicker is an option that lets the user choose how the palette's backgr
 
 ### `TransparencyToggle`
 
-TransparencyToggle is a one-key switch for a transparent background; see [Transparency]. It is the value form of [Transparency]: declare it as an addon.
+TransparencyToggle is a one-key switch for a transparent background: on leaves the terminal's own background alone (so a transparent, blurred or wallpapered terminal shows through), off brings the themed background back in the mode that was in use before. It changes the same setting as [BackgroundPicker], so the two always agree. Declare it as an addon.
 
 | Field | Type | What it does |
 | --- | --- | --- |
@@ -431,7 +430,7 @@ TransparencyToggle is a one-key switch for a transparent background; see [Transp
 
 ### `LogView`
 
-LogView is a full-screen log view of Buffer and the option that opens it: the value form of [Logs] and [LogsWith]. Declare it as an addon: var logView = stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Section: "views", Number: 52} Divert the application's logger into Buffer before the dashboard starts. The option's badge counts the entries, and the errors among them.
+LogView is a full-screen log view of Buffer and the option that opens it. Declare it as an addon: var logView = stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Section: "views", Number: 52} The view shows the newest entry on top and scrolls with the arrow keys (or j and k), PgUp and PgDn; Home returns to the live top and End jumps to the oldest entry. Scrolled away from the top, it keeps the line being read while new entries arrive. The f key cycles the minimum level shown. Entries filed under a category with [logs.Buffer.In] get a strip of tabs along the top, "All" first; CategoryKey moves along them, each tab keeps its own scroll position, and a tab you are not on shows how many entries arrived since you left it. Divert the application's logger into Buffer before the dashboard starts: restore := buf.Divert(log.Default()) defer restore() The option's badge counts the entries, and the errors among them.
 
 | Field | Type | What it does |
 | --- | --- | --- |

@@ -15,12 +15,6 @@ Machine-enforced rules are marked **[enforced]** and are checked by
 `dashygotui` is a generic library for building Bubble Tea v2 dashboards with as
 little application code as possible.
 
-> **Migration in progress.** `docs/DESIGN.md` ("Decision: addons are values")
-> moves addons from `init()` registration to values listed by a generated file.
-> Until phase 4 of that plan lands, the v0.3 form (`init()` and the application's
-> `Registry`) is still accepted, and the guard tests enforce whichever form a file
-> uses. This note is removed by phase 4.
-
 > **Zero-edit extension.** Adding an option, widget, view, shortcut or modal to
 > an application means adding **exactly one new hand-written file** in that
 > application's `addons/` directory. No other file is edited by hand: not the
@@ -101,10 +95,15 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
   **[enforced]**
 - Theme, spacing, refresh interval and every other piece of runtime state live
   on the `Dashboard` value and are passed explicitly to renderers.
-- An application has **no global and no `init()`** either. An addon is a value:
+- An application has **no registry and no `init()`** either. An addon is a value:
   every top-level `var` in an addon file is an addon literal (`Option`, `Widget`,
-  `View`, `Shortcut`, `Hook` or a `stdaddons` value), unexported, and never
-  assigned to. **[enforced: A3, A12]**
+  `View`, `Shortcut`, `Hook`, a `stdaddons` value, or a type of the file's own
+  with an `Addons` method), unexported, and never assigned to. **[enforced: A3,
+  A12]** The dashboard package may hold process-wide resources the addons share,
+  such as a log buffer and its loggers; it holds no state of the dashboard's own.
+- Helpers in an addon file (functions, constants, types) share the package's
+  namespace with every other addon file, so they are named after the file
+  (`networkHistory`, not `history`). A clash is a compile error.
 - The list of addons is generated: `dashygotui gen` writes `addons_gen.go`, whose
   `All()` returns every addon wrapped in `At("file.go:line", ...)`. It is checked
   in and never edited; a stale list is an error. **[enforced: A11]**

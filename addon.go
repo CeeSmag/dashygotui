@@ -7,7 +7,7 @@ import (
 )
 
 // Option is one numbered, selectable row in a section: the thing an addon adds
-// to a menu. Register it with [Registry.Option].
+// to a menu. Declare it as an addon (see [Config.Addons]).
 type Option[S any] struct {
 	// Key is a unique, stable identifier such as "storage". Required. It must not
 	// start with "dashygotui.", which the library keeps for its own settings.
@@ -77,7 +77,7 @@ func (o Option[S]) order() int {
 }
 
 // Widget is a read-only panel on a page: a chart, a gauge, a status readout.
-// Register it with [Registry.Widget].
+// Declare it as an addon (see [Config.Addons]).
 type Widget[S any] struct {
 	// Key is a unique, stable identifier such as "disk_io". Required.
 	Key string
@@ -104,8 +104,8 @@ type Widget[S any] struct {
 }
 
 // View is a full-screen page opened from an option or a shortcut with
-// [Context.OpenView] and left with the Back key. Register it with
-// [Registry.View].
+// [Context.OpenView] and left with the Back key. Declare it as an addon (see
+// [Config.Addons]).
 //
 // A view draws a header, a body and a footer. The body is, in order of
 // precedence, Body when set, otherwise a status panel (Status) above a menu of

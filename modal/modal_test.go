@@ -12,6 +12,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/modal"
 	"github.com/CeeSmag/dashygotui/text"
 )
@@ -29,12 +30,12 @@ func open(t *testing.T, mod dashygotui.Modal[state]) *dashtest.Driver {
 }
 
 func harness(mod dashygotui.Modal[state]) dashygotui.Config[state] {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Shortcut(dashygotui.Shortcut[state]{Key: "o", Run: func(c *ctx) tea.Cmd { c.OpenModal(mod); return nil }})
 	return dashygotui.Config[state]{
-		Title:    "T",
-		Registry: r,
-		Pages:    []dashygotui.Page[state]{{ID: "p", Title: "Page"}},
+		Title:  "T",
+		Addons: []dashygotui.Addon[state]{r},
+		Pages:  []dashygotui.Page[state]{{ID: "p", Title: "Page"}},
 		Poll: func(context.Context) (state, error) {
 			return state{}, nil
 		},
@@ -188,14 +189,14 @@ func TestEditSave(t *testing.T) {
 	t.Run("an unrelated task result is left for the other hooks", func(t *testing.T) {
 		var other bool
 		cfg := harness(&modal.Edit[state]{Title: "Save", Save: func(context.Context, string) (string, error) { return "ok", nil }})
-		cfg.Registry.OnResult(func(c *ctx, res dashygotui.TaskResult) (bool, tea.Cmd) {
+		collect.From(cfg).OnResult(func(c *ctx, res dashygotui.TaskResult) (bool, tea.Cmd) {
 			if res.Tag == "other" {
 				other = true
 				return true, nil
 			}
 			return false, nil
 		})
-		cfg.Registry.OnTick(func(c *ctx, _ time.Time) tea.Cmd {
+		collect.From(cfg).OnTick(func(c *ctx, _ time.Time) tea.Cmd {
 			return c.RunTask("other", "", func(context.Context) (string, error) { return "", nil })
 		})
 		d := dashtest.New(t, cfg, 120, 40)

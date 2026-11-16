@@ -12,6 +12,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 )
 
 // rawModel drives the Bubble Tea model by hand, so a test can hold a command
@@ -107,7 +108,7 @@ func TestPollPastItsDeadlineIsAFailureNotAFreeze(t *testing.T) {
 	release := make(chan struct{})
 	t.Cleanup(func() { close(release) })
 	var calls atomic.Int32 // the abandoned call and the next one run at the same time
-	c := baseConfig(dashygotui.NewRegistry[state]())
+	c := baseConfig(collect.New[state]())
 	c.PollTimeout = 20 * time.Millisecond
 	c.Poll = func(context.Context) (state, error) {
 		if calls.Add(1) == 1 {
@@ -125,7 +126,7 @@ func TestPollPastItsDeadlineIsAFailureNotAFreeze(t *testing.T) {
 
 func TestPollTimeoutReachesThePollContext(t *testing.T) {
 	t.Parallel()
-	c := baseConfig(dashygotui.NewRegistry[state]())
+	c := baseConfig(collect.New[state]())
 	c.PollTimeout = 20 * time.Millisecond
 	ended := make(chan error, 1)
 	c.Poll = func(ctx context.Context) (state, error) {
@@ -143,7 +144,7 @@ func TestPollTimeoutReachesThePollContext(t *testing.T) {
 func TestPollErrorIsShownUntilAPollSucceeds(t *testing.T) {
 	t.Parallel()
 	fail := true
-	c := baseConfig(dashygotui.NewRegistry[state]())
+	c := baseConfig(collect.New[state]())
 	c.Poll = func(context.Context) (state, error) {
 		if fail {
 			return state{}, errors.New("backend down")
@@ -166,7 +167,7 @@ func TestPollErrorIsShownUntilAPollSucceeds(t *testing.T) {
 
 func TestRefreshDuringAPollPollsAgain(t *testing.T) {
 	t.Parallel()
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Option(option{Key: "apply", Section: "actions", Number: 1, Label: "Apply", Hotkey: "a",
 		Run: func(c *ctx) tea.Cmd { return c.Refresh() }})
 	polls := 0
@@ -186,7 +187,7 @@ func TestRefreshDuringAPollPollsAgain(t *testing.T) {
 
 func TestASecondTaskKeepsItsMessageWhenTheFirstEnds(t *testing.T) {
 	t.Parallel()
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	task := func(tag, pending string) func(*ctx) tea.Cmd {
 		return func(c *ctx) tea.Cmd {
 			return c.RunTask(tag, pending, func(context.Context) (string, error) { return "", nil })
@@ -218,7 +219,7 @@ func TestASecondTaskKeepsItsMessageWhenTheFirstEnds(t *testing.T) {
 
 func TestATaskMessageOutlastsTheFlashDuration(t *testing.T) {
 	t.Parallel()
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Option(option{Key: "slow", Section: "actions", Number: 1, Label: "Slow", Hotkey: "s",
 		Run: func(c *ctx) tea.Cmd {
 			return c.RunTask("slow", "Copying...", func(context.Context) (string, error) { return "", nil })
@@ -234,7 +235,7 @@ func TestATaskMessageOutlastsTheFlashDuration(t *testing.T) {
 
 func TestEveryMessageHookSeesEveryMessage(t *testing.T) {
 	t.Parallel()
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	var seen []string
 	for _, name := range []string{"first", "second"} {
 		r.OnMsg(func(_ *ctx, msg tea.Msg) tea.Cmd {
@@ -254,7 +255,7 @@ func TestEveryMessageHookSeesEveryMessage(t *testing.T) {
 
 func TestPollFailureDoesNotHideAnAddonMessage(t *testing.T) {
 	t.Parallel()
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	fail := false
 	r.Option(option{Key: "break", Section: "actions", Number: 1, Label: "Break", Hotkey: "x",
 		Run: func(c *ctx) tea.Cmd { fail = true; c.Flash("Outage started"); return c.Refresh() }})

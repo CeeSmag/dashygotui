@@ -14,13 +14,13 @@ import (
 
 // The settings in this file are one-line declarations for the most common kind
 // of option: a value the user can change, remembered between runs in the
-// dashboard's Store under the setting's Key. Each is an [dashygotui.Addon], so it
-// goes straight into [dashygotui.Registry.Add]:
+// dashboard's Store under the setting's Key. Each is a [dashygotui.Addon], declared
+// as a value in its own file:
 //
-//	dashboard.Registry.Add(stdaddons.Number[dashboard.State]{
+//	var storageLimitSetting = stdaddons.Number[dashboard.State]{
 //		Key: "storage.limit_gb", Section: "settings", Number: 10, Label: "Storage Limit",
 //		Unit: "GB", Min: 1, Max: 1000, Default: 50,
-//	})
+//	}
 //
 // Each gives the option a badge with the current value, a pop-up to change it,
 // validation, saving, and a confirmation message. OnChange, optional, runs after

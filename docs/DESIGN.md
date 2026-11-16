@@ -40,7 +40,7 @@ in one of its addons.
 | Pure UI mechanics: layout, scrolling, keys, themes, pop-ups, settings widgets | the library |
 | The application's data and the actions on it | an addon file (one feature, one file) |
 | Helpers two or more addons share | the application's `dashboard` package |
-| Pages, sections, the one `Registry` | the application's dashboard file |
+| Pages and sections | the application's dashboard file |
 | Anything specific to an operating system or a product | the application, never the library |
 
 ## The gap protocol (what to do when the library cannot do it)
@@ -75,12 +75,12 @@ type, copy its code, override its defaults with a workaround, or fork it. Instea
 
 ## Decision: addons are values (v0.4.0)
 
-Up to v0.3 an addon registers itself from `init()` into a package-level
-`Registry` that the application declares, and `main` blank-imports the addons
+Up to v0.3 an addon registered itself from `init()` into a package-level
+`Registry` that the application declared, and `main` blank-imported the addons
 package. That gives "add a file and it appears", but it is not standard Go: the
 Google and Uber style guides discourage `init()` and mutable package state, a test
-cannot load a subset of an application's addons, and one set of addon files
-cannot be assembled into two different dashboards.
+could not load a subset of an application's addons, and one set of addon files
+could not be assembled into two different dashboards.
 
 From v0.4.0 an addon is a **value**, and Go's own `go generate` writes the list.
 
@@ -143,11 +143,17 @@ generated file is the standard Go answer (`stringer`, `wire`).
 - **Hooks are values.** `Hook[S]{Tick, Msg, Result}` replaces
   `Registry.OnTick/OnMsg/OnResult`, so an addon that samples on every tick is
   still one file.
-- **Ready-made settings are values.** `stdaddons.Theme{Section: "settings",
-  Number: 20}` and its siblings replace the functions that took a `*Registry`,
-  the way `stdaddons.Toggle` already works.
+- **Ready-made settings are values.** `stdaddons.ThemePicker{Section:
+  "settings", Number: 20}` and its siblings (`RefreshRatePicker`, `SpacingMenu`,
+  `DisplayPicker`, `BackgroundPicker`, `TransparencyToggle`, `LogView`) replace
+  the functions that took a `*Registry`, the way `stdaddons.Toggle` already works.
 - **`Config.Addons`** replaces `Config.Registry`. `New` validates the list exactly
   as `Registry.Validate` did. The `Registry` type leaves the public API.
+- **Helpers share the package.** What used to be a local inside `init()` (a helper
+  closure, a constant) is now package-level, in one namespace with every other
+  addon file. Name helpers after their file (`networkHistory`, `exportTag`). A
+  clash is a compile error, so it is never silent; it is the one real cost of
+  this form, found while converting the examples.
 
 ### How the rules stay enforced
 
@@ -162,11 +168,11 @@ generated file is the standard Go answer (`stringer`, `wire`).
 
 Each phase ends with `make check` passing and is one commit.
 
-| Phase | Work | Breaking |
-| --- | --- | --- |
-| 0 | Engine fixes: a timeout for `Poll`, poll errors shown in the header, `Context.Refresh` repeats a poll that was already in flight, a second task's "working..." message survives the first one ending, every `OnMsg` hook sees every message | no |
-| 1 | `Config.Addons`, `At`, `Hook`, value forms of the `stdaddons` helpers, beside the registry | no |
-| 2 | `dashygotui gen`, rule A11 in `check`, generated-file exemption in C1, the scripts | no |
-| 3 | The examples and templates become values | no |
-| 4 | `Registry` and `init()` registration removed, rules and docs final, v0.4.0 | yes |
-| 5 | The first production application moves onto v0.4.0 | n/a |
+| Phase | Work | Breaking | Status |
+| --- | --- | --- | --- |
+| 0 | Engine fixes: a timeout for `Poll`, poll errors shown in the footer, `Context.Refresh` repeats a poll that was already in flight, a second task's "working..." message survives the first one ending, every `OnMsg` hook sees every message | no | done |
+| 1 | `Config.Addons`, `At`, `Hook`, value forms of the `stdaddons` helpers, beside the registry | no | done |
+| 2 | `dashygotui gen`, rules A11 and A12 in `check`, generated-file exemption in C1, the scripts | no | done |
+| 3 | The examples and templates become values | no | done |
+| 4 | `Registry` and `init()` registration removed, A10 retired, rules and docs final, v0.4.0 | yes | done |
+| 5 | The first production application moves onto v0.4.0 | n/a | |

@@ -6,7 +6,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// Addon is anything [Config.Addons] (or [Registry.Add]) takes. [Option],
+// Addon is anything [Config.Addons] takes. [Option],
 // [Shortcut], [View], [Widget] and [Hook] are addons, and so is any type of yours
 // that returns some of them from Addons: a "setting" that is an option plus a
 // pop-up, say. The ready-made settings in package stdaddons are written this way.
@@ -81,12 +81,10 @@ func (i Invalid[S]) Addons() []Addon[S] { return []Addon[S]{i} }
 const maxAddonDepth = 8
 
 // registerAddon registers it, expanding composite addons.
-func (r *Registry[S]) registerAddon(it Addon[S], site string, depth int) {
+func (r *registry[S]) registerAddon(it Addon[S], site string, depth int) {
 	switch v := it.(type) {
 	case nil:
-		r.mu.Lock()
-		r.fail(site, "Add was given a nil addon")
-		r.mu.Unlock()
+		r.fail(site, "nil addon")
 	case Option[S]:
 		v.register(r, site)
 	case Shortcut[S]:
@@ -96,18 +94,14 @@ func (r *Registry[S]) registerAddon(it Addon[S], site string, depth int) {
 	case Widget[S]:
 		v.register(r, site)
 	case Invalid[S]:
-		r.mu.Lock()
 		r.fail(site, "%s", v.Reason)
-		r.mu.Unlock()
 	case Hook[S]:
 		v.register(r, site)
 	case sited[S]:
 		r.registerAddon(v.addon, v.site, depth)
 	default:
 		if depth >= maxAddonDepth {
-			r.mu.Lock()
 			r.fail(site, "addon %T expands into addons more than %d levels deep", it, maxAddonDepth)
-			r.mu.Unlock()
 			return
 		}
 		for _, sub := range it.Addons() {

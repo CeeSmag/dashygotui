@@ -8,12 +8,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/CeeSmag/dashygotui"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 )
 
 type state struct{ Count int }
 
 type (
-	reg    = dashygotui.Registry[state]
+	reg    = collect.List[state]
 	ctx    = dashygotui.Context[state]
 	option = dashygotui.Option[state]
 	widget = dashygotui.Widget[state]
@@ -22,11 +23,26 @@ type (
 
 func noop(*ctx) tea.Cmd { return nil }
 
+// addonsOf is the Config.Addons of a test's collected addons.
+func addonsOf(r *reg) []dashygotui.Addon[state] {
+	if r == nil {
+		return nil
+	}
+	return []dashygotui.Addon[state]{r}
+}
+
+// validate builds a dashboard from r on the base pages and sections and returns
+// the error, which reports every mistake in r's addons.
+func validate(r *reg) error {
+	_, err := dashygotui.New(baseConfig(r))
+	return err
+}
+
 // baseConfig is a small valid dashboard: three pages, three sections.
 func baseConfig(r *reg) cfg {
 	return cfg{
-		Title:    "TestApp",
-		Registry: r,
+		Title:  "TestApp",
+		Addons: addonsOf(r),
 		Pages: []dashygotui.Page[state]{
 			{ID: "monitor", Title: "Monitor"},
 			{ID: "setup", Title: "Setup"},
@@ -58,7 +74,7 @@ func errText(t *testing.T, c cfg) string {
 }
 
 func TestNewAcceptsAValidConfig(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Option(validOption("a", 1))
 	r.Widget(widget{Key: "w", Page: "monitor", Title: "W", Render: func(*ctx, dashygotui.Size) []string { return nil }})
 	if msg := errText(t, baseConfig(r)); msg != "" {
@@ -180,14 +196,14 @@ func TestRegistryRejectsMistakesAndNamesTheSite(t *testing.T) {
 			want: []string{`duplicate shortcut key "d"`},
 		},
 		{
-			name:     "nil hooks",
-			register: func(r *reg) { r.OnTick(nil); r.OnResult(nil); r.OnMsg(nil) },
-			want:     []string{"tick hook is nil", "result hook is nil", "message hook is nil"},
+			name:     "empty hook",
+			register: func(r *reg) { r.Add(dashygotui.Hook[state]{}) },
+			want:     []string{"hook sets none of Tick, Msg and Result"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := dashygotui.NewRegistry[state]()
+			r := collect.New[state]()
 			tt.register(r)
 			got := errText(t, baseConfig(r))
 			if got == "" {
@@ -203,17 +219,17 @@ func TestRegistryRejectsMistakesAndNamesTheSite(t *testing.T) {
 }
 
 func TestRegistryValidateReportsRegistrationErrors(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
-	if err := r.Validate(); err != nil {
+	r := collect.New[state]()
+	if err := validate(r); err != nil {
 		t.Fatalf("an empty registry is valid: %v", err)
 	}
 	r.Option(validOption("a", 1))
 	r.Option(validOption("b", 1))
-	err := r.Validate()
+	err := validate(r)
 	if err == nil {
 		t.Fatal("duplicate number not reported")
 	}
-	var re *dashygotui.RegistrationError
+	var re *dashygotui.AddonError
 	if !errors.As(err, &re) {
 		t.Fatalf("error %T does not unwrap to *RegistrationError", err)
 	}
@@ -222,21 +238,21 @@ func TestRegistryValidateReportsRegistrationErrors(t *testing.T) {
 	}
 }
 
-func TestRegisteringAfterNewIsAnError(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+func TestNewReadsTheAddonsOnce(t *testing.T) {
+	r := collect.New[state]()
 	r.Option(validOption("a", 1))
-	if _, err := dashygotui.New(baseConfig(r)); err != nil {
+	d, err := dashygotui.New(baseConfig(r))
+	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	r.Option(validOption("late", 2))
-	err := r.Validate()
-	if err == nil || !strings.Contains(err.Error(), "registered after the dashboard was created") {
-		t.Fatalf("late registration not reported: %v", err)
+	r.Option(validOption("late", 2)) // the list is the caller's: changing it later changes no dashboard
+	if n := len(d.Outline().Options); n != 1 {
+		t.Fatalf("the dashboard has %d options, want the 1 it was built with", n)
 	}
 }
 
 func TestNewRejectsBrokenConfigs(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	tests := []struct {
 		name   string
 		mutate func(c *cfg)
@@ -264,10 +280,10 @@ func TestNewRejectsBrokenConfigs(t *testing.T) {
 }
 
 func TestRegistrySiteSurvivesGenerics(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.Option(validOption("a", 1))
 	r.Option(validOption("b", 1)) // the line the error must point at
-	err := r.Validate()
+	err := validate(r)
 	if err == nil || !strings.Contains(err.Error(), "registry_test.go:") {
 		t.Fatalf("site missing from %v", err)
 	}

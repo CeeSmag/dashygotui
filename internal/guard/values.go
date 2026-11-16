@@ -9,9 +9,8 @@ import (
 	"path"
 )
 
-// The rules for an addons package whose addons are values listed by a generated
-// addons_gen.go (docs/DESIGN.md, "addons are values"): A3 in its value form,
-// A11 and A12.
+// The rules for an addons package as a whole (docs/DESIGN.md, "addons are
+// values"): A3, A11 and A12.
 
 // hasGenFile reports whether one of files is the generated addon list.
 func hasGenFile(files []Source) (Source, bool) {
@@ -23,16 +22,21 @@ func hasGenFile(files []Source) (Source, bool) {
 	return Source{}, false
 }
 
-// valueFindings applies A3 (value form), A11 and A12 to the files of one addons
-// package that has a generated list.
-func valueFindings(files []Source, gen Source) []Finding {
+// valueFindings applies A3, A11 and A12 to the files of the addons package in
+// dir.
+func valueFindings(dir string, files []Source) []Finding {
 	var out []Finding
 	at := func(rule string, s Source, n ast.Node, msg, hint string) {
 		out = append(out, Finding{Rule: rule, File: s.Rel, Line: s.Line(n.Pos()), Msg: msg, Hint: hint})
 	}
 
-	// A11: the generated list is what gen would write now.
-	if state, ok := GenState(gen.File); !ok {
+	// A11: the generated list is there, and is what gen would write now.
+	gen, ok := hasGenFile(files)
+	if !ok {
+		out = append(out, Finding{Rule: "A11", File: path.Join(dir, GenFile), Line: 1,
+			Msg:  "the addons package has no " + GenFile + ", so main has no list of its addons",
+			Hint: "run dashygotui gen -state <import path of the dashboard package>.State in " + dir})
+	} else if state, ok := GenState(gen.File); !ok {
 		out = append(out, Finding{Rule: "A11", File: gen.Rel, Line: 1,
 			Msg:  GenFile + " was not written by dashygotui gen",
 			Hint: "delete it and run go generate ./..."})
@@ -55,7 +59,7 @@ func valueFindings(files []Source, gen Source) []Finding {
 			case *ast.FuncDecl:
 				// A12: no init.
 				if d.Recv == nil && d.Name.Name == "init" {
-					at("A12", s, d, "init() in an addons package with a generated list",
+					at("A12", s, d, "init() in an addons package",
 						"declare the addon as a top-level value; the generated list picks it up")
 				}
 			case *ast.GenDecl:
@@ -125,10 +129,26 @@ func valueSpecProblem(s Source, vs *ast.ValueSpec) string {
 	case vs.Names[0].IsExported():
 		return "addon " + vs.Names[0].Name + " is exported: addon names are unexported, the package exports only All"
 	}
-	if _, ok := vs.Values[0].(*ast.CompositeLit); !ok {
+	lit, ok := vs.Values[0].(*ast.CompositeLit)
+	if !ok || !namedType(lit.Type) {
 		return "package-level variable " + vs.Names[0].Name + " is not an addon literal"
 	}
 	return ""
+}
+
+// namedType reports whether t names a type, possibly instantiated, as an addon
+// literal does (dashboard.Option, stdaddons.Toggle[dashboard.State], jump), as
+// opposed to a map, slice, array or anonymous struct literal.
+func namedType(t ast.Expr) bool {
+	switch t := t.(type) {
+	case *ast.Ident, *ast.SelectorExpr:
+		return true
+	case *ast.IndexExpr:
+		return namedType(t.X)
+	case *ast.IndexListExpr:
+		return namedType(t.X)
+	}
+	return false
 }
 
 // sameSource reports whether the parsed file s prints the same as src, so a

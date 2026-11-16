@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/CeeSmag/dashygotui"
+	"github.com/CeeSmag/dashygotui/internal/collect"
 	"github.com/CeeSmag/dashygotui/panel"
 	"github.com/CeeSmag/dashygotui/text"
 )
@@ -146,7 +147,7 @@ func TestPageFallbackRuleValidation(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			c := baseConfig(dashygotui.NewRegistry[state]())
+			c := baseConfig(collect.New[state]())
 			tc.edit(&c)
 			msg := errText(t, c)
 			if tc.want == "" && msg != "" {
@@ -280,9 +281,9 @@ func TestViewPanelTailHoldsItsPlace(t *testing.T) {
 }
 
 func TestPanelNeedsABody(t *testing.T) {
-	r := dashygotui.NewRegistry[state]()
+	r := collect.New[state]()
 	r.View(dashygotui.View[state]{ID: "v", Title: "V", Panel: &dashygotui.ViewPanel[state]{}})
-	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "Panel") {
+	if err := validate(r); err == nil || !strings.Contains(err.Error(), "Panel") {
 		t.Errorf("Validate = %v, want an error about Panel without Body", err)
 	}
 }
@@ -346,7 +347,7 @@ func TestStartViewHookCommandsRun(t *testing.T) {
 }
 
 func TestStartViewMustExist(t *testing.T) {
-	c := baseConfig(dashygotui.NewRegistry[state]())
+	c := baseConfig(collect.New[state]())
 	c.StartView = []string{"nope"}
 	if msg := errText(t, c); !strings.Contains(msg, `unknown view "nope"`) {
 		t.Errorf("error = %q", msg)
