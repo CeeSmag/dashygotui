@@ -1,7 +1,7 @@
 // Package dashboard is the foundation of the demo application's dashboard: it
-// declares the pages and the sections on them, owns the one Registry, and
-// builds the dashboard. It never imports the addons package; main does that,
-// with a blank import, so each addon registers itself.
+// declares the pages and the sections on them and builds the dashboard. It
+// never imports the addons package; main passes the addons in (addons.All, a
+// generated list of every addon file's values).
 package dashboard
 
 import (
@@ -28,10 +28,6 @@ type State struct {
 	Requests int
 }
 
-// Registry is the application's single registry. Addons register with it from
-// init(); call its methods directly so errors name the addon's own file.
-var Registry = dashygotui.NewRegistry[State]()
-
 // Logs collects the application's log output. main diverts the standard logger
 // into it before the dashboard starts, and the Logs addon shows it.
 var Logs = logs.NewBuffer(2000)
@@ -50,14 +46,19 @@ type (
 	Entry = dashygotui.Entry[State]
 	// Modal is a pop-up.
 	Modal = dashygotui.Modal[State]
+	// Addon is anything the dashboard takes in Config.Addons.
+	Addon = dashygotui.Addon[State]
+	// Hook reacts to ticks, messages and task results.
+	Hook = dashygotui.Hook[State]
 )
 
-// Config returns the dashboard's configuration. st keeps the user's settings.
-func Config(st dashygotui.Store) dashygotui.Config[State] {
+// Config returns the dashboard's configuration. st keeps the user's settings;
+// addons are the features, addons.All() in the application.
+func Config(st dashygotui.Store, addons []Addon) dashygotui.Config[State] {
 	return dashygotui.Config[State]{
-		Title:    "Demo",
-		Registry: Registry,
-		Store:    st,
+		Title:  "Demo",
+		Addons: addons,
+		Store:  st,
 		Pages: []dashygotui.Page[State]{
 			{ID: "monitor", Title: "Monitor", Layout: dashygotui.LayoutAuto},
 			{ID: "control", Title: "Control", ShortTitle: "Ctl"},
@@ -82,8 +83,8 @@ func Config(st dashygotui.Store) dashygotui.Config[State] {
 }
 
 // Run shows the dashboard and returns why it ended.
-func Run(ctx context.Context, st dashygotui.Store) (dashygotui.ExitInfo, error) {
-	d, err := dashygotui.New(Config(st))
+func Run(ctx context.Context, st dashygotui.Store, addons []Addon) (dashygotui.ExitInfo, error) {
+	d, err := dashygotui.New(Config(st, addons))
 	if err != nil {
 		return dashygotui.ExitInfo{}, fmt.Errorf("building the dashboard: %w", err)
 	}

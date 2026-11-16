@@ -10,6 +10,4 @@ import (
 // through; off brings the themed background back in the mode it had. It changes
 // the same setting as [24] Background.
 
-func init() {
-	stdaddons.Transparency(dashboard.Registry, "appearance", 25, stdaddons.Setup{Hotkey: "t"})
-}
+var transparencyOption = stdaddons.TransparencyToggle[dashboard.State]{Section: "appearance", Number: 25, Hotkey: "t"}

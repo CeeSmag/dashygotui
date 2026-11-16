@@ -13,7 +13,7 @@ import (
 	"os/signal"
 
 	"github.com/CeeSmag/dashygotui/examples/buildwatch/dashboard"
-	_ "github.com/CeeSmag/dashygotui/examples/buildwatch/dashboard/addons" // registers every addon
+	"github.com/CeeSmag/dashygotui/examples/buildwatch/dashboard/addons"
 	"github.com/CeeSmag/dashygotui/store"
 )
 
@@ -33,7 +33,7 @@ func run() error {
 		fmt.Fprintln(os.Stderr, "buildwatch: settings will not be saved:", err)
 		st = nil
 	}
-	info, err := dashboard.Run(ctx, st)
+	info, err := dashboard.Run(ctx, st, addons.All())
 	if err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}

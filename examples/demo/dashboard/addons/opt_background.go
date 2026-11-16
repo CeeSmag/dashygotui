@@ -7,4 +7,4 @@ import (
 
 // [24] Background: turn the theme's background on or off, live.
 
-func init() { stdaddons.Background(dashboard.Registry, "appearance", 24) }
+var backgroundOption = stdaddons.BackgroundPicker[dashboard.State]{Section: "appearance", Number: 24}

@@ -1,5 +1,5 @@
 // Package dashboard is the foundation of the buildwatch dashboard: the state, the
-// pages and sections, the one Registry. Addons add everything else.
+// pages and sections. Addons, passed in by main, add everything else.
 package dashboard
 
 import (
@@ -35,9 +35,6 @@ func (s State) Failed() int {
 	return n
 }
 
-// Registry is the application's single registry.
-var Registry = dashygotui.NewRegistry[State]()
-
 // Short names for the generic types.
 type (
 	// Ctx is the handle every addon callback receives.
@@ -54,17 +51,22 @@ type (
 	Modal = dashygotui.Modal[State]
 	// Shortcut is a key binding that is not a menu row.
 	Shortcut = dashygotui.Shortcut[State]
+	// Addon is anything the dashboard takes in Config.Addons.
+	Addon = dashygotui.Addon[State]
+	// Hook reacts to ticks, messages and task results.
+	Hook = dashygotui.Hook[State]
 )
 
-// Config returns the dashboard's configuration. A nil st keeps settings in memory.
-func Config(st dashygotui.Store) dashygotui.Config[State] {
+// Config returns the dashboard's configuration. A nil st keeps settings in
+// memory; addons are the features, addons.All() in the application.
+func Config(st dashygotui.Store, addons []Addon) dashygotui.Config[State] {
 	if st == nil {
 		st = store.NewMemory()
 	}
 	return dashygotui.Config[State]{
-		Title:    "Buildwatch",
-		Registry: Registry,
-		Store:    st,
+		Title:  "Buildwatch",
+		Addons: addons,
+		Store:  st,
 		Pages: []dashygotui.Page[State]{
 			{ID: "builds", Title: "Builds"},
 			{ID: "settings", Title: "Settings"},
@@ -79,8 +81,8 @@ func Config(st dashygotui.Store) dashygotui.Config[State] {
 }
 
 // Run shows the dashboard and returns why it ended.
-func Run(ctx context.Context, st dashygotui.Store) (dashygotui.ExitInfo, error) {
-	d, err := dashygotui.New(Config(st))
+func Run(ctx context.Context, st dashygotui.Store, addons []Addon) (dashygotui.ExitInfo, error) {
+	d, err := dashygotui.New(Config(st, addons))
 	if err != nil {
 		return dashygotui.ExitInfo{}, fmt.Errorf("building the dashboard: %w", err)
 	}

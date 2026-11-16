@@ -7,4 +7,4 @@ import (
 
 // [22] Refresh Rate: the library's ready-made refresh-rate picker.
 
-func init() { stdaddons.RefreshRate(dashboard.Registry, "appearance", 22) }
+var refreshOption = stdaddons.RefreshRatePicker[dashboard.State]{Section: "appearance", Number: 22}

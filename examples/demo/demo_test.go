@@ -12,6 +12,7 @@ import (
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
 	"github.com/CeeSmag/dashygotui/examples/demo/dashboard"
+	"github.com/CeeSmag/dashygotui/examples/demo/dashboard/addons"
 	"github.com/CeeSmag/dashygotui/store"
 	"github.com/CeeSmag/dashygotui/text"
 )
@@ -31,7 +32,7 @@ func TestMain(m *testing.M) {
 func newDemo(t *testing.T, st dashygotui.Store) *dashtest.Driver {
 	t.Helper()
 	dashboard.Logs.Clear() // the log buffer is the application's, shared by every dashboard in the process
-	return dashtest.New(t, dashboard.Config(st), 140, 40)
+	return dashtest.New(t, dashboard.Config(st, addons.All()), 140, 40)
 }
 
 // requireRows fails unless every "[n] Label" pair is on screen as a menu row.
@@ -49,11 +50,8 @@ func requireRows(t *testing.T, d *dashtest.Driver, pairs ...string) {
 	}
 }
 
-func TestTheRegistryIsValid(t *testing.T) {
-	if err := dashboard.Registry.Validate(); err != nil {
-		t.Fatalf("registration errors:\n%v", err)
-	}
-	if _, err := dashygotui.New(dashboard.Config(store.NewMemory())); err != nil {
+func TestTheAddonsAreValid(t *testing.T) {
+	if _, err := dashygotui.New(dashboard.Config(store.NewMemory(), addons.All())); err != nil {
 		t.Fatalf("New: %v", err)
 	}
 }
@@ -357,7 +355,7 @@ func ttySafe(r rune) bool {
 
 func TestWholeDemoIsConsoleSafeInTTYMode(t *testing.T) {
 	cfg := func() dashygotui.Config[dashboard.State] {
-		c := dashboard.Config(store.NewMemory())
+		c := dashboard.Config(store.NewMemory(), addons.All())
 		c.Glyphs = dashygotui.GlyphsTTY
 		return c
 	}
@@ -415,5 +413,5 @@ func TestDemoSwitchesToTTYAndBack(t *testing.T) {
 
 // The demo passes the library's audit, including every option it can open.
 func TestDemoPassesTheAuditWalkingEveryOption(t *testing.T) {
-	dashtest.Audit(t, dashboard.Config(store.NewMemory()), dashtest.WalkOptions())
+	dashtest.Audit(t, dashboard.Config(store.NewMemory(), addons.All()), dashtest.WalkOptions())
 }

@@ -40,8 +40,10 @@ func IsAddonFile(rel string) bool {
 	return addonFileName.MatchString(path.Base(rel)) && !strings.HasSuffix(rel, "_test.go")
 }
 
-// isSupportFile reports whether rel is one of the two files of an addons
+// IsSupportFile reports whether rel is one of the two files of an addons
 // package that are not addons: doc.go and the generated list.
+func IsSupportFile(rel string) bool { return isSupportFile(rel) }
+
 func isSupportFile(rel string) bool {
 	b := path.Base(rel)
 	return b == GenFile || b == DocFile

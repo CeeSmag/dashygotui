@@ -5,12 +5,13 @@ import (
 
 	"github.com/CeeSmag/dashygotui/dashtest"
 	"github.com/CeeSmag/dashygotui/examples/buildwatch/dashboard"
+	"github.com/CeeSmag/dashygotui/examples/buildwatch/dashboard/addons"
 	"github.com/CeeSmag/dashygotui/store"
 )
 
 func newApp(t *testing.T) *dashtest.Driver {
 	t.Helper()
-	return dashtest.New(t, dashboard.Config(store.NewMemory()), 120, 36)
+	return dashtest.New(t, dashboard.Config(store.NewMemory(), addons.All()), 120, 36)
 }
 
 func TestFirstPageShowsThePipelines(t *testing.T) {
@@ -28,7 +29,7 @@ func TestOpenTheBuildLogFromItsHotkey(t *testing.T) {
 
 func TestSettingsAreOneLineEach(t *testing.T) {
 	st := store.NewMemory()
-	d := dashtest.New(t, dashboard.Config(st), 120, 36)
+	d := dashtest.New(t, dashboard.Config(st, addons.All()), 120, 36)
 	d.Press("tab")
 	d.RequireContains("Notify on Failure", "Builds to Keep", "[50 builds]", "Watched Branch", "[main]")
 	d.Type("11")
@@ -48,5 +49,5 @@ func TestCancelAllAsksFirst(t *testing.T) {
 }
 
 func TestPassesTheAudit(t *testing.T) {
-	dashtest.Audit(t, dashboard.Config(store.NewMemory()), dashtest.WalkOptions())
+	dashtest.Audit(t, dashboard.Config(store.NewMemory(), addons.All()), dashtest.WalkOptions())
 }

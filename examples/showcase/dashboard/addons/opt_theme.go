@@ -9,6 +9,4 @@ import (
 // built-in palettes, the 16-colour console palette and this app's own Solarized.
 // Palettes with a background recolour the terminal.
 
-func init() {
-	stdaddons.Theme(dashboard.Registry, "appearance", 20, stdaddons.Setup{Hotkey: "m"})
-}
+var themeOption = stdaddons.ThemePicker[dashboard.State]{Section: "appearance", Number: 20, Hotkey: "m"}

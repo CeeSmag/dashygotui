@@ -11,8 +11,7 @@ import (
 // press c for the next tab (C for the previous). "net", "disk" and "auth" are
 // declared; "ui" is not, and gets its tab when its first entry arrives.
 
-func init() {
-	stdaddons.LogsWith(dashboard.Registry, dashboard.Logs, "views", 52,
-		stdaddons.LogOptions{Categories: []string{"net", "disk", "auth"}, CategoryKey: "c"},
-		stdaddons.Setup{Hotkey: "g"})
+var logsOption = stdaddons.LogView[dashboard.State]{
+	Buffer: dashboard.Logs, Section: "views", Number: 52, Hotkey: "g",
+	Categories: []string{"net", "disk", "auth"}, CategoryKey: "c",
 }

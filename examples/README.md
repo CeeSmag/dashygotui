@@ -42,15 +42,15 @@ brackets is the option number: type it anywhere to jump there.
 
 | Feature | Where |
 | --- | --- |
-| Pages, sections, widgets; `Registry` owned by the foundation file | `dashboard.go` |
+| Pages and sections in the foundation file; addons as values, listed by the generated `addons.All()` | `dashboard.go`, `addons/doc.go`, `addons/addons_gen.go` |
 | Every layout: grid, rows, auto, columns, two-over-one, one-over-two | the page list in `dashboard.go` |
 | Tab badges; short and tiny tab titles (resize the terminal) | `Monitor` tab, every page title |
 | Section `Noun`, section `Badge`, widget `Badge`, `MinHeight`, `Subtitle` | `Actions` page, `widget_system.go` |
 | Custom header; rebound key (Backspace goes back); `OnForceQuit` (ctrl+c asks) | `dashboard.go` |
 | Custom palette that sets the terminal background | `Solarized` in `dashboard.go` |
 | **Options**: badge, `Order`, `Hotkey`, `OnOff`/`Badge`/`Count` helpers | `opt_*.go`; `[60]`-`[62]` for `Order` |
-| **Tasks**: `RunTask`, pending message, `OnResult` hook | `[1]` backup, `[3]` export (opens a report) |
-| **Hooks**: `OnTick` (per-dashboard state with `Local`), `OnMsg` (own message type), `OnResult` | `widget_*.go`, `[70]` alert |
+| **Tasks**: `RunTask`, pending message, a `Hook`'s `Result` | `[1]` backup, `[3]` export (opens a report) |
+| **Hooks**: `Hook` with `Tick` (per-dashboard state with `Local`), `Msg` (own message type), `Result` | `widget_*.go`, `[70]` alert |
 | `Context.Exec` (hand the terminal to a program) | `[72]` |
 | `Context.Err` / `Ready` (stale data, last good state kept) | `[71]` simulate an outage |
 | `Context.GotoPage` | `[60]`-`[62]` |

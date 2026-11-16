@@ -22,35 +22,33 @@ type streams struct {
 	io   *chart.DualStream
 }
 
-func init() {
-	graphs := func(c *dashboard.Ctx) *streams {
-		return dashygotui.LocalWith(c, "chart_streams", func() *streams {
-			opts := chart.StreamOpts{Scaler: chart.ScalerOpts{MinScale: 100_000}}
-			return &streams{load: chart.NewStream(opts), io: chart.NewDualStream("Read", "Write", opts)}
-		})
+func graphs(c *dashboard.Ctx) *streams {
+	return dashygotui.LocalWith(c, "chart_streams", func() *streams {
+		opts := chart.StreamOpts{Scaler: chart.ScalerOpts{MinScale: 100_000}}
+		return &streams{load: chart.NewStream(opts), io: chart.NewDualStream("Read", "Write", opts)}
+	})
+}
+
+var chartStreamsTick = dashboard.Hook{Tick: func(c *dashboard.Ctx, _ time.Time) tea.Cmd {
+	if c.Ready() && c.Err() == nil {
+		s, g := c.State(), graphs(c)
+		g.load.Push(s.NetIn)
+		g.io.Push(s.NetIn*0.6, s.NetOut*1.4)
 	}
+	return nil
+}}
 
-	dashboard.Registry.OnTick(func(c *dashboard.Ctx, _ time.Time) tea.Cmd {
-		if c.Ready() && c.Err() == nil {
-			s, g := c.State(), graphs(c)
-			g.load.Push(s.NetIn)
-			g.io.Push(s.NetIn*0.6, s.NetOut*1.4)
+var chartStreamsWidget = dashboard.Widget{
+	Key: "chart_streams", Page: "charts", Order: 40, Title: "Streams", Subtitle: "chart.Stream and chart.DualStream", MinHeight: 9,
+	Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
+		th, g := c.Theme(), graphs(c)
+		load, io := g.load, g.io
+		rows := []string{
+			panel.Row(th, "Load", load.Sparkline(th, max(size.Cols-panel.LabelWidth-14, 4))+" "+load.ScaleTag(th, "")),
 		}
-		return nil
-	})
-
-	dashboard.Registry.Add(dashboard.Widget{
-		Key: "chart_streams", Page: "charts", Order: 40, Title: "Streams", Subtitle: "chart.Stream and chart.DualStream", MinHeight: 9,
-		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
-			th, g := c.Theme(), graphs(c)
-			load, io := g.load, g.io
-			rows := []string{
-				panel.Row(th, "Load", load.Sparkline(th, max(size.Cols-panel.LabelWidth-14, 4))+" "+load.ScaleTag(th, "")),
-			}
-			if h := size.Rows - len(rows); h >= 1 {
-				rows = append(rows, io.Render(th, size.Cols, h)...)
-			}
-			return rows
-		},
-	})
+		if h := size.Rows - len(rows); h >= 1 {
+			rows = append(rows, io.Render(th, size.Cols, h)...)
+		}
+		return rows
+	},
 }

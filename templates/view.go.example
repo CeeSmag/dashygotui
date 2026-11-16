@@ -6,6 +6,7 @@ package addons
 //  1. Copy this file to your addons directory as view_<name>.go.
 //  2. Change the import path of the dashboard package to your own.
 //  3. Pick an unused option Number and a section declared in your dashboard file.
+//  4. Run go generate ./... so the generated addons_gen.go lists the new value.
 //
 // The view and the option that opens it are one declaration: Entry registers
 // the option (and, with HotkeyHint, advertises its hotkey in the footer). A view
@@ -20,17 +21,15 @@ import (
 	"github.com/CeeSmag/dashygotui/panel"
 )
 
-func init() {
-	dashboard.Registry.Add(dashboard.View{
-		ID: "my_view", Title: "My View", Subtitle: "details",
-		Entry: &dashboard.Entry{Section: "actions", Number: 43}, // Label defaults to Title; Mode to TITLE
-		Status: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
-			return []string{panel.Row(c.Theme(), "Hello", "from my view")}
-		},
-		// Items is a fixed menu, numbered by position. Each row says what it does:
-		// Do (an action), Opens (another view), Modal (a pop-up) or Run (a command).
-		Items: []dashboard.Option{
-			{Label: "Do Something", Note: "a muted note", Do: func(c *dashboard.Ctx) { c.Flash("Did something") }},
-		},
-	})
+var myView = dashboard.View{
+	ID: "my_view", Title: "My View", Subtitle: "details",
+	Entry: &dashboard.Entry{Section: "actions", Number: 43}, // Label defaults to Title; Mode to TITLE
+	Status: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
+		return []string{panel.Row(c.Theme(), "Hello", "from my view")}
+	},
+	// Items is a fixed menu, numbered by position. Each row says what it does:
+	// Do (an action), Opens (another view), Modal (a pop-up) or Run (a command).
+	Items: []dashboard.Option{
+		{Label: "Do Something", Note: "a muted note", Do: func(c *dashboard.Ctx) { c.Flash("Did something") }},
+	},
 }

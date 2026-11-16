@@ -8,4 +8,4 @@ import (
 // [23] Display Mode: switch between the Unicode and TTY symbol sets, live. Auto
 // picks the TTY set on the Linux console.
 
-func init() { stdaddons.Display(dashboard.Registry, "appearance", 23) }
+var displayOption = stdaddons.DisplayPicker[dashboard.State]{Section: "appearance", Number: 23}

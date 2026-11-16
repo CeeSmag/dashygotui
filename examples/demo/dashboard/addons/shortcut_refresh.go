@@ -9,15 +9,13 @@ import (
 
 // Ctrl+R: fetch fresh data now, from anywhere.
 
-func init() {
-	dashboard.Registry.Add(dashygotui.Shortcut[dashboard.State]{
-		Key:   "ctrl+r",
-		Label: "Refresh",
-		Scope: dashygotui.ScopeEverywhere,
-		Prio:  20,
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			c.Flash("Refreshing...")
-			return c.Refresh()
-		},
-	})
+var refreshShortcut = dashygotui.Shortcut[dashboard.State]{
+	Key:   "ctrl+r",
+	Label: "Refresh",
+	Scope: dashygotui.ScopeEverywhere,
+	Prio:  20,
+	Run: func(c *dashboard.Ctx) tea.Cmd {
+		c.Flash("Refreshing...")
+		return c.Refresh()
+	},
 }

@@ -91,3 +91,22 @@ func TestGenRejectsBadInput(t *testing.T) {
 		}
 	}
 }
+
+func TestNewAddsToTheListWithoutClashingNames(t *testing.T) {
+	root, addons := valueApp(t)
+	if code, _, errOut := runCLI(t, "gen", "-state", genState, addons); code != exitOK {
+		t.Fatal(errOut)
+	}
+	t.Chdir(root)
+	for _, name := range []string{"alpha", "beta_two"} {
+		if code, out, errOut := runCLI(t, "new", "-dashboard", "example.com/app/dashboard", "opt", name); code != exitOK {
+			t.Fatalf("new %s: %d %s %s", name, code, out, errOut)
+		}
+	}
+	list := read(t, filepath.Join(addons, "addons_gen.go"))
+	for _, want := range []string{`"opt_alpha.go:`, "alphaOption)", `"opt_beta_two.go:`, "betaTwoOption)"} {
+		if !strings.Contains(list, want) {
+			t.Errorf("the list does not contain %s:\n%s", want, list)
+		}
+	}
+}

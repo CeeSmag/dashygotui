@@ -7,6 +7,7 @@ package addons
 //  2. Change the import path of the dashboard package to your own.
 //  3. Pick a key that is not a navigation key, a digit, or another shortcut or
 //     option hotkey (a clash is a startup error that names both files).
+//  4. Run go generate ./... so the generated addons_gen.go lists the new value.
 //
 // What the key does is exactly one of Do (an action), Opens (a view by ID),
 // Modal (a pop-up) or Run (when you must return a command).
@@ -29,22 +30,20 @@ import (
 	"github.com/CeeSmag/dashygotui/modal"
 )
 
-func init() {
-	dashboard.Registry.Add(dashygotui.Shortcut[dashboard.State]{
-		Key:     "ctrl+k",              // as Bubble Tea names it: "ctrl+r", "f5", "d", ...
-		Display: "Ctrl+K",              // how the key is written in the footer
-		Label:   "Kill",                // shown in the footer; leave empty for no hint
-		Tone:    dashygotui.ToneDanger, // colours the hint from the theme
-		Prio:    25,                    // lower is dropped first on narrow terminals
-		Scope:   dashygotui.ScopeEverywhere,
-		Modal: func(*dashboard.Ctx) dashygotui.Modal[dashboard.State] {
-			return &modal.Confirm[dashboard.State]{
-				Title:  "Kill everything?",
-				Lines:  []string{"Everything is shut down."},
-				Accept: "Kill",
-				// Quit ends the dashboard; main reads the reason from ExitInfo.
-				OnAccept: func(c *dashboard.Ctx) tea.Cmd { return c.Quit("kill", "Killed.") },
-			}
-		},
-	})
+var myShortcut = dashygotui.Shortcut[dashboard.State]{
+	Key:     "ctrl+k",              // as Bubble Tea names it: "ctrl+r", "f5", "d", ...
+	Display: "Ctrl+K",              // how the key is written in the footer
+	Label:   "Kill",                // shown in the footer; leave empty for no hint
+	Tone:    dashygotui.ToneDanger, // colours the hint from the theme
+	Prio:    25,                    // lower is dropped first on narrow terminals
+	Scope:   dashygotui.ScopeEverywhere,
+	Modal: func(*dashboard.Ctx) dashygotui.Modal[dashboard.State] {
+		return &modal.Confirm[dashboard.State]{
+			Title:  "Kill everything?",
+			Lines:  []string{"Everything is shut down."},
+			Accept: "Kill",
+			// Quit ends the dashboard; main reads the reason from ExitInfo.
+			OnAccept: func(c *dashboard.Ctx) tea.Cmd { return c.Quit("kill", "Killed.") },
+		}
+	},
 }

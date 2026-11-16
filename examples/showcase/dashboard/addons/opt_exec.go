@@ -15,26 +15,24 @@ import (
 // tagged "exec", which an OnResult hook turns into a footer message. (This one
 // needs a Unix shell; elsewhere it reports the error.)
 
-func init() {
-	const tag = "exec"
+const execTag = "exec"
 
-	dashboard.Registry.Add(dashboard.Option{
-		Key: "exec", Section: "hooks", Number: 72, Label: "Run External Command",
-		Run: func(c *dashboard.Ctx) tea.Cmd {
-			cmd := exec.CommandContext(context.Background(), "sh", "-c", `printf '\nHello from a child process.\n\nThe dashboard is suspended while this runs.\n'; printf 'Press Enter to return... '; read _`)
-			return c.Exec(cmd, tag)
-		},
-	})
-
-	dashboard.Registry.OnResult(func(c *dashboard.Ctx, res dashygotui.TaskResult) (bool, tea.Cmd) {
-		if res.Tag != tag {
-			return false, nil
-		}
-		if res.Err != nil {
-			c.FlashError("External command failed: " + res.Err.Error())
-		} else {
-			c.Flash("External command finished")
-		}
-		return true, nil
-	})
+var execOption = dashboard.Option{
+	Key: "exec", Section: "hooks", Number: 72, Label: "Run External Command",
+	Run: func(c *dashboard.Ctx) tea.Cmd {
+		cmd := exec.CommandContext(context.Background(), "sh", "-c", `printf '\nHello from a child process.\n\nThe dashboard is suspended while this runs.\n'; printf 'Press Enter to return... '; read _`)
+		return c.Exec(cmd, execTag)
+	},
 }
+
+var execResult = dashboard.Hook{Result: func(c *dashboard.Ctx, res dashygotui.TaskResult) (bool, tea.Cmd) {
+	if res.Tag != execTag {
+		return false, nil
+	}
+	if res.Err != nil {
+		c.FlashError("External command failed: " + res.Err.Error())
+	} else {
+		c.Flash("External command finished")
+	}
+	return true, nil
+}}

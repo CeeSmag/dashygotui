@@ -14,47 +14,45 @@ import (
 
 // Waveforms: the same CPU history drawn four ways.
 
-func init() {
-	const keep = 120
+const wavesKeep = 120
 
-	dashboard.Registry.OnTick(func(c *dashboard.Ctx, _ time.Time) tea.Cmd {
-		if c.Ready() && c.Err() == nil {
-			cpu := dashygotui.Local[[]float64](c, "waves.cpu")
-			*cpu = append(*cpu, c.State().CPU)
-			if len(*cpu) > keep {
-				*cpu = (*cpu)[len(*cpu)-keep:]
+var wavesTick = dashboard.Hook{Tick: func(c *dashboard.Ctx, _ time.Time) tea.Cmd {
+	if c.Ready() && c.Err() == nil {
+		cpu := dashygotui.Local[[]float64](c, "waves.cpu")
+		*cpu = append(*cpu, c.State().CPU)
+		if len(*cpu) > wavesKeep {
+			*cpu = (*cpu)[len(*cpu)-wavesKeep:]
+		}
+	}
+	return nil
+}}
+
+var wavesWidget = dashboard.Widget{
+	Key: "waves", Page: "monitor", Order: 40, Title: "CPU Waveforms", Subtitle: "one series, four styles",
+	Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
+		th, cpu := c.Theme(), *dashygotui.Local[[]float64](c, "waves.cpu")
+		w := max(size.Cols-panel.LabelWidth-1, 1)
+		indent := strings.Repeat(" ", panel.LabelWidth+1)
+		rows := []string{
+			panel.Row(th, "Spark", chart.Sparkline(th, cpu, 100, w)),
+			panel.Row(th, "Heat", chart.HeatStrip(th, cpu, 100, w)),
+		}
+		if h := (size.Rows - len(rows)) / 2; h >= 1 {
+			for i, r := range chart.BarGraph(th, cpu, 100, w, h) {
+				label := indent
+				if i == 0 {
+					label = th.Muted.Render("Bars    ") + " "
+				}
+				rows = append(rows, label+r)
+			}
+			for i, r := range chart.LineTrace(th, cpu, 100, w, h) {
+				label := indent
+				if i == 0 {
+					label = th.Muted.Render("Trace   ") + " "
+				}
+				rows = append(rows, label+r)
 			}
 		}
-		return nil
-	})
-
-	dashboard.Registry.Add(dashboard.Widget{
-		Key: "waves", Page: "monitor", Order: 40, Title: "CPU Waveforms", Subtitle: "one series, four styles",
-		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
-			th, cpu := c.Theme(), *dashygotui.Local[[]float64](c, "waves.cpu")
-			w := max(size.Cols-panel.LabelWidth-1, 1)
-			indent := strings.Repeat(" ", panel.LabelWidth+1)
-			rows := []string{
-				panel.Row(th, "Spark", chart.Sparkline(th, cpu, 100, w)),
-				panel.Row(th, "Heat", chart.HeatStrip(th, cpu, 100, w)),
-			}
-			if h := (size.Rows - len(rows)) / 2; h >= 1 {
-				for i, r := range chart.BarGraph(th, cpu, 100, w, h) {
-					label := indent
-					if i == 0 {
-						label = th.Muted.Render("Bars    ") + " "
-					}
-					rows = append(rows, label+r)
-				}
-				for i, r := range chart.LineTrace(th, cpu, 100, w, h) {
-					label := indent
-					if i == 0 {
-						label = th.Muted.Render("Trace   ") + " "
-					}
-					rows = append(rows, label+r)
-				}
-			}
-			return rows
-		},
-	})
+		return rows
+	},
 }

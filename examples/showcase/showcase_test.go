@@ -15,6 +15,7 @@ import (
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/dashtest"
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
+	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard/addons"
 	"github.com/CeeSmag/dashygotui/store"
 	"github.com/CeeSmag/dashygotui/text"
 )
@@ -31,7 +32,9 @@ func TestMain(m *testing.M) {
 // The showcase is an integration test of the whole library: the real registry,
 // filled by the real addons (imported by main.go), driven like a user would.
 
-func opts(st dashygotui.Store) dashboard.Options { return dashboard.Options{Store: st} }
+func opts(st dashygotui.Store) dashboard.Options {
+	return dashboard.Options{Store: st, Addons: addons.All()}
+}
 
 func newApp(t *testing.T, st dashygotui.Store) *dashtest.Driver {
 	t.Helper()
@@ -42,6 +45,9 @@ func newApp(t *testing.T, st dashygotui.Store) *dashtest.Driver {
 func newAppWith(t *testing.T, o dashboard.Options) *dashtest.Driver {
 	t.Helper()
 	dashboard.Logs.Clear()
+	if o.Addons == nil {
+		o.Addons = addons.All()
+	}
 	return dashtest.New(t, dashboard.Config(o), 160, 44)
 }
 
@@ -66,10 +72,7 @@ func open(d *dashtest.Driver, number string) {
 	d.Press("enter")
 }
 
-func TestTheRegistryIsValid(t *testing.T) {
-	if err := dashboard.Registry.Validate(); err != nil {
-		t.Fatalf("registration errors:\n%v", err)
-	}
+func TestTheAddonsAreValid(t *testing.T) {
 	if _, err := dashygotui.New(dashboard.Config(opts(store.NewMemory()))); err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -638,7 +641,7 @@ func TestPageTitlesShortenOnNarrowTerminals(t *testing.T) {
 
 func TestTTYModeIsConsoleSafeEverywhere(t *testing.T) {
 	cfg := func() dashboard.Options {
-		return dashboard.Options{Store: store.NewMemory(), Glyphs: dashygotui.GlyphsTTY}
+		return dashboard.Options{Store: store.NewMemory(), Glyphs: dashygotui.GlyphsTTY, Addons: addons.All()}
 	}
 	safe := func(r rune) bool {
 		return (r >= 0x20 && r <= 0x7e) || strings.ContainsRune("─│┌┐└┘├┤░▒▓█\n", r)
@@ -1086,7 +1089,13 @@ func TestExamplesReadmeCountsAreTrue(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := d.Outline()
-	files, _ := filepath.Glob("dashboard/addons/*.go")
+	all, _ := filepath.Glob("dashboard/addons/*.go")
+	var files []string // the addon files, not doc.go and the generated list
+	for _, f := range all {
+		if b := filepath.Base(f); b != "doc.go" && b != "addons_gen.go" {
+			files = append(files, f)
+		}
+	}
 	for _, want := range []string{
 		fmt.Sprintf("%d options", len(out.Options)),
 		fmt.Sprintf("%d views", len(out.Views)),

@@ -8,6 +8,4 @@ import (
 // [4] Logs: the library's scrollable log view, newest entry first, with "g" as
 // its hotkey from any page.
 
-func init() {
-	stdaddons.Logs(dashboard.Registry, dashboard.Logs, "actions", 4, stdaddons.Setup{Hotkey: "g"})
-}
+var logsOption = stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Section: "actions", Number: 4, Hotkey: "g"}

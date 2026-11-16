@@ -11,4 +11,4 @@ import (
 // developer sets the starting mode with Config.Background (or -background); the
 // user's saved choice wins.
 
-func init() { stdaddons.Background(dashboard.Registry, "appearance", 24) }
+var backgroundOption = stdaddons.BackgroundPicker[dashboard.State]{Section: "appearance", Number: 24}

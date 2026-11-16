@@ -75,13 +75,11 @@ func (m *pingModal) Render(c *dashboard.Ctx, size dashygotui.Size) []string {
 	return panel.Panel(th, "Ping", "", "", min(50, max(size.Cols, 1)), len(body)+2, body)
 }
 
-func init() {
-	dashboard.Registry.Add(dashboard.Option{
-		Key: "ping", Section: "custom", Number: 41, Label: "Ping Host",
-		Modal: func(c *dashboard.Ctx) dashboard.Modal {
-			m := &pingModal{host: "example.local"}
-			m.tag = fmt.Sprintf("ping.%p", m)
-			return m
-		},
-	})
+var pingOption = dashboard.Option{
+	Key: "ping", Section: "custom", Number: 41, Label: "Ping Host",
+	Modal: func(c *dashboard.Ctx) dashboard.Modal {
+		m := &pingModal{host: "example.local"}
+		m.tag = fmt.Sprintf("ping.%p", m)
+		return m
+	},
 }

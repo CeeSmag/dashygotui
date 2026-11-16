@@ -9,6 +9,7 @@ package addons
 //  1. Copy this file to your addons directory as modal_<name>.go.
 //  2. Change the import path of the dashboard package to your own.
 //  3. Pick an unused option Number and a section declared in your dashboard file.
+//  4. Run go generate ./... so the generated addons_gen.go lists the new value.
 //
 // All state lives in the modal value, never in package variables.
 
@@ -42,11 +43,9 @@ func (m *pickModal) Render(c *dashboard.Ctx, size dashygotui.Size) []string {
 	return panel.Panel(c.Theme(), "My Modal", "", "", min(50, size.Cols), len(body)+2, body)
 }
 
-func init() {
-	dashboard.Registry.Add(dashboard.Option{
-		Key: "my_modal", Section: "settings", Number: 44, Label: "My Modal",
-		// Modal returns the pop-up to open. (Your dashboard package needs the alias
-		// `type Modal = dashygotui.Modal[State]` next to its other aliases.)
-		Modal: func(*dashboard.Ctx) dashboard.Modal { return &pickModal{} },
-	})
+var myModalOption = dashboard.Option{
+	Key: "my_modal", Section: "settings", Number: 44, Label: "My Modal",
+	// Modal returns the pop-up to open. (Your dashboard package needs the alias
+	// `type Modal = dashygotui.Modal[State]` next to its other aliases.)
+	Modal: func(*dashboard.Ctx) dashboard.Modal { return &pickModal{} },
 }

@@ -7,4 +7,4 @@ import (
 
 // [21] Section Gap: the library's ready-made spacing sliders.
 
-func init() { stdaddons.Spacing(dashboard.Registry, "appearance", 21) }
+var spacingOption = stdaddons.SpacingMenu[dashboard.State]{Section: "appearance", Number: 21}

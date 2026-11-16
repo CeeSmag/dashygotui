@@ -106,7 +106,12 @@ func contains(list []string, s string) bool {
 // the package name.
 func render(tmpl, importPath, name string, number int, pkg string) string {
 	label := titleCase(name)
+	id := lowerCamel(name) // the Go names: one file's values must not clash with another's
 	r := strings.NewReplacer(
+		// longest first: at one position the first match wins
+		"myWidgetHistory", id+"History", "myWidgetSampler", id+"Sampler",
+		"myFeatureOption", id+"Option", "myModalOption", id+"ModalOption", "pickModal", id+"Modal",
+		"myShortcut", id+"Shortcut", "myWidget", id+"Widget", "myView", id+"View",
 		"example.com/yourapp/dashboard", importPath,
 		"my_feature", name, "my_view", name, "my_widget", name, "my_modal", name,
 		"My Feature", label, "My View", label, "My Widget", label, "My Modal", label,
@@ -120,6 +125,15 @@ func render(tmpl, importPath, name string, number int, pkg string) string {
 		out = pkgNameRe.ReplaceAllString(out, "package "+pkg)
 	}
 	return out
+}
+
+// lowerCamel turns my_feature into myFeature.
+func lowerCamel(snake string) string {
+	t := strings.ReplaceAll(titleCase(snake), " ", "")
+	if t == "" {
+		return "addon"
+	}
+	return strings.ToLower(t[:1]) + t[1:]
 }
 
 func titleCase(snake string) string {

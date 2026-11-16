@@ -1,7 +1,7 @@
 // Package dashboard is the foundation of the showcase application: it declares
-// the pages and the sections on them, owns the one Registry, and builds the
-// dashboard. It never imports the addons package; main does that, with a blank
-// import, so each addon registers itself.
+// the pages and the sections on them and builds the dashboard. It never imports
+// the addons package; main passes the addons in (addons.All, a generated list of
+// every addon file's values).
 //
 // Everything the library can do is used somewhere in this application. The
 // comments on each page below say which features it demonstrates.
@@ -52,10 +52,6 @@ type State struct {
 	Processes []Process
 }
 
-// Registry is the application's single registry. Addons register with it from
-// init(); call its methods directly so errors name the addon's own file.
-var Registry = dashygotui.NewRegistry[State]()
-
 // Logs collects the application's log output. main diverts the standard logger
 // into it before the dashboard starts, and the Logs view shows it.
 var Logs = logs.NewBuffer(5000)
@@ -93,6 +89,10 @@ type (
 	Shortcut = dashygotui.Shortcut[State]
 	// Modal is a pop-up.
 	Modal = dashygotui.Modal[State]
+	// Addon is anything the dashboard takes in Config.Addons.
+	Addon = dashygotui.Addon[State]
+	// Hook reacts to ticks, messages and task results.
+	Hook = dashygotui.Hook[State]
 )
 
 // OutageKey is the Store key that makes Poll fail, to show a stale dashboard.
@@ -100,6 +100,8 @@ const OutageKey = "sim.outage"
 
 // Options are the settings main takes from its command line.
 type Options struct {
+	// Addons are the features: addons.All() in the application.
+	Addons     []Addon
 	Store      dashygotui.Store
 	Glyphs     dashygotui.GlyphMode
 	Background dashygotui.BackgroundMode
@@ -133,7 +135,7 @@ func Config(o Options) dashygotui.Config[State] {
 	st := o.Store
 	return dashygotui.Config[State]{
 		Title:    "Showcase",
-		Registry: Registry,
+		Addons:   o.Addons,
 		Store:    st,
 		Poll:     poll(time.Now(), st, o.Events),
 		Interval: time.Second,

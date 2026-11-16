@@ -12,7 +12,7 @@ import (
 	"github.com/CeeSmag/dashygotui/text"
 )
 
-// Network: a live mirrored waveform, download above the axis and upload below. It samples on every tick with an OnTick hook
+// Network: a live mirrored waveform, download above the axis and upload below. It samples on every tick with a Hook's Tick
 // and keeps its history with dashygotui.Local (state of this dashboard, not of the
 // process), so the file stays self-contained.
 
@@ -25,45 +25,43 @@ type traffic struct {
 
 const window = 2 * time.Minute
 
-func init() {
-	history := func(c *dashboard.Ctx) *traffic {
-		return dashygotui.LocalWith(c, "network", func() *traffic {
-			return &traffic{in: chart.NewSeries(window), out: chart.NewSeries(window),
-				scaler: chart.NewWaveScaler(chart.ScalerOpts{MinScale: 100_000})}
-		})
+func networkHistory(c *dashboard.Ctx) *traffic {
+	return dashygotui.LocalWith(c, "network", func() *traffic {
+		return &traffic{in: chart.NewSeries(window), out: chart.NewSeries(window),
+			scaler: chart.NewWaveScaler(chart.ScalerOpts{MinScale: 100_000})}
+	})
+}
+
+var networkTick = dashboard.Hook{Tick: func(c *dashboard.Ctx, now time.Time) tea.Cmd {
+	if c.Ready() {
+		s := c.State()
+		tr := networkHistory(c)
+		tr.in.Add(now, s.NetIn)
+		tr.out.Add(now, s.NetOut)
+		tr.scaler.UpdateSync(s.NetIn, s.NetOut, now) // both directions share one scale
 	}
+	return nil
+}}
 
-	dashboard.Registry.OnTick(func(c *dashboard.Ctx, now time.Time) tea.Cmd {
-		if c.Ready() {
-			s := c.State()
-			tr := history(c)
-			tr.in.Add(now, s.NetIn)
-			tr.out.Add(now, s.NetOut)
-			tr.scaler.UpdateSync(s.NetIn, s.NetOut, now) // both directions share one scale
+var networkWidget = dashboard.Widget{
+	Key: "network", Page: "monitor", Order: 20, Title: "Network", Subtitle: "last 2 minutes",
+	Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
+		th, s, tr := c.Theme(), c.State(), networkHistory(c)
+		rows := []string{
+			panel.Row(th, "In", th.Green.Render(th.G.Down+" ")+text.Rate(s.NetIn)),
+			panel.Row(th, "Out", th.Cyan.Render(th.G.Up+" ")+text.Rate(s.NetOut)),
 		}
-		return nil
-	})
-
-	dashboard.Registry.Add(dashboard.Widget{
-		Key: "network", Page: "monitor", Order: 20, Title: "Network", Subtitle: "last 2 minutes",
-		Render: func(c *dashboard.Ctx, size dashygotui.Size) []string {
-			th, s, tr := c.Theme(), c.State(), history(c)
-			rows := []string{
-				panel.Row(th, "In", th.Green.Render(th.G.Down+" ")+text.Rate(s.NetIn)),
-				panel.Row(th, "Out", th.Cyan.Render(th.G.Up+" ")+text.Rate(s.NetOut)),
-			}
-			// A mirrored wave wants an odd height, so the axis sits in the middle.
-			h := chart.GraphRows(size.Cols, size.Rows-len(rows))
-			if h%2 == 0 {
-				h--
-			}
-			if h < 3 {
-				return rows
-			}
-			// Download grows upward from the axis, upload downward.
-			recv := chart.Resample(tr.in.Samples(), c.Now(), window, chart.DefaultHold, 2*size.Cols)
-			sent := chart.Resample(tr.out.Samples(), c.Now(), window, chart.DefaultHold, 2*size.Cols)
-			return append(rows, chart.DualWave(th, recv, sent, tr.scaler.Scale(), size.Cols, h)...)
-		},
-	})
+		// A mirrored wave wants an odd height, so the axis sits in the middle.
+		h := chart.GraphRows(size.Cols, size.Rows-len(rows))
+		if h%2 == 0 {
+			h--
+		}
+		if h < 3 {
+			return rows
+		}
+		// Download grows upward from the axis, upload downward.
+		recv := chart.Resample(tr.in.Samples(), c.Now(), window, chart.DefaultHold, 2*size.Cols)
+		sent := chart.Resample(tr.out.Samples(), c.Now(), window, chart.DefaultHold, 2*size.Cols)
+		return append(rows, chart.DualWave(th, recv, sent, tr.scaler.Scale(), size.Cols, h)...)
+	},
 }

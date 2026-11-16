@@ -5,7 +5,7 @@
 #   1. a copy of the demo app, depending on this tree through a replace directive
 #   2. `dashygotui init`, then `dashygotui new` for every addon kind
 #   3. the app must build and `dashygotui check` must pass
-#   4. a deliberately bad addon per rule (A1..A10, G1) must make `check` fail with
+#   4. a deliberately bad addon per rule (A1..A12, G1) must make `check` fail with
 #      exactly that rule
 set -euo pipefail
 
@@ -28,8 +28,12 @@ go 1.27
 
 require github.com/CeeSmag/dashygotui v0.3.0
 
+tool github.com/CeeSmag/dashygotui/cmd/dashygotui
+
 replace github.com/CeeSmag/dashygotui => $root
 MOD
+# An application runs the generator as a Go tool, at the version it builds against.
+sed -i 's#^//go:generate go run github.com/CeeSmag/dashygotui/cmd/dashygotui gen#//go:generate go tool dashygotui gen#' "$app/dashboard/addons/doc.go"
 (cd "$app" && go mod tidy >/dev/null 2>"$scratch/err" || { cat "$scratch/err"; exit 1; })
 
 # a git baseline, for `check -changed`
@@ -56,6 +60,9 @@ done
 # The scaffolded files target placeholder sections and pages; point them at real ones.
 sed -i 's/"settings"/"control"/; s/"actions"/"control"/' dashboard/addons/*_scaffold.go || true
 rm -f dashboard/addons/shortcut_scaffold.go   # its key may clash with the demo's; the file kinds are what is tested
+if grep -q 'scaffoldOption' dashboard/addons/addons_gen.go; then step "new adds the addon to the generated list"; else bad "new did not regenerate addons_gen.go"; fi
+# go generate runs the tool directive, as a developer would after deleting a file
+if go generate ./... >/dev/null 2>"$scratch/err" && ! grep -q 'scaffoldShortcut' dashboard/addons/addons_gen.go; then step "go generate rewrites the list"; else bad "go generate: $(cat "$scratch/err")"; fi
 
 # 3. the app builds and passes the check
 if go build ./... 2>"$scratch/err"; then step "the application builds"; else bad "build: $(cat "$scratch/err")"; fi
@@ -85,8 +92,9 @@ reset() { rm -f "$dir"/opt_bad*.go "$dir"/helpers.go "$dir"/../bad_gap.go; }
 
 printf 'package addons\n' >"$dir/helpers.go";                                                              expect A1; reset
 printf 'package addons\nfunc helperX() int { return 1 }\n' >"$dir/opt_bad_a.go"
-printf 'package addons\nfunc init() { _ = helperX() }\n' >"$dir/opt_bad_b.go";                              expect A2; reset
+printf 'package addons\nfunc helperY() int { return helperX() }\n' >"$dir/opt_bad_b.go";                    expect A2; reset
 printf 'package addons\nvar counter int\n' >"$dir/opt_bad.go";                                             expect A3; reset
+printf 'package addons\nimport "example.com/consumer/dashboard"\nvar Bad = dashboard.Option{}\n' >"$dir/opt_bad.go"; expect A3; reset
 printf 'package addons\nimport "time"\nfunc init() { time.Sleep(1) }\n' >"$dir/opt_bad.go";                expect A4; reset
 printf 'package addons\nvar _ = "#38BDF8"\n' >"$dir/opt_bad.go";                                           expect A5; reset
 printf 'package addons\nvar _ = "done ✓"\n' >"$dir/opt_bad.go";                                            expect A6; reset
@@ -101,10 +109,8 @@ import (
 	"example.com/consumer/dashboard"
 )
 
-func init() {
-	dashboard.Registry.Add(dashboard.Option{Key: "bad", Section: "control", Number: 999, Label: "Bad",
-		Run: func(c *dashboard.Ctx) tea.Cmd { c.Flash("x"); return nil }})
-}
+var badOption = dashboard.Option{Key: "bad", Section: "control", Number: 999, Label: "Bad",
+	Run: func(c *dashboard.Ctx) tea.Cmd { c.Flash("x"); return nil }}
 GO
 expect A9; reset
 cat >"$dir/opt_bad.go" <<'GO'
@@ -119,12 +125,15 @@ func init() {
 }
 GO
 expect A10; reset
+# A11: an addon added without regenerating the list
+printf 'package addons\nimport "example.com/consumer/dashboard"\nvar lateOption = dashboard.Option{Key: "late", Section: "control", Number: 997, Label: "Late", Do: func(*dashboard.Ctx) {}}\n' >"$dir/opt_bad.go"; expect A11; reset
+printf 'package addons\nfunc init() {}\n' >"$dir/opt_bad.go";                                            expect A12; reset
 printf 'package dashboard\n// dashygotui:gap\nfunc badGap() {}\n' >dashboard/bad_gap.go;                    expect G1; rm -f dashboard/bad_gap.go
 # the original problem: a wrapper around a library modal in the dashboard package, not in an addon
 printf 'package dashboard\nimport "github.com/CeeSmag/dashygotui/modal"\ntype SettingEdit struct{ *modal.Edit[State] }\n' >dashboard/bad_wrap.go; expect A8; rm -f dashboard/bad_wrap.go
 
 # the escape hatch works and is reported
-printf 'package addons\nimport "time"\nfunc init() {\n\ttime.Sleep(1) //dashygotui:allow A4 a pause the demo needs\n}\n' >"$dir/opt_bad.go"
+printf 'package addons\nimport "time"\nfunc pause() {\n\ttime.Sleep(1) //dashygotui:allow A4 a pause the demo needs\n}\n' >"$dir/opt_bad.go"
 if "$cli" check . >"$scratch/out" 2>&1 && grep -q "a pause the demo needs" "$scratch/out"; then step "allow comment excuses and is listed"; else bad "allow: $(cat "$scratch/out")"; fi
 reset
 

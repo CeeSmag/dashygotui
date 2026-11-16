@@ -55,11 +55,9 @@ func (d *diceModal) Render(c *dashboard.Ctx, size dashygotui.Size) []string {
 	return panel.Panel(th, "Dice", "", "", min(48, max(size.Cols, 1)), len(body)+2, body)
 }
 
-func init() {
-	dashboard.Registry.Add(dashboard.Option{
-		Key: "dice", Section: "custom", Number: 40, Label: "Dice Roller",
-		Modal: func(c *dashboard.Ctx) dashboard.Modal {
-			return &diceModal{}
-		},
-	})
+var diceOption = dashboard.Option{
+	Key: "dice", Section: "custom", Number: 40, Label: "Dice Roller",
+	Modal: func(c *dashboard.Ctx) dashboard.Modal {
+		return &diceModal{}
+	},
 }

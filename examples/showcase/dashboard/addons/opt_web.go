@@ -10,12 +10,10 @@ import (
 // HotkeyTone draws it in the theme's info colour. The key itself is still
 // Hotkey, the name Bubble Tea reports.
 
-func init() {
-	dashboard.Registry.Add(dashboard.Option{
-		Key: "web", Section: "ops", Number: 4, Label: "Open Web UI",
-		Hotkey: "ctrl+o", HotkeyDisplay: "Ctrl+O", HotkeyTone: dashygotui.ToneInfo,
-		Do: func(c *dashboard.Ctx) {
-			c.Flash("Would open http://localhost:8080 in your browser")
-		},
-	})
+var webOption = dashboard.Option{
+	Key: "web", Section: "ops", Number: 4, Label: "Open Web UI",
+	Hotkey: "ctrl+o", HotkeyDisplay: "Ctrl+O", HotkeyTone: dashygotui.ToneInfo,
+	Do: func(c *dashboard.Ctx) {
+		c.Flash("Would open http://localhost:8080 in your browser")
+	},
 }

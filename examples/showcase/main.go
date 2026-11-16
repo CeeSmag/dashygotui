@@ -25,7 +25,7 @@ import (
 
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
-	_ "github.com/CeeSmag/dashygotui/examples/showcase/dashboard/addons" // registers every addon
+	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard/addons"
 	"github.com/CeeSmag/dashygotui/store"
 )
 
@@ -50,7 +50,7 @@ func run(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	opts := dashboard.Options{Palette: *palette, AltScroll: *altScroll}
+	opts := dashboard.Options{Addons: addons.All(), Palette: *palette, AltScroll: *altScroll}
 	if *startView != "" {
 		opts.StartView = strings.Split(*startView, ",")
 	}

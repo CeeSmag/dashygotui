@@ -38,7 +38,7 @@ func checkCmd(args []string, stdout, stderr io.Writer) int {
 	}
 	addons := 0
 	for _, s := range srcs {
-		if guard.InAddons(s.Rel) {
+		if guard.InAddons(s.Rel) && !guard.IsSupportFile(s.Rel) {
 			addons++
 		}
 	}

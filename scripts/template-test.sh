@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Template test: every file in templates/ must compile and register cleanly when
-# dropped into the demo's addons directory with only its import path changed.
+# Template test: every file in templates/ must compile and validate cleanly when
+# dropped into the demo's addons directory with only its import path changed and
+# the addon list regenerated.
 # Keeps the starter files honest as the library evolves.
 set -euo pipefail
 
@@ -16,6 +17,9 @@ fi
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 
+cli="$scratch/dashygotui"
+go build -o "$cli" ./cmd/dashygotui
+
 fail=0
 for t in "${templates[@]}"; do
 	kind="$(basename "$t" .go.example)"        # opt, widget, view, modal
@@ -26,7 +30,9 @@ for t in "${templates[@]}"; do
 	sed 's#example.com/yourapp/dashboard#github.com/CeeSmag/dashygotui/examples/demo/dashboard#' "$t" >"$dest"
 	# Build, vet, and run the demo's own tests: that proves the template registers
 	# without colliding with the existing addons (numbers, keys, IDs).
-	if (cd "$scratch/tree" && go build ./... && go vet ./examples/... && go test -count=1 -run 'TestTheRegistryIsValid|TestControlPageShowsEveryOption' ./examples/demo/) >"$scratch/out" 2>&1; then
+	if (cd "$scratch/tree" && "$cli" gen -q examples/demo/dashboard/addons && go build ./... && go vet ./examples/... &&
+		go test -count=1 -run 'TestTheAddonsAreValid|TestControlPageShowsEveryOption' ./examples/demo/ &&
+		"$cli" check -q examples/demo) >"$scratch/out" 2>&1; then
 		echo "ok    $t"
 	else
 		echo "FAIL  $t"

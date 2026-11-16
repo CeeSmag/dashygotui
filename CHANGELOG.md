@@ -38,6 +38,12 @@ The road to v0.4.0, where addons become values (see `docs/DESIGN.md`).
   and **A3** in its value form (each package-level var is one unexported addon literal,
   never assigned to). `doc.go` and `addons_gen.go` are exempt from A1, A2 and from the
   one-file rule C1. `make deletion-test` regenerates the list after deleting an addon.
+- **The examples and templates are values** (phase 3). `showcase`, `demo` and
+  `buildwatch` declare every addon as a value, list them with a generated
+  `addons_gen.go`, and pass `addons.All()` to the dashboard; their dashboard packages
+  no longer declare a `Registry`. The templates in `templates/` are values too, and
+  `dashygotui new` renames a template's Go names after the addon, so two addons made
+  from one template do not clash.
 - **Poll failures are visible.** While the latest poll failed, the footer shows
   `STALE` in place of the refresh rate, and the footer says `poll failed: <reason>`
   once when the data goes stale (unless an addon's own message is showing).

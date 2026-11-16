@@ -7,4 +7,4 @@ import (
 
 // [20] Color Theme: the library's ready-made palette picker.
 
-func init() { stdaddons.Theme(dashboard.Registry, "appearance", 20) }
+var themeOption = stdaddons.ThemePicker[dashboard.State]{Section: "appearance", Number: 20}
