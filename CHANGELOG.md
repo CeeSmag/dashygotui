@@ -5,6 +5,16 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [0.4.1] - 2026-11-16
+
+### Changed
+
+- The examples say which graphs follow the clock and which follow refreshes. The
+  Network graph spans the last 2 minutes of clock time, so it scrolls at the same
+  speed whatever the refresh rate; the CPU Waveforms keep the last 120 refreshes and
+  speed up with `+`. Their subtitles ("last 2 minutes, by the clock", "last 120
+  refreshes, four styles") and comments now say so. The library is unchanged.
+
 ## [0.4.0] - 2026-11-16
 
 **Addons are values.** An addon is an unexported top-level value in its own file;
