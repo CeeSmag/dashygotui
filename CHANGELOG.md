@@ -15,6 +15,18 @@ The road to v0.4.0, where addons become values (see `docs/DESIGN.md`).
   deadline). A poll that runs past it fails with an error wrapping
   `context.DeadlineExceeded` and the next poll starts on schedule, so a poll that
   never returns can no longer freeze the dashboard.
+- **Addons as values** (phase 1 of the plan in `docs/DESIGN.md`), next to the registry:
+  - `Config.Addons` takes the dashboard's addons as a list. `Config.Registry` is now
+    optional and its addons are used together with the list; a dashboard with no addons
+    at all is valid.
+  - `At(site, addon)` records where an addon is declared, so startup errors name that
+    place; without it an error names the addon's index, such as `Config.Addons[2]`.
+  - `Hook` is an addon with `Tick`, `Msg` and `Result` functions, the value form of
+    `Registry.OnTick`, `OnMsg` and `OnResult`.
+  - `stdaddons.ThemePicker`, `RefreshRatePicker`, `SpacingMenu`, `DisplayPicker`,
+    `BackgroundPicker`, `TransparencyToggle` and `LogView` are the value forms of
+    `stdaddons.Theme`, `RefreshRate`, `Spacing`, `Display`, `Background`,
+    `Transparency` and `Logs`/`LogsWith`.
 - **Poll failures are visible.** While the latest poll failed, the footer shows
   `STALE` in place of the refresh rate, and the footer says `poll failed: <reason>`
   once when the data goes stale (unless an addon's own message is showing).

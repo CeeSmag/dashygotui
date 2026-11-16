@@ -8,12 +8,13 @@ For when to use what, read `COOKBOOK.md`; for the narrative, `ADDONS.md`.
 
 ### `Config`
 
-Config describes a dashboard. Registry, Pages and Sections are required; the rest have sensible defaults.
+Config describes a dashboard. Pages are required; the rest have sensible defaults.
 
 | Field | Type | What it does |
 | --- | --- | --- |
 | `Title` | `string` | Title names the application in the header and the terminal window title. |
-| `Registry` | `*Registry[S]` | Registry holds the addons. Required. Applications pass their one global registry; tests pass a fresh one. |
+| `Addons` | `[]Addon[S]` | Addons are the dashboard's options, widgets, views, shortcuts and hooks. An application passes the list that dashygotui gen writes (addons.All()); a test passes the few it needs. Each is checked when [New] runs. |
+| `Registry` | `*Registry[S]` | Registry holds addons registered from init(), the form used up to v0.3. Optional: its addons are used together with Addons. |
 | `Pages` | `[]Page[S]` | Pages are the dashboard tabs, in tab order. At least one is required. |
 | `Sections` | `[]SectionSpec[S]` | Sections are the option containers on the pages. Options and widgets refer to pages and sections declared here by ID. |
 | `Poll` | `func(ctx context.Context) (S, error)` | Poll fetches the application state. It is called at Interval, in the background, and once at start. When nil the state stays the zero value of S and nothing is polled. |
@@ -177,6 +178,16 @@ Shortcut is a global key binding on the dashboard pages.
 | `Do` | `func(*Context[S])` | Do is Run for an action with no command to return. |
 | `Opens` | `string` | Opens is the ID of a registered [View] to open. |
 | `Modal` | `func(*Context[S]) Modal[S]` | Modal returns a pop-up to open. |
+
+### `Hook`
+
+Hook is an addon that reacts to the dashboard's events rather than drawing anything: an addon that samples data on every tick, handles the messages of its own commands, or claims the results of its own tasks. Set at least one field.
+
+| Field | Type | What it does |
+| --- | --- | --- |
+| `Tick` | `func(*Context[S], time.Time) tea.Cmd` | Tick is called on every refresh tick, for addons that sample data over time. It runs on the update loop and must not block. |
+| `Msg` | `func(*Context[S], tea.Msg) tea.Cmd` | Msg is called with every message the dashboard does not recognise, so an addon can handle the messages of its own commands. Every hook sees every such message; return nil to ignore one. |
+| `Result` | `func(*Context[S], TaskResult) (handled bool, cmd tea.Cmd)` | Result sees the result of every background task. Return handled == true to stop the other result hooks and the default footer message. |
 
 ## Package modal
 
@@ -351,4 +362,84 @@ Text is a text setting, edited in a one-line pop-up. Secret masks the input and 
 | `AllowEmpty` | `bool` | AllowEmpty lets the user save an empty value, which clears the setting back to Default. |
 | `Validate` | `func(value string) error` | Validate checks a value before it is saved. Optional. |
 | `OnChange` | `func(ctx *dashygotui.Context[S], value string) tea.Cmd` | OnChange is called with the new value after it was saved. Optional. |
+
+### `ThemePicker`
+
+ThemePicker is an option that opens a colour palette picker. Moving the highlight previews each palette live; Enter keeps one and saves the choice and Esc restores the previous palette. It is the value form of [Theme]: declare it as an addon.
+
+| Field | Type | What it does |
+| --- | --- | --- |
+| `Section` | `string` | Section is the section the option appears in. Required. |
+| `Number` | `int` | Number is the option's number. Required and unique. |
+| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
+| `Order` | `int` | Order sorts the option within its section. Optional. |
+
+### `RefreshRatePicker`
+
+RefreshRatePicker is an option that opens a refresh-rate picker. It is the value form of [RefreshRate]: declare it as an addon.
+
+| Field | Type | What it does |
+| --- | --- | --- |
+| `Section` | `string` | Section is the section the option appears in. Required. |
+| `Number` | `int` | Number is the option's number. Required and unique. |
+| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
+| `Order` | `int` | Order sorts the option within its section. Optional. |
+
+### `SpacingMenu`
+
+SpacingMenu is an option that opens the spacing menu: the four gaps that frame the dashboard, each adjusted with a live slider, plus a reset. It is the value form of [Spacing]: declare it as an addon.
+
+| Field | Type | What it does |
+| --- | --- | --- |
+| `Section` | `string` | Section is the section the option appears in. Required. |
+| `Number` | `int` | Number is the option's number. Required and unique. |
+| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
+| `Order` | `int` | Order sorts the option within its section. Optional. |
+
+### `DisplayPicker`
+
+DisplayPicker is an option that opens a display-mode picker: Auto (detect the Linux console), Unicode, or TTY. Moving the highlight previews each mode live; Enter keeps one and saves it, Esc restores the previous mode. It is the value form of [Display]: declare it as an addon.
+
+| Field | Type | What it does |
+| --- | --- | --- |
+| `Section` | `string` | Section is the section the option appears in. Required. |
+| `Number` | `int` | Number is the option's number. Required and unique. |
+| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
+| `Order` | `int` | Order sorts the option within its section. Optional. |
+
+### `BackgroundPicker`
+
+BackgroundPicker is an option that lets the user choose how the palette's background reaches the terminal (Terminal, Paint or Off); see [Background]. It is the value form of [Background]: declare it as an addon.
+
+| Field | Type | What it does |
+| --- | --- | --- |
+| `Section` | `string` | Section is the section the option appears in. Required. |
+| `Number` | `int` | Number is the option's number. Required and unique. |
+| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
+| `Order` | `int` | Order sorts the option within its section. Optional. |
+
+### `TransparencyToggle`
+
+TransparencyToggle is a one-key switch for a transparent background; see [Transparency]. It is the value form of [Transparency]: declare it as an addon.
+
+| Field | Type | What it does |
+| --- | --- | --- |
+| `Section` | `string` | Section is the section the option appears in. Required. |
+| `Number` | `int` | Number is the option's number. Required and unique. |
+| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
+| `Order` | `int` | Order sorts the option within its section. Optional. |
+
+### `LogView`
+
+LogView is a full-screen log view of Buffer and the option that opens it: the value form of [Logs] and [LogsWith]. Declare it as an addon: var logView = stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Section: "views", Number: 52} Divert the application's logger into Buffer before the dashboard starts. The option's badge counts the entries, and the errors among them.
+
+| Field | Type | What it does |
+| --- | --- | --- |
+| `Buffer` | `*logs.Buffer` | Buffer is the log buffer shown. Required. |
+| `Section` | `string` | Section is the section the option appears in. Required. |
+| `Number` | `int` | Number is the option's number. Required and unique. |
+| `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
+| `Order` | `int` | Order sorts the option within its section. Optional. |
+| `Categories` | `[]string` | Categories are tabs always shown, in this order, ahead of any category the buffer meets later. Optional. |
+| `CategoryKey` | `string` | CategoryKey is the key that selects the next category tab; the same letter in upper case selects the previous one. Without it the tabs cannot be switched. Optional. |
 

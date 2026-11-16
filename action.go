@@ -1,11 +1,15 @@
 package dashygotui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"time"
 
-// Addon is anything [Registry.Add] takes. [Option], [Shortcut], [View] and
-// [Widget] are addons, and so is any type of yours that returns some of them
-// from Addons: a "setting" that is an option plus a pop-up, say. The ready-made
-// settings in package stdaddons are written this way.
+	tea "charm.land/bubbletea/v2"
+)
+
+// Addon is anything [Config.Addons] (or [Registry.Add]) takes. [Option],
+// [Shortcut], [View], [Widget] and [Hook] are addons, and so is any type of yours
+// that returns some of them from Addons: a "setting" that is an option plus a
+// pop-up, say. The ready-made settings in package stdaddons are written this way.
 //
 // An addon that returns other addons is expanded in place, so what it returns
 // is registered and checked like anything else.
@@ -25,6 +29,41 @@ func (v View[S]) Addons() []Addon[S] { return []Addon[S]{v} }
 
 // Addons implements [Addon].
 func (w Widget[S]) Addons() []Addon[S] { return []Addon[S]{w} }
+
+// Addons implements [Addon].
+func (h Hook[S]) Addons() []Addon[S] { return []Addon[S]{h} }
+
+// Hook is an addon that reacts to the dashboard's events rather than drawing
+// anything: an addon that samples data on every tick, handles the messages of
+// its own commands, or claims the results of its own tasks. Set at least one
+// field.
+type Hook[S any] struct {
+	// Tick is called on every refresh tick, for addons that sample data over
+	// time. It runs on the update loop and must not block.
+	Tick func(*Context[S], time.Time) tea.Cmd
+	// Msg is called with every message the dashboard does not recognise, so an
+	// addon can handle the messages of its own commands. Every hook sees every
+	// such message; return nil to ignore one.
+	Msg func(*Context[S], tea.Msg) tea.Cmd
+	// Result sees the result of every background task. Return handled == true
+	// to stop the other result hooks and the default footer message.
+	Result func(*Context[S], TaskResult) (handled bool, cmd tea.Cmd)
+}
+
+// At records where an addon is declared, such as "opt_backup.go:4", so a
+// startup error about it names that place. The list that dashygotui gen writes
+// wraps every addon in At; a hand-written list may leave it out, and its errors
+// then name the addon's index in [Config.Addons].
+func At[S any](site string, a Addon[S]) Addon[S] { return sited[S]{site: site, addon: a} }
+
+// sited is an addon with the place it is declared.
+type sited[S any] struct {
+	site  string
+	addon Addon[S]
+}
+
+// Addons implements [Addon].
+func (s sited[S]) Addons() []Addon[S] { return []Addon[S]{s.addon} }
 
 // Invalid is an addon that records a registration error instead of registering
 // anything. A composite addon returns it from Addons when its own settings make
@@ -60,6 +99,10 @@ func (r *Registry[S]) registerAddon(it Addon[S], site string, depth int) {
 		r.mu.Lock()
 		r.fail(site, "%s", v.Reason)
 		r.mu.Unlock()
+	case Hook[S]:
+		v.register(r, site)
+	case sited[S]:
+		r.registerAddon(v.addon, v.site, depth)
 	default:
 		if depth >= maxAddonDepth {
 			r.mu.Lock()

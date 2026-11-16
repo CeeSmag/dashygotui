@@ -1,17 +1,18 @@
 // Package stdaddons provides ready-made addons that every dashboard may want:
 // a colour-theme picker, the four spacing sliders, a refresh-rate picker, a
-// display-mode (Unicode or TTY) picker, and a scrollable log view.
+// display-mode (Unicode or TTY) picker, a scrollable log view, and one-line
+// settings (Toggle, Number, Pick, Text).
 //
-// They are opt-in. An application adds one by calling its function from a
-// one-file addon, passing the registry, the section to appear in, and the
-// option number:
+// They are opt-in. An application adds one by declaring it as a value in a
+// one-file addon, with the section to appear in and the option number:
 //
 //	// dashboard/addons/opt_theme.go
-//	func init() { stdaddons.Theme(dashboard.Registry, "appearance", 20) }
+//	var theme = stdaddons.ThemePicker[dashboard.State]{Section: "appearance", Number: 20}
 //
-// Each registers an ordinary [dashygotui.Option], so it takes part in number
-// collision checks like any other. Pass a [Setup] to give it a hotkey or an
-// order.
+// Each expands into ordinary [dashygotui.Option] values, so it takes part in
+// number collision checks like any other. The functions that take a
+// [dashygotui.Registry] (Theme, Spacing and the rest) are the v0.3 form of the
+// same addons.
 package stdaddons
 
 import (
@@ -33,22 +34,42 @@ type Setup struct {
 	Order int
 }
 
-// apply copies the first Setup, if any, onto o.
-func apply[S any](o dashygotui.Option[S], setup []Setup) dashygotui.Option[S] {
-	if len(setup) > 0 {
-		o.Hotkey, o.Order = setup[0].Hotkey, setup[0].Order
-	}
-	return o
-}
-
 // Theme registers an option that opens a colour palette picker. Moving the
 // highlight previews each palette live; Enter keeps one and saves the choice
 // and Esc restores the previous palette.
 func Theme[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Option(apply(dashygotui.Option[S]{
+	reg.Add(ThemePicker[S]{Section: section, Number: number}.with(setup))
+}
+
+// ThemePicker is an option that opens a colour palette picker. Moving the
+// highlight previews each palette live; Enter keeps one and saves the choice
+// and Esc restores the previous palette.
+//
+// It is the value form of [Theme]: declare it as an addon.
+type ThemePicker[S any] struct {
+	// Section is the section the option appears in. Required.
+	Section string
+	// Number is the option's number. Required and unique.
+	Number int
+	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
+	Hotkey string
+	// Order sorts the option within its section. Optional.
+	Order int
+}
+
+func (a ThemePicker[S]) with(setup []Setup) ThemePicker[S] {
+	if len(setup) > 0 {
+		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
+	}
+	return a
+}
+
+// Addons implements [dashygotui.Addon].
+func (a ThemePicker[S]) Addons() []dashygotui.Addon[S] {
+	return []dashygotui.Addon[S]{dashygotui.Option[S]{
 		Key:     "stdaddons.theme",
-		Section: section,
-		Number:  number,
+		Section: a.Section,
+		Number:  a.Number,
 		Label:   "Color Theme",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			if p, ok := theme.Lookup(ctx.Palettes(), ctx.PaletteID()); ok {
@@ -56,11 +77,13 @@ func Theme[S any](reg *dashygotui.Registry[S], section string, number int, setup
 			}
 			return ctx.Badge(ctx.PaletteID())
 		},
-		Run: openThemePicker[S],
-	}, setup))
+		Do:     openThemePicker[S],
+		Hotkey: a.Hotkey,
+		Order:  a.Order,
+	}}
 }
 
-func openThemePicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
+func openThemePicker[S any](ctx *dashygotui.Context[S]) {
 	palettes := ctx.Palettes()
 	original := ctx.PaletteID()
 	items := make([]modal.Item, len(palettes))
@@ -85,22 +108,49 @@ func openThemePicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
 		},
 		OnCancel: func(c *dashygotui.Context[S]) tea.Cmd { c.PreviewPalette(original); return nil },
 	})
-	return nil
 }
 
 // RefreshRate registers an option that opens a refresh-rate picker.
 func RefreshRate[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Option(apply(dashygotui.Option[S]{
-		Key:     "stdaddons.refresh",
-		Section: section,
-		Number:  number,
-		Label:   "Refresh Rate",
-		Badge:   func(ctx *dashygotui.Context[S]) string { return ctx.Badge(rateLabel(ctx.RefreshInterval())) },
-		Run:     openRatePicker[S],
-	}, setup))
+	reg.Add(RefreshRatePicker[S]{Section: section, Number: number}.with(setup))
 }
 
-func openRatePicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
+// RefreshRatePicker is an option that opens a refresh-rate picker.
+//
+// It is the value form of [RefreshRate]: declare it as an addon.
+type RefreshRatePicker[S any] struct {
+	// Section is the section the option appears in. Required.
+	Section string
+	// Number is the option's number. Required and unique.
+	Number int
+	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
+	Hotkey string
+	// Order sorts the option within its section. Optional.
+	Order int
+}
+
+func (a RefreshRatePicker[S]) with(setup []Setup) RefreshRatePicker[S] {
+	if len(setup) > 0 {
+		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
+	}
+	return a
+}
+
+// Addons implements [dashygotui.Addon].
+func (a RefreshRatePicker[S]) Addons() []dashygotui.Addon[S] {
+	return []dashygotui.Addon[S]{dashygotui.Option[S]{
+		Key:     "stdaddons.refresh",
+		Section: a.Section,
+		Number:  a.Number,
+		Label:   "Refresh Rate",
+		Badge:   func(ctx *dashygotui.Context[S]) string { return ctx.Badge(rateLabel(ctx.RefreshInterval())) },
+		Do:      openRatePicker[S],
+		Hotkey:  a.Hotkey,
+		Order:   a.Order,
+	}}
+}
+
+func openRatePicker[S any](ctx *dashygotui.Context[S]) {
 	intervals := dashygotui.RefreshIntervals()
 	details := []string{"smoothest animation, highest CPU", "very responsive", "smooth", "balanced (default)", "relaxed", "lowest CPU"}
 	items := make([]modal.Item, len(intervals))
@@ -130,7 +180,6 @@ func openRatePicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
 			return nil
 		},
 	})
-	return nil
 }
 
 // rateLabel renders an interval as a rate: "1/s (1s)", "10/s (100ms)".
@@ -166,18 +215,47 @@ func gaps(both string) []gap {
 // Spacing registers an option that opens the spacing menu: the four gaps
 // that frame the dashboard, each adjusted with a live slider, plus a reset.
 func Spacing[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Option(apply(dashygotui.Option[S]{
+	reg.Add(SpacingMenu[S]{Section: section, Number: number}.with(setup))
+}
+
+// SpacingMenu is an option that opens the spacing menu: the four gaps that
+// frame the dashboard, each adjusted with a live slider, plus a reset.
+//
+// It is the value form of [Spacing]: declare it as an addon.
+type SpacingMenu[S any] struct {
+	// Section is the section the option appears in. Required.
+	Section string
+	// Number is the option's number. Required and unique.
+	Number int
+	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
+	Hotkey string
+	// Order sorts the option within its section. Optional.
+	Order int
+}
+
+func (a SpacingMenu[S]) with(setup []Setup) SpacingMenu[S] {
+	if len(setup) > 0 {
+		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
+	}
+	return a
+}
+
+// Addons implements [dashygotui.Addon].
+func (a SpacingMenu[S]) Addons() []dashygotui.Addon[S] {
+	return []dashygotui.Addon[S]{dashygotui.Option[S]{
 		Key:     "stdaddons.spacing",
-		Section: section,
-		Number:  number,
+		Section: a.Section,
+		Number:  a.Number,
 		Label:   "Section Gap",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			sp := ctx.Spacing()
 			d := ctx.Theme().G.Dot
 			return ctx.Badge(fmt.Sprintf("%d%s%d%s%d%s%d", sp.TerminalPage, d, sp.PageSection, d, sp.Section, d, sp.SectionOption))
 		},
-		Run: openSpacingMenu[S],
-	}, setup))
+		Run:    openSpacingMenu[S],
+		Hotkey: a.Hotkey,
+		Order:  a.Order,
+	}}
 }
 
 func openSpacingMenu[S any](ctx *dashygotui.Context[S]) tea.Cmd {

@@ -46,16 +46,55 @@ type LogOptions struct {
 // round. Each category keeps its own scroll position, and a tab you are not on
 // shows how many entries arrived since you left it.
 func LogsWith[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section string, number int, opts LogOptions, setup ...Setup) {
+	v := LogView[S]{Buffer: buf, Section: section, Number: number, Categories: opts.Categories, CategoryKey: opts.CategoryKey}
+	if len(setup) > 0 {
+		v.Hotkey, v.Order = setup[0].Hotkey, setup[0].Order
+	}
+	reg.Add(v)
+}
+
+// LogView is a full-screen log view of Buffer and the option that opens it: the
+// value form of [Logs] and [LogsWith]. Declare it as an addon:
+//
+//	var logView = stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Section: "views", Number: 52}
+//
+// Divert the application's logger into Buffer before the dashboard starts. The
+// option's badge counts the entries, and the errors among them.
+type LogView[S any] struct {
+	// Buffer is the log buffer shown. Required.
+	Buffer *logs.Buffer
+	// Section is the section the option appears in. Required.
+	Section string
+	// Number is the option's number. Required and unique.
+	Number int
+	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
+	Hotkey string
+	// Order sorts the option within its section. Optional.
+	Order int
+	// Categories are tabs always shown, in this order, ahead of any category
+	// the buffer meets later. Optional.
+	Categories []string
+	// CategoryKey is the key that selects the next category tab; the same letter
+	// in upper case selects the previous one. Without it the tabs cannot be
+	// switched. Optional.
+	CategoryKey string
+}
+
+// Addons implements [dashygotui.Addon].
+func (a LogView[S]) Addons() []dashygotui.Addon[S] {
 	const viewID = "stdaddons.logs"
+	if a.Buffer == nil {
+		return []dashygotui.Addon[S]{dashygotui.Invalid[S]{Reason: "log view has no Buffer"}}
+	}
+	buf := a.Buffer
 	// The viewer holds the reader's place (tab, filter, scroll position), which
 	// belongs to one dashboard, not to the process.
 	viewerOf := func(ctx *dashygotui.Context[S]) *logs.Viewer {
 		return dashygotui.LocalWith(ctx, viewID, func() *logs.Viewer {
-			return logs.NewViewer(buf, logs.WithCategories(opts.Categories...), logs.WithCategoryKey(opts.CategoryKey))
+			return logs.NewViewer(buf, logs.WithCategories(a.Categories...), logs.WithCategoryKey(a.CategoryKey))
 		})
 	}
-
-	reg.View(dashygotui.View[S]{
+	view := dashygotui.View[S]{
 		ID:    viewID,
 		Title: "Logs",
 		Mode:  "LOGS",
@@ -63,8 +102,8 @@ func LogsWith[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section stri
 			th, viewer := ctx.Theme(), viewerOf(ctx)
 			sub := fmt.Sprintf("%s scroll  Home live  End oldest  f filter: %s",
 				th.G.UpDown, strings.ToLower(viewer.MinLevel().String()))
-			if opts.CategoryKey != "" {
-				sub += "  " + opts.CategoryKey + " category"
+			if a.CategoryKey != "" {
+				sub += "  " + a.CategoryKey + " category"
 			}
 			return panel.Panel(th, "Logs", viewer.Badge(th), sub, size.Cols, size.Rows,
 				viewer.Rows(th, size.Cols-4, size.Rows-2))
@@ -73,12 +112,13 @@ func LogsWith[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section stri
 			// The body is the screen minus header and footer, minus the panel's borders.
 			return nil, viewerOf(ctx).HandleKey(msg.String(), ctx.Size().Rows-4)
 		},
-	})
-
-	reg.Option(apply(dashygotui.Option[S]{
+	}
+	option := dashygotui.Option[S]{
 		Key:     viewID,
-		Section: section,
-		Number:  number,
+		Section: a.Section,
+		Number:  a.Number,
+		Order:   a.Order,
+		Hotkey:  a.Hotkey,
 		Label:   "Logs",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			badge := ctx.Count(buf.Len(), "entries")
@@ -87,11 +127,7 @@ func LogsWith[S any](reg *dashygotui.Registry[S], buf *logs.Buffer, section stri
 			}
 			return badge
 		},
-		Run: func(ctx *dashygotui.Context[S]) tea.Cmd {
-			if err := ctx.OpenView(viewID); err != nil {
-				ctx.FlashError(err.Error())
-			}
-			return nil
-		},
-	}, setup))
+		Opens: viewID,
+	}
+	return []dashygotui.Addon[S]{view, option}
 }

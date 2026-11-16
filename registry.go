@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -335,6 +336,27 @@ func (s Shortcut[S]) register(r *Registry[S], site string) {
 	r.shortcuts = append(r.shortcuts, s)
 }
 
+func (h Hook[S]) register(r *Registry[S], site string) {
+	if !r.begin(site, "hook") {
+		r.mu.Unlock()
+		return
+	}
+	defer r.mu.Unlock()
+	if h.Tick == nil && h.Msg == nil && h.Result == nil {
+		r.fail(site, "hook sets none of Tick, Msg and Result")
+		return
+	}
+	if h.Tick != nil {
+		r.onTick = append(r.onTick, h.Tick)
+	}
+	if h.Msg != nil {
+		r.onMsg = append(r.onMsg, h.Msg)
+	}
+	if h.Result != nil {
+		r.onResult = append(r.onResult, h.Result)
+	}
+}
+
 // OnTick registers a hook called on every refresh tick, for addons that sample
 // data over time. The hook runs on the update loop and must not block.
 func (r *Registry[S]) OnTick(fn func(*Context[S], time.Time) tea.Cmd) {
@@ -401,6 +423,37 @@ type registered[S any] struct {
 	onTick    []func(*Context[S], time.Time) tea.Cmd
 	onResult  []func(*Context[S], TaskResult) (bool, tea.Cmd)
 	onMsg     []func(*Context[S], tea.Msg) tea.Cmd
+}
+
+// with returns a new, unfrozen registry holding everything r holds (its
+// mistakes included) and then items, each registered with the place [At]
+// recorded or, failing that, its index in the list. r itself is frozen, as [New]
+// promises, and is not changed otherwise.
+func (r *Registry[S]) with(items []Addon[S]) *Registry[S] {
+	out := NewRegistry[S]()
+	if r != nil {
+		r.mu.Lock()
+		r.frozen = true
+		out.options = append(out.options, r.options...)
+		out.widgets = append(out.widgets, r.widgets...)
+		out.views = append(out.views, r.views...)
+		out.shortcuts = append(out.shortcuts, r.shortcuts...)
+		out.onTick = append(out.onTick, r.onTick...)
+		out.onResult = append(out.onResult, r.onResult...)
+		out.onMsg = append(out.onMsg, r.onMsg...)
+		maps.Copy(out.optionKeys, r.optionKeys)
+		maps.Copy(out.optionNums, r.optionNums)
+		maps.Copy(out.widgetKeys, r.widgetKeys)
+		maps.Copy(out.viewIDs, r.viewIDs)
+		maps.Copy(out.shortcutKey, r.shortcutKey)
+		maps.Copy(out.hotkeys, r.hotkeys)
+		out.errs = append(out.errs, r.errs...)
+		r.mu.Unlock()
+	}
+	for i, it := range items {
+		out.registerAddon(it, fmt.Sprintf("Config.Addons[%d]", i), 0)
+	}
+	return out
 }
 
 // freeze stops further registration and returns a copy of the contents.

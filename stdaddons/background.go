@@ -22,19 +22,48 @@ import (
 // Esc restores the previous mode. Palettes with no background of their own, and
 // TTY mode, are unaffected by this setting.
 func Background[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Option(apply(dashygotui.Option[S]{
+	reg.Add(BackgroundPicker[S]{Section: section, Number: number}.with(setup))
+}
+
+// BackgroundPicker is an option that lets the user choose how the palette's
+// background reaches the terminal (Terminal, Paint or Off); see [Background].
+//
+// It is the value form of [Background]: declare it as an addon.
+type BackgroundPicker[S any] struct {
+	// Section is the section the option appears in. Required.
+	Section string
+	// Number is the option's number. Required and unique.
+	Number int
+	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
+	Hotkey string
+	// Order sorts the option within its section. Optional.
+	Order int
+}
+
+func (a BackgroundPicker[S]) with(setup []Setup) BackgroundPicker[S] {
+	if len(setup) > 0 {
+		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
+	}
+	return a
+}
+
+// Addons implements [dashygotui.Addon].
+func (a BackgroundPicker[S]) Addons() []dashygotui.Addon[S] {
+	return []dashygotui.Addon[S]{dashygotui.Option[S]{
 		Key:     "stdaddons.background",
-		Section: section,
-		Number:  number,
+		Section: a.Section,
+		Number:  a.Number,
 		Label:   "Background",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			return ctx.Badge(ctx.BackgroundMode().String())
 		},
-		Run: openBackgroundPicker[S],
-	}, setup))
+		Do:     openBackgroundPicker[S],
+		Hotkey: a.Hotkey,
+		Order:  a.Order,
+	}}
 }
 
-func openBackgroundPicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
+func openBackgroundPicker[S any](ctx *dashygotui.Context[S]) {
 	modes := []dashygotui.BackgroundMode{dashygotui.BackgroundTerminal, dashygotui.BackgroundPaint, dashygotui.BackgroundOff}
 	items := []modal.Item{
 		{Label: "Terminal", Detail: "set the terminal's own background and foreground (restored on exit)"},
@@ -61,7 +90,6 @@ func openBackgroundPicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
 		},
 		OnCancel: func(c *dashygotui.Context[S]) tea.Cmd { c.PreviewBackgroundMode(original); return nil },
 	})
-	return nil
 }
 
 // Transparency registers a one-key switch for a transparent background: on
@@ -70,11 +98,38 @@ func openBackgroundPicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
 // the mode that was in use before. It changes the same setting as [Background],
 // so the two always agree.
 func Transparency[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
+	reg.Add(TransparencyToggle[S]{Section: section, Number: number}.with(setup))
+}
+
+// TransparencyToggle is a one-key switch for a transparent background; see
+// [Transparency].
+//
+// It is the value form of [Transparency]: declare it as an addon.
+type TransparencyToggle[S any] struct {
+	// Section is the section the option appears in. Required.
+	Section string
+	// Number is the option's number. Required and unique.
+	Number int
+	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
+	Hotkey string
+	// Order sorts the option within its section. Optional.
+	Order int
+}
+
+func (a TransparencyToggle[S]) with(setup []Setup) TransparencyToggle[S] {
+	if len(setup) > 0 {
+		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
+	}
+	return a
+}
+
+// Addons implements [dashygotui.Addon].
+func (a TransparencyToggle[S]) Addons() []dashygotui.Addon[S] {
 	const previousKey = "stdaddons.transparency.previous"
-	reg.Option(apply(dashygotui.Option[S]{
+	return []dashygotui.Addon[S]{dashygotui.Option[S]{
 		Key:     "stdaddons.transparency",
-		Section: section,
-		Number:  number,
+		Section: a.Section,
+		Number:  a.Number,
 		Label:   "Transparent Background",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			return ctx.OnOff(ctx.BackgroundMode() == dashygotui.BackgroundOff)
@@ -96,5 +151,7 @@ func Transparency[S any](reg *dashygotui.Registry[S], section string, number int
 			ctx.Flash("Transparent background off: themed background (" + restore.String() + ")")
 			return nil
 		},
-	}, setup))
+		Hotkey: a.Hotkey,
+		Order:  a.Order,
+	}}
 }

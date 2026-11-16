@@ -13,10 +13,38 @@ import (
 // highlight previews each mode live; Enter keeps one and saves it, Esc restores
 // the previous mode.
 func Display[S any](reg *dashygotui.Registry[S], section string, number int, setup ...Setup) {
-	reg.Option(apply(dashygotui.Option[S]{
+	reg.Add(DisplayPicker[S]{Section: section, Number: number}.with(setup))
+}
+
+// DisplayPicker is an option that opens a display-mode picker: Auto (detect
+// the Linux console), Unicode, or TTY. Moving the highlight previews each mode
+// live; Enter keeps one and saves it, Esc restores the previous mode.
+//
+// It is the value form of [Display]: declare it as an addon.
+type DisplayPicker[S any] struct {
+	// Section is the section the option appears in. Required.
+	Section string
+	// Number is the option's number. Required and unique.
+	Number int
+	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
+	Hotkey string
+	// Order sorts the option within its section. Optional.
+	Order int
+}
+
+func (a DisplayPicker[S]) with(setup []Setup) DisplayPicker[S] {
+	if len(setup) > 0 {
+		a.Hotkey, a.Order = setup[0].Hotkey, setup[0].Order
+	}
+	return a
+}
+
+// Addons implements [dashygotui.Addon].
+func (a DisplayPicker[S]) Addons() []dashygotui.Addon[S] {
+	return []dashygotui.Addon[S]{dashygotui.Option[S]{
 		Key:     "stdaddons.display",
-		Section: section,
-		Number:  number,
+		Section: a.Section,
+		Number:  a.Number,
 		Label:   "Display Mode",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			label := "Unicode"
@@ -28,11 +56,13 @@ func Display[S any](reg *dashygotui.Registry[S], section string, number int, set
 			}
 			return ctx.Badge(label)
 		},
-		Run: openDisplayPicker[S],
-	}, setup))
+		Do:     openDisplayPicker[S],
+		Hotkey: a.Hotkey,
+		Order:  a.Order,
+	}}
 }
 
-func openDisplayPicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
+func openDisplayPicker[S any](ctx *dashygotui.Context[S]) {
 	modes := []dashygotui.GlyphMode{dashygotui.GlyphsAuto, dashygotui.GlyphsUnicode, dashygotui.GlyphsTTY}
 	items := []modal.Item{
 		{Label: "Auto", Detail: "use the TTY set when the terminal looks like the Linux console"},
@@ -59,5 +89,4 @@ func openDisplayPicker[S any](ctx *dashygotui.Context[S]) tea.Cmd {
 		},
 		OnCancel: func(c *dashygotui.Context[S]) tea.Cmd { c.PreviewGlyphMode(original); return nil },
 	})
-	return nil
 }

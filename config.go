@@ -19,14 +19,19 @@ import (
 	"github.com/CeeSmag/dashygotui/theme"
 )
 
-// Config describes a dashboard. Registry, Pages and Sections are required; the
-// rest have sensible defaults.
+// Config describes a dashboard. Pages are required; the rest have sensible
+// defaults.
 type Config[S any] struct {
 	// Title names the application in the header and the terminal window title.
 	Title string
 
-	// Registry holds the addons. Required. Applications pass their one global
-	// registry; tests pass a fresh one.
+	// Addons are the dashboard's options, widgets, views, shortcuts and hooks.
+	// An application passes the list that dashygotui gen writes (addons.All());
+	// a test passes the few it needs. Each is checked when [New] runs.
+	Addons []Addon[S]
+
+	// Registry holds addons registered from init(), the form used up to v0.3.
+	// Optional: its addons are used together with Addons.
 	Registry *Registry[S]
 
 	// Pages are the dashboard tabs, in tab order. At least one is required.
@@ -142,20 +147,18 @@ type pageDef[S any] struct {
 	panels []panelDef[S]
 }
 
-// New validates cfg and its registry and returns a dashboard. Every problem is
+// New validates cfg and its addons and returns a dashboard. Every problem is
 // reported at once, wrapped in [ErrInvalidConfig], and nothing starts until
 // [Dashboard.Run].
 //
-// New freezes the registry: registering after it is an error.
+// New freezes cfg.Registry, when set: registering after it is an error.
 func New[S any](cfg Config[S]) (*Dashboard[S], error) {
-	if cfg.Registry == nil {
-		return nil, fmt.Errorf("%w: Registry is nil", ErrInvalidConfig)
-	}
-	reg := cfg.Registry.freeze()
+	all := cfg.Registry.with(cfg.Addons)
+	reg := all.freeze()
 	keys := cfg.Keys.withDefaults()
 
 	var errs []error
-	if err := cfg.Registry.Validate(); err != nil {
+	if err := all.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	pages, pageErrs := buildPages(cfg, reg)

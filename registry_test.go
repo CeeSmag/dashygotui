@@ -242,7 +242,6 @@ func TestNewRejectsBrokenConfigs(t *testing.T) {
 		mutate func(c *cfg)
 		want   string
 	}{
-		{"nil registry", func(c *cfg) { c.Registry = nil }, "Registry is nil"},
 		{"no pages", func(c *cfg) { c.Pages = nil }, "no Pages declared"},
 		{"duplicate page", func(c *cfg) { c.Pages[1].ID = "monitor" }, `duplicate page ID "monitor"`},
 		{"page without title", func(c *cfg) { c.Pages[0].Title = "" }, `page "monitor" has no Title`},
