@@ -27,6 +27,17 @@ The road to v0.4.0, where addons become values (see `docs/DESIGN.md`).
     `BackgroundPicker`, `TransparencyToggle` and `LogView` are the value forms of
     `stdaddons.Theme`, `RefreshRate`, `Spacing`, `Display`, `Background`,
     `Transparency` and `Logs`/`LogsWith`.
+- **`dashygotui gen`** (phase 2) writes `addons_gen.go`, whose `All()` lists every
+  top-level var of the package's addon files wrapped in `At`. `-state` names the state
+  type (`<import path>.<Type>`) and is recorded in the file's header, so a later `gen`
+  needs no flags; `-all` regenerates every list under a directory. A package without a
+  `doc.go` gets one with the `//go:generate` line. `dashygotui new` regenerates the list
+  when the package has one, and the agent hook that `init` writes runs `gen -all` before the check.
+- **Rules for addons as values**, applied to an addons package that has an
+  `addons_gen.go`: **A11** (the list is what `gen` writes now), **A12** (no `init()`),
+  and **A3** in its value form (each package-level var is one unexported addon literal,
+  never assigned to). `doc.go` and `addons_gen.go` are exempt from A1, A2 and from the
+  one-file rule C1. `make deletion-test` regenerates the list after deleting an addon.
 - **Poll failures are visible.** While the latest poll failed, the footer shows
   `STALE` in place of the refresh rate, and the footer says `poll failed: <reason>`
   once when the data goes stale (unless an addon's own message is showing).

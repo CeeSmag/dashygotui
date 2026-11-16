@@ -13,6 +13,7 @@
 //	dashygotui rules [topic]            print the design rules (design, app-rules, cookbook, addons, reference, architecture)
 //	dashygotui check [-changed] [dir]   lint the addons under dir (default .); exits 1 on findings; -changed also applies the one-file rule to the git change set
 //	dashygotui new <kind> <name>        write addons/<kind>_<name>.go from a template (opt, widget, view, modal, shortcut)
+//	dashygotui gen [-state T] [-all] [dir]  write addons_gen.go, the list of the addons declared as values in dir
 //	dashygotui init [-claude]           write AGENTS.md, CLAUDE.md and GAPS.md for the application; -claude adds a Claude Code skill and a check-after-edit hook
 package main
 
@@ -40,6 +41,8 @@ commands:
   check [-changed] [dir] lint the addons under dir (default "."); exit 1 when a rule is broken;
                          -changed also checks the git change set (adding an addon edits no other file)
   new <kind> <name>      write a new addon file from a template; kinds: opt, widget, view, modal, shortcut
+  gen [-state T] [dir]   write addons_gen.go listing the addons declared as values in dir (default ".");
+                         -state names the state type, <import path>.<Type>; -all regenerates every list under dir
   init [-claude]         write AGENTS.md, CLAUDE.md and GAPS.md; -claude adds a Claude Code skill and hook
 
 Run a command with -h for its flags.
@@ -58,6 +61,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return checkCmd(rest, stdout, stderr)
 	case "new":
 		return newCmd(rest, stdout, stderr)
+	case "gen":
+		return genCmd(rest, stdout, stderr)
 	case "init":
 		return initCmd(rest, stdout, stderr)
 	case "help", "-h", "--help":

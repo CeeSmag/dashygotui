@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/CeeSmag/dashygotui/internal/guard"
 	"github.com/CeeSmag/dashygotui/templates"
 )
 
@@ -76,7 +77,19 @@ func newCmd(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "dashygotui new: writing %s: %v\n", target, err)
 		return exitUsage
 	}
-	fmt.Fprintf(stdout, "wrote %s\nEdit its Section or Page to one declared in your dashboard file, then run: dashygotui check\n", target)
+	fmt.Fprintf(stdout, "wrote %s\n", target)
+	if _, err := os.Stat(filepath.Join(addons, guard.GenFile)); err == nil {
+		// The package lists its addons in a generated file: add the new one to it.
+		msg, err := genDir(addons, "", "")
+		if err != nil {
+			fmt.Fprintf(stderr, "dashygotui new: regenerating the addon list: %v\n", err)
+			return exitFindings
+		}
+		if msg != "" {
+			fmt.Fprintln(stdout, msg)
+		}
+	}
+	fmt.Fprintln(stdout, "Edit its Section or Page to one declared in your dashboard file, then run: dashygotui check")
 	return exitOK
 }
 

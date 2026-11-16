@@ -31,8 +31,9 @@ application uses:
 
 The short version:
 
-1. **One feature, one file** in ` + "`addons/`" + `. Add a file; edit no other. Start from
-   ` + "`%[1]s new <opt|widget|view|modal|shortcut> <name>`" + `.
+1. **One feature, one file** in ` + "`addons/`" + `. Add a file; edit no other by hand. Start from
+   ` + "`%[1]s new <opt|widget|view|modal|shortcut> <name>`" + `, then run
+   ` + "`go generate ./...`" + `, which rewrites the generated ` + "`addons_gen.go`" + `.
 2. **Use the short forms** from the cookbook (` + "`Opens`, `Do`, `Entry`, `stdaddons.Toggle`" + `...).
    If an addon is long, something is missing from the library.
 3. **If the library cannot do it, stop and record a gap** in GAPS.md. Do not wrap,
@@ -133,9 +134,11 @@ description: Use when adding or changing anything on this application's dashboar
 
 2. Look in the cookbook part of that output for the shortest form. Most addons are a few
    lines (` + "`Opens`, `Do`, `Modal`, `Entry`, `stdaddons.Toggle/Number/Pick/Text`" + `).
-3. Add **one new file** in ` + "`addons/`" + ` (` + "`%[1]s new <kind> <name>`" + ` writes a starter).
+3. Add **one new file** in ` + "`addons/`" + ` (` + "`%[1]s new <kind> <name>`" + ` writes a starter),
+   then run ` + "`go generate ./...`" + ` to rewrite ` + "`addons_gen.go`" + ` (never edit it by hand).
    Edit no other file. If another file really must change, say why in your reply.
-4. Keep an addon's own state with ` + "`dashygotui.Local`" + `, never a variable captured in ` + "`init`" + `.
+4. An addon is an unexported top-level value. Keep its own state with ` + "`dashygotui.Local`" + `,
+   never in a package-level variable.
 5. If the library cannot do what is needed: **stop.** Do not wrap, copy or fork library code, and do not
    override a default to get around a limit. Record the gap in GAPS.md and tell the user.
 6. Before saying you are done:
@@ -144,9 +147,11 @@ description: Use when adding or changing anything on this application's dashboar
        go test ./...
 `
 
-// hookCommand runs the check after an edit and hands its findings to the agent
-// (exit status 2 reports a hook's stderr back).
-func hookCommand(cmd string) string { return "sh -c '" + cmd + " check -q 1>&2 || exit 2'" }
+// hookCommand regenerates the addon lists and runs the check after an edit, and
+// hands the findings to the agent (exit status 2 reports a hook's stderr back).
+func hookCommand(cmd string) string {
+	return "sh -c '" + cmd + " gen -all -q >/dev/null; " + cmd + " check -q 1>&2 || exit 2'"
+}
 
 // claudeSetup writes the skill and merges the hook into .claude/settings.json,
 // leaving everything else in that file alone.

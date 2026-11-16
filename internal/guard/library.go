@@ -173,7 +173,7 @@ var addonFileName = regexp.MustCompile(`^(opt|widget|view|modal|shortcut)_[a-z0-
 
 func AddonNameViolations(rel string) []string {
 	base := path.Base(rel)
-	if addonFileName.MatchString(base) {
+	if addonFileName.MatchString(base) || isSupportFile(rel) {
 		return nil
 	}
 	return []string{fmt.Sprintf("%s: addon files must be named opt_*.go, widget_*.go, view_*.go, modal_*.go or shortcut_*.go", rel)}
@@ -184,8 +184,14 @@ func AddonNameViolations(rel string) []string {
 // CouplingViolations reports every use, in one addon file, of a package-level
 // identifier that is declared in a different addon file of the same package.
 func CouplingViolations(files map[string]*ast.File) []string {
+	addons := map[string]*ast.File{}
+	for rel, f := range files {
+		if path.Base(rel) != GenFile { // the generated list uses every addon by design
+			addons[rel] = f
+		}
+	}
 	var out []string
-	for _, v := range coupling(files, func(string, *ast.Ident) int { return 0 }) {
+	for _, v := range coupling(addons, func(string, *ast.Ident) int { return 0 }) {
 		out = append(out, fmt.Sprintf("%s uses %s declared in %s: addons must not depend on each other", v.file, v.name, v.owner))
 	}
 	sort.Strings(out)

@@ -120,7 +120,7 @@ func Rules() map[string]string {
 	return map[string]string{
 		"A1":  "addon files are named opt_*.go, widget_*.go, view_*.go, modal_*.go or shortcut_*.go",
 		"A2":  "addons never use declarations from a sibling addon file",
-		"A3":  "an addon has no package-level mutable variable",
+		"A3":  "an addon has no package-level mutable variable; with a generated list, each package-level var is one unexported addon literal, never assigned to",
 		"A4":  "an addon starts no goroutines, sleeps, exits, prints, or panics",
 		"A5":  "an addon draws with theme styles, never raw lipgloss styles or colour literals",
 		"A6":  "text written by an addon is plain ASCII; symbols come from the theme",
@@ -128,6 +128,8 @@ func Rules() map[string]string {
 		"A8":  "an addon does not wrap or embed a library modal",
 		"A9":  "an addon uses Opens and Do instead of a Run that only opens a view or returns nil",
 		"A10": "an addon keeps no state in a variable captured from init and changed by a callback; use dashygotui.Local",
+		"A11": "addons_gen.go matches what dashygotui gen writes now; run go generate ./...",
+		"A12": "an addons package with a generated list has no init()",
 		"C1":  "a change that adds an addon edits no other Go file (dashygotui check -changed)",
 		"G1":  "a //dashygotui:gap marker says where the gap is recorded",
 		"X1":  "a //dashygotui:allow comment names a rule and gives a reason",
@@ -135,8 +137,8 @@ func Rules() map[string]string {
 }
 
 // CheckApp applies the application rules to the sources of an application. The
-// addon rules apply to files in a directory named addons: A1 to A4, A6 and A9 only
-// there. A5 (raw styles), A7 and A8 apply to every file that imports the library
+// addon rules apply to files in a directory named addons: A1 to A4, A6, A9, A11
+// and A12 only there. A5 (raw styles), A7 and A8 apply to every file that imports the library
 // as well, because a workaround is as likely to live in the dashboard package as
 // in an addon. The gap markers are collected from every file.
 func CheckApp(srcs []Source) Report {
@@ -148,7 +150,7 @@ func CheckApp(srcs []Source) Report {
 		if addon {
 			byDir[dirOf(s.Rel)] = append(byDir[dirOf(s.Rel)], s)
 		} else if importsLibrary(s.File) {
-			rep.add(s, sourceFindings(s, false))
+			rep.add(s, sourceFindings(s, false, false))
 		}
 	}
 	dirs := make([]string, 0, len(byDir))
@@ -158,10 +160,21 @@ func CheckApp(srcs []Source) Report {
 	sort.Strings(dirs)
 	for _, d := range dirs {
 		files := byDir[d]
+		gen, values := hasGenFile(files)
+		var addons []Source // the files that are addons, not doc.go and the generated list
 		for _, s := range files {
-			rep.add(s, sourceFindings(s, true))
+			if isSupportFile(s.Rel) {
+				continue
+			}
+			addons = append(addons, s)
+			rep.add(s, sourceFindings(s, true, values))
 		}
-		rep.add(Source{}, couplingFindings(files), files...)
+		if len(addons) > 0 { // every addon may have been deleted, leaving doc.go and the list
+			rep.add(Source{}, couplingFindings(addons), addons...)
+		}
+		if values {
+			rep.add(Source{}, valueFindings(files, gen), files...)
+		}
 	}
 	rep.sort()
 	return rep
@@ -356,8 +369,9 @@ func importsLibrary(f *ast.File) bool {
 
 // sourceFindings applies the rules to one file. addon is true for a file in an
 // addons directory, which every rule applies to; elsewhere only the app-wide
-// rules (A5 styles, A7, A8) apply.
-func sourceFindings(s Source, addon bool) []Finding {
+// rules (A5 styles, A7, A8) apply. values is true in an addons package with a
+// generated list, whose package-level variables are addons (see valueFindings).
+func sourceFindings(s Source, addon, values bool) []Finding {
 	var out []Finding
 	at := func(rule string, n ast.Node, msg, hint string) {
 		out = append(out, Finding{Rule: rule, File: s.Rel, Line: s.Line(n.Pos()), Msg: msg, Hint: hint})
@@ -371,8 +385,12 @@ func sourceFindings(s Source, addon bool) []Finding {
 				Msg:  "addon file names start with opt_, widget_, view_, modal_ or shortcut_",
 				Hint: "rename the file, for example opt_" + strings.TrimSuffix(baseName(s.Rel), ".go") + ".go"})
 		}
-		// A3: package-level mutable variables.
+		// A3: package-level mutable variables. With a generated list they are
+		// addons, checked by valueFindings.
 		for _, d := range f.Decls {
+			if values {
+				break
+			}
 			gd, ok := d.(*ast.GenDecl)
 			if !ok || gd.Tok != token.VAR {
 				continue
@@ -822,6 +840,8 @@ func exemptFromOneFile(p string) bool {
 		return true
 	case !strings.HasSuffix(p, ".go"):
 		return true // documentation and other files are not registries
+	case InAddons(p) && isSupportFile(p):
+		return true // doc.go and the generated list change with the addons; nobody edits them
 	}
 	return false
 }

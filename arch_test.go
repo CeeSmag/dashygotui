@@ -260,6 +260,8 @@ func TestGuardAddonNames(t *testing.T) {
 		{"examples/demo/dashboard/addons/opt_storage_test.go", 0},
 		{"examples/demo/dashboard/addons/storage.go", 1},
 		{"examples/demo/dashboard/addons/helpers.go", 1},
+		{"examples/demo/dashboard/addons/doc.go", 0},
+		{"examples/demo/dashboard/addons/addons_gen.go", 0},
 		{"examples/demo/dashboard/addons/Opt_Storage.go", 1},
 	}
 	for _, tt := range tests {
