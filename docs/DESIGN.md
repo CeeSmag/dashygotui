@@ -176,3 +176,115 @@ Each phase ends with `make check` passing and is one commit.
 | 3 | The examples and templates become values | no | done |
 | 4 | `Registry` and `init()` registration removed, A10 retired, rules and docs final, v0.4.0 | yes | done |
 | 5 | The first production application moves onto v0.4.0 | n/a | |
+
+## Decision: the map (v0.5.0)
+
+In v0.4 every addon said where it goes: `Section: "actions", Number: 3`,
+`Page: "monitor", Order: 20`. Nothing showed the whole dashboard, placement was
+string IDs checked at startup, numbers were picked by hand and had to be unique,
+and a generator had to list the files. One feature that needed a sub-page with two
+sections and shared helpers grew into one 464-line file, because the rules gave it
+nowhere else to go.
+
+From v0.5.0 **an addon says only what it does, and one hand-written file, the map,
+says where everything goes.**
+
+```
+dashboard/
+  dashboard.go          State (fields and methods), short type names, Poll, Run
+  addons/
+    addons.go           the map: pages, panels, rows, sub-pages, shortcuts, hooks
+    backup_opt.go       one feature per file: <name>_<kind>.go
+    network_widget.go
+    logs_view.go
+    diag_page.go
+```
+
+```go
+// addons/addons.go: where everything goes. Nothing else places anything.
+package addons
+
+// Map is the dashboard's contents.
+func Map() dashboard.Map {
+	return dashboard.Map{
+		Shortcuts: []dashboard.Shortcut{refreshShortcut, stopShortcut},
+		Pages: []dashboard.Page{
+			{Title: "Monitor", Panels: []dashboard.Panel{
+				{Widget: systemWidget},
+				{Widget: networkWidget},
+			}},
+			{Title: "Control", Panels: []dashboard.Panel{
+				{Title: "Quick Actions", Items: []dashboard.Addon{
+					backupOpt,  // [1]
+					restartOpt, // [2]
+					logsView,   // [3] a row that opens the view
+					dashboard.Page{Title: "Diagnostics", Session: diagSession, Panels: []dashboard.Panel{
+						{Widget: diagHealthWidget},
+						{Title: "Tools", Items: []dashboard.Addon{diagCheckOpt, diagExportOpt}},
+					}}, // [4] a row that opens a sub-page
+				}},
+				{Title: "Settings", Number: 10, Items: []dashboard.Addon{storageOpt, notifyOpt}}, // [10] [11]
+			}},
+		},
+	}
+}
+```
+
+```go
+// addons/backup_opt.go: what the feature does, and nothing about where it goes.
+var backupOpt = dashboard.Option{Label: "Run Backup", Badge: backupBadge, Do: backupRun}
+```
+
+### The contract
+
+- **The map places everything.** `Map.Pages` are the tabs. A page's `Panels` are
+  drawn by its `Layout`; a panel is one widget or a list of rows (`Items`). A row is
+  an `Option`, a `View` (the row opens it), a `Page` (the row opens it as a
+  sub-page, with panels of its own and the Back key to return), or a ready-made
+  setting from `stdaddons`. `Map.Shortcuts` and `Map.Hooks` are the app-wide keys
+  and reactions; `Map.Views` are views with no row of their own, opened by a
+  shortcut, `Opens`, `Context.OpenView` or `StartView`.
+- **Rows are numbered by position**, across the dashboard's pages in map order; a
+  panel's `Number` sets where its count starts. A sub-page numbers its own rows from
+  1. Two rows with one number is a startup error.
+- **An addon file is self-contained.** It uses the library, and from the
+  `dashboard` package only types: `State` (its fields and methods), the short names
+  (`Ctx`, `Option`, ...). It uses no other application package, no helper file, and
+  nothing of another addon file. What the application knows and does lives on
+  `State` (a method such as `s.Setup(n)`, a backend it holds); how anything looks,
+  where two applications would want it, belongs in the library.
+- **Errors name the place in the map**, such as `Control > Quick Actions > row 3
+  ("Run Backup"): option has no Do, Run, Opens or Modal`.
+- **No generator.** The map is the list: a feature that is not in the map does not
+  appear, and `dashygotui check` reports it. Deleting a feature is deleting its file
+  and its line; the compiler points at the line.
+- **Each feature is placed once.** A second way into a view is an option with
+  `Opens`.
+
+### What changes
+
+| v0.4 | v0.5 |
+| --- | --- |
+| `Config.Pages`, `Config.Sections`, `SectionSpec`, `Config.Addons` | `Config.Map`: `Map{Pages, Shortcuts, Hooks, Views}`, `Page.Panels`, `Panel` |
+| `Option.Key`, `Section`, `Number`, `Order`; `Widget.Key`, `Page`, `Order` | gone: the map's order is the order and position is the number |
+| `Entry{Section, Number, Order, ...}` | `Entry{Label, Hotkey, Badge, Note, ...}`: only how the row that opens a view or sub-page looks |
+| `View.Status`, `Options`, `Items`, `OptionsTitle`, `OptionsSubtitle`, `Subtitle` | a sub-page: a `Page` placed as a row. A `View` is a full-screen `Body` |
+| a separate `Hook` value beside a widget that samples | `Widget.Tick` |
+| `At`, `dashygotui gen`, `addons_gen.go`, `doc.go`, rule A11, `make deletion-test` | gone |
+| `opt_backup.go` | `backup_opt.go`; kinds `opt`, `widget`, `view`, `page`, `modal`, `shortcut`, `hook` |
+| `Section`, `Number`, `Order` on the `stdaddons` values | gone (a setting keeps the `Key` it is saved under) |
+| rule 1: one file, nothing else edited | one feature file, and its line in `addons.go` |
+| A2: shared helpers go to the dashboard package | an addon uses only `dashboard` types and `State`; nothing else of the application |
+
+### Phases
+
+Each phase ends with `make check` passing and is one commit.
+
+| Phase | Work | Breaking | Status |
+| --- | --- | --- | --- |
+| 0 | This decision | no | done |
+| 1 | The map in the library beside the v0.4 API: `Config.Map`, `Panel`, sub-pages, `Widget.Tick`, numbering by position, map-path errors | no | |
+| 2 | `dashygotui check`, `new` and `init` for the new layout; new templates | no | |
+| 3 | The three examples move onto the map | no | |
+| 4 | The v0.4 placement API, `gen` and A11 removed; rules and docs final; v0.5.0 | yes | |
+| 5 | The first production application moves onto v0.5.0 | n/a | |
