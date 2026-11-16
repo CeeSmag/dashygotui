@@ -1,6 +1,7 @@
 // Package addons holds the demo's features, one per file, and the map that
 // places them on the pages: this file. A feature file says what the feature
-// does; only the map says where it goes.
+// does; only the map says where it goes. The demo is small enough for one map
+// file; a larger application splits it by page into <name>_map.go files.
 package addons
 
 import (
@@ -25,7 +26,7 @@ func Map() dashboard.Map {
 				{Title: "Quick Actions", Subtitle: "things to do", Items: []dashboard.Addon{
 					backupOpt,  // [1]
 					restartOpt, // [2]
-					dashboard.Page{Title: "Diagnostics", Panels: []dashboard.Panel{ // [3] opens a sub-page
+					dashboard.Page{Row: diagnosticsOpt, Panels: []dashboard.Panel{ // [3] opens a window
 						{Widget: diagnosticsHealthWidget},
 						{Title: "Tools", Items: []dashboard.Addon{diagnosticsSelfTestOpt}},
 					}},

@@ -55,7 +55,7 @@ func rows(c *dashboard.Ctx) []dashboard.Process {
 
 var processesView = dashboard.View{
 	ID: "processes", Title: "Processes", Mode: "PROCS",
-	Entry: &dashboard.Entry{Hotkey: "p"},
+	Row:   dashboard.Option{Hotkey: "p"},
 	Badge: func(c *dashboard.Ctx) string { return c.Count(len(rows(c)), "running") },
 	Body: func(c *dashboard.Ctx, size dashygotui.Size) []string {
 		st := state(c)

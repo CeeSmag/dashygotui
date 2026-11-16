@@ -71,7 +71,7 @@ type, copy its code, override its defaults with a workaround, or fork it. Instea
 - **The library governs itself.** The exported API is snapshotted, the docs must
   mention every exported field, and the library is scanned for application
   vocabulary.
-- **The easy way is the right way.** The short forms (`Opens`, `Do`, `Entry`,
+- **The easy way is the right way.** The short forms (`Opens`, `Do`, `Row`,
   `stdaddons.Toggle`...) exist so that following the design is also the least
   typing.
 
@@ -294,3 +294,33 @@ Each phase ends with `make check` passing and is one commit.
 | 3 | The three examples move onto the map, and with them the templates, `new`, `init` and the scripts that use the demo | no | done |
 | 4 | The v0.4 placement API, `gen` and A11 removed; rules and docs final; v0.5.0 | yes | done |
 | 5 | The first production application moves onto v0.5.0 | n/a | |
+
+## Decision: a window is an option and the map (v0.6.0)
+
+In v0.5 the row that opened a sub-page was written inside the map's `Page`
+(`Entry`), and the map grew with the dashboard into one long file. From v0.6.0:
+
+- **An option that opens a window is a plain option** in a file of its own,
+  with a label, a hotkey and a badge and no action. The map makes it the `Row` of
+  a `Page` placed as a row, which gives it its action (opening the window), and
+  says everything that is inside. The window's title is the option's label.
+  `Row` replaces `Entry` on pages and views alike: a row is always an `Option`.
+- **The map may be split by page.** `addons.go` keeps `Map()`, the tabs, the
+  shortcuts and the hooks; a page or window longer than a screen gets
+  `<name>_map.go`, a function returning it. The checker treats every map file as
+  the map (A1, A2, A3, A13, C1); `dashygotui new map <name>` writes one.
+
+```go
+// diag_opt.go: the whole file.
+var diagOpt = dashboard.Option{Label: "Diagnostics", Hotkey: "d"}
+```
+
+```go
+// diag_map.go: what the window holds.
+func diagPage() dashboard.Page {
+	return dashboard.Page{Row: diagOpt, Panels: []dashboard.Panel{
+		{Widget: diagHealthWidget},
+		{Title: "Tools", Items: []dashboard.Addon{diagCheckOpt, diagLogsView}},
+	}}
+}
+```

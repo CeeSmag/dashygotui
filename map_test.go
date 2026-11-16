@@ -32,7 +32,7 @@ func textWidget(title, body string) widget {
 
 // mapConfig is a dashboard of two tabs and a sub-page, built from a Map.
 func mapConfig(log *[]string, sessions *[]string) cfg {
-	diag := pageT{Title: "Diagnostics", Entry: &dashygotui.Entry[state]{Hotkey: "d", HotkeyHint: "Diag"},
+	diag := pageT{Title: "Diagnostics", Row: dashygotui.Option[state]{Hotkey: "d", HotkeyHint: "Diag"},
 		Session: func(*ctx) func() {
 			*sessions = append(*sessions, "diag+")
 			return func() { *sessions = append(*sessions, "diag-") }
@@ -130,7 +130,7 @@ func TestMapViewsShortcutsHooksAndReadyMadeRows(t *testing.T) {
 			{Widget: widget{Title: "Ticker", Tick: func(*ctx, time.Time) tea.Cmd { ticks += 10; return nil },
 				Render: func(*ctx, dashygotui.Size) []string { return nil }}},
 			{Title: "Tools", Items: []addonT{
-				dashygotui.View[state]{Title: "Notes", Entry: &dashygotui.Entry[state]{Note: "read only"},
+				dashygotui.View[state]{Title: "Notes", Row: dashygotui.Option[state]{Note: "read only"},
 					Body: func(*ctx, dashygotui.Size) []string { return []string{"the notes"} }},
 				stdaddons.ThemePicker[state]{},
 				stdaddons.LogView[state]{Buffer: buf},
@@ -191,7 +191,7 @@ func TestMapErrorsNameThePlace(t *testing.T) {
 		{"sub-page opens nothing", cfg{Map: mapT{Pages: []pageT{{Title: "Main", Panels: []panelT{{Title: "Tools", Items: []addonT{
 			pageT{Title: "Sub", Panels: []panelT{{Title: "In", Items: []addonT{option{Label: "Go", Opens: "nowhere"}}}}}}}}}}}},
 			`Main > Tools > Sub > In > row 1: row "Go" opens unknown view "nowhere"`},
-		{"tab with entry", cfg{Map: mapT{Pages: []pageT{{Title: "Main", Entry: &dashygotui.Entry[state]{}}}}},
+		{"tab with a row", cfg{Map: mapT{Pages: []pageT{{Title: "Main", Row: option{Label: "Main"}}}}},
 			"Main: a tab has no row"},
 	}
 	for _, tt := range tests {
@@ -207,6 +207,34 @@ func TestMapErrorsNameThePlace(t *testing.T) {
 				t.Errorf("error = %v\nwant it to contain %q", err, tt.want)
 			}
 		})
+	}
+}
+
+// A window is a plain option and the map: the option says how its row looks,
+// the map what the window holds. Its title is the option's label.
+func TestASubPageOpensFromAPlainOption(t *testing.T) {
+	var log []string
+	diagOpt := option{Label: "Diagnostics", Hotkey: "d", HotkeyHint: "Diag"} // diag_opt.go: no action
+	c := cfg{Map: mapT{Pages: []pageT{{Title: "Main", Panels: []panelT{{Title: "Tools", Items: []addonT{
+		row("Backup", &log),
+		pageT{Row: diagOpt, Panels: []panelT{{Title: "Inside", Items: []addonT{row("Probe", &log)}}}},
+	}}}}}}}
+	d := dashtest.New(t, c, 120, 30)
+	d.RequireContains("[d] Diag")
+	if !hasRow(d, "2", "Diagnostics (d)") {
+		t.Fatalf("no row [2] Diagnostics (d):\n%s", d.Screen())
+	}
+	d.Press("d")
+	d.RequireContains("Diagnostics", "Inside", "DIAGNOSTICS") // the title is the row's label
+	d.Press("enter")
+	if strings.Join(log, ",") != "Probe" {
+		t.Errorf("log = %q", log)
+	}
+
+	bad := option{Label: "Diagnostics", Do: func(*ctx) {}} // the map gives the row its action
+	c.Map.Pages[0].Panels[0].Items[1] = pageT{Row: bad, Panels: []panelT{{Title: "Inside", Items: []addonT{row("Probe", &log)}}}}
+	if _, err := dashygotui.New(c); err == nil || !strings.Contains(err.Error(), `the row "Diagnostics" opens "Diagnostics": it sets no Run, Do, Opens or Modal`) {
+		t.Errorf("New = %v, want the row's own action reported", err)
 	}
 }
 

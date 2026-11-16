@@ -1,0 +1,28 @@
+package addons
+
+// TEMPLATE: the map of one page or window.
+//
+// A page that is longer than a screen in addons.go can have a map file of its
+// own, <name>_map.go. It places features, like addons.go, and nothing else: no
+// variables, no behaviour.
+//
+// To use it:
+//  1. Copy this file to your addons directory as <name>_map.go, or run
+//     dashygotui new map <name>.
+//  2. Change the import path of the dashboard package to your own.
+//  3. In addons.go, list myFeaturePage() in Map.Pages for a tab. For a window
+//     opened from a row, set Row to the option that opens it and place
+//     myFeaturePage() in a panel's Items instead.
+
+import (
+	"example.com/yourapp/dashboard"
+)
+
+func myFeaturePage() dashboard.Page {
+	return dashboard.Page{
+		Title: "My Feature",
+		Panels: []dashboard.Panel{
+			{Title: "My Feature", Items: []dashboard.Addon{}}, // the rows, in order
+		},
+	}
+}

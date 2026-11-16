@@ -17,7 +17,7 @@ import (
 
 var notesView = dashboard.View{
 	ID: "notes", Title: "Release Notes", Mode: "NOTES", Scroll: true,
-	Entry: &dashboard.Entry{Hotkey: "n"},
+	Row:   dashboard.Option{Hotkey: "n"},
 	Badge: func(c *dashboard.Ctx) string { return c.Count(*dashygotui.Local[int](c, "notes.visits"), "visits") },
 	Body: func(c *dashboard.Ctx, size dashygotui.Size) []string {
 		th := c.Theme()

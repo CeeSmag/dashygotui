@@ -1,21 +1,22 @@
 package addons
 
-// TEMPLATE: what a sub-page does: a page placed as a row of a panel, opened
-// full-screen with panels of its own, numbered from 1, and Back to return.
+// TEMPLATE: what a window (a sub-page) does while it is open.
 //
-// To use it:
-//  1. Copy this file to your addons directory as <name>_page.go, or run
-//     dashygotui new page <name>.
-//  2. Change the import path of the dashboard package to your own.
-//  3. Place the sub-page in addons.go, in the Items of a panel. Its panels are
-//     placement, so they are written in the map, like any page's:
+// A window is a page placed as a row of a panel: the row opens it full-screen,
+// with panels of its own, rows numbered from 1, and Back to return. It is made of
+// three things:
+//   - the option that opens it, in a file of its own (my_feature_opt.go): only a
+//     Label, a Hotkey, a Badge; no action, the map gives it one;
+//   - what is inside it, written in the map (addons.go, or my_feature_map.go):
 //
-//	dashboard.Page{Title: "My Feature", Badge: myFeatureBadge, Session: myFeatureSession,
+//	dashboard.Page{Row: myFeatureOpt, Badge: myFeatureBadge, Session: myFeatureSession,
 //		Panels: []dashboard.Panel{{Title: "Tools", Items: []dashboard.Addon{someOpt}}}}
 //
-// This file holds what the sub-page does apart from its panels: the badge beside
-// its title, and a session that runs while it is on screen. Delete what you do
-// not need.
+//   - and this file: what it does while it is open, the badge beside its title
+//     and a session that runs while it is on screen. Delete what you do not need.
+//
+// To use it, copy this file as <name>_page.go (or run dashygotui new page <name>)
+// and change the import path of the dashboard package to your own.
 
 import (
 	"example.com/yourapp/dashboard"
@@ -25,7 +26,7 @@ func myFeatureBadge(c *dashboard.Ctx) string {
 	return c.Theme().Green.Render(c.Theme().G.Bullet + " OK")
 }
 
-// myFeatureSession starts work that only matters while the sub-page is on
+// myFeatureSession starts work that only matters while the window is on
 // screen, and returns what stops it.
 func myFeatureSession(c *dashboard.Ctx) func() {
 	c.Flash("My Feature opened")

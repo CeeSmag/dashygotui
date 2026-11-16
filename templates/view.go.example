@@ -24,7 +24,7 @@ import (
 var myFeatureView = dashboard.View{
 	ID: "my_feature", Title: "My Feature", Scroll: true, Framed: true,
 	// Entry is how the row that opens the view looks. Optional.
-	Entry: &dashboard.Entry{Note: "full screen"},
+	Row: dashboard.Option{Note: "full screen"},
 	Body: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
 		var rows []string
 		for i := 1; i <= 50; i++ {

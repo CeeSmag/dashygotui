@@ -6,7 +6,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -667,7 +666,7 @@ func exemptFromOneFile(p string) bool {
 		return true
 	case !strings.HasSuffix(p, ".go"):
 		return true // documentation and other files are not registries
-	case InAddons(p) && path.Base(p) == MapFile:
+	case InAddons(p) && IsMapFile(p):
 		return true // the map places the new addon: its line is part of adding it
 	}
 	return false

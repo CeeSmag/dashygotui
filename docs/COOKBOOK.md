@@ -3,8 +3,9 @@
 The shortest correct form for each common need. If a feature file is longer than
 these, look here first. `S` is your state type; in the examples `dashboard` is the
 application's package with aliases `Map`, `Page`, `Panel`, `Ctx`, `Option`, `View`,
-`Entry`, `Shortcut`, `Hook`, `Addon`. Each feature is a top-level `var` in its own
-file, `<name>_<kind>.go`, and the map (`addons/addons.go`) places it.
+`Shortcut`, `Hook`, `Addon`. Each feature is a top-level `var` in its own file,
+`<name>_<kind>.go`, and the map (`addons/addons.go`, and `<name>_map.go` files for
+a page or window that needs its own) places it.
 
 ## Place a feature
 
@@ -22,7 +23,7 @@ starts its count at 10.
 ## Open a view from a row
 
 Place the view itself as the row: `Items: []dashboard.Addon{logsView}`. Its
-`Entry` says how the row looks (`Hotkey`, `HotkeyHint`, `Note`). To open the same
+`Row` says how the row looks (`Hotkey`, `HotkeyHint`, `Note`). To open the same
 view from a second place, an option with `Opens`:
 
 ```go
@@ -31,24 +32,50 @@ var logsAgainOpt = dashboard.Option{Label: "Logs", Opens: "logs"}
 
 Not `Run: func(c) tea.Cmd { return OpenView(...) }`. `Opens` is checked at startup.
 
-## A page of panels opened from a row: a sub-page
+## An option that opens a window
 
-A `Page` placed as a row, in the map:
+The option is a plain option, in its own file, with no action:
 
 ```go
-dashboard.Page{Title: "Diagnostics", Session: diagSession, Entry: &dashboard.Entry{Hotkey: "d"},
-	Panels: []dashboard.Panel{
-		{Widget: diagHealthWidget},
-		{Title: "Tools", Items: []dashboard.Addon{diagCheckOpt, diagLogsOpt}}, // [1] [2]
-	}}
+// diag_opt.go
+var diagOpt = dashboard.Option{Label: "Diagnostics", Hotkey: "d", HotkeyHint: "Diagnostics"}
 ```
 
-It numbers its own rows from 1, its rows' hotkeys work only inside it, and Back
-returns. What it does apart from its panels (`Session`, `Badge`) lives in
-`diag_page.go`.
+The map makes it open a window and says what is inside (in `addons.go`, or in
+`diag_map.go` when the window deserves a file of its own):
 
-`Entry` creates the option, hotkey and footer hint. `Items` rows are numbered by
-position. `Mode` defaults to the title in capitals.
+```go
+// diag_map.go
+func diagPage() dashboard.Page {
+	return dashboard.Page{Row: diagOpt, Session: diagSession, Panels: []dashboard.Panel{
+		{Widget: diagHealthWidget},
+		{Title: "Tools", Items: []dashboard.Addon{diagCheckOpt, diagLogsView}}, // [1] [2]
+	}}
+}
+```
+
+Place `diagPage()` in a panel's `Items`. The window's title is the option's label;
+it numbers its own rows from 1, its rows' hotkeys work only inside it, and Back
+returns. What it does while open (`Session`, `Badge`) lives in `diag_page.go`.
+
+## Split the map by page
+
+`addons.go` lists the tabs, and each page that is longer than a screen gets a file:
+
+```go
+// addons.go
+Pages: []dashboard.Page{monitorPage(), setupPage(), themePage()},
+```
+
+```go
+// setup_map.go
+func setupPage() dashboard.Page {
+	return dashboard.Page{Title: "Setup", Panels: []dashboard.Panel{{Title: "Actions", Items: []dashboard.Addon{restartOpt, diagPage()}}}}
+}
+```
+
+`dashygotui new map setup` writes one. A map file places features and holds no
+variables.
 
 ## Run an action that returns nothing
 

@@ -124,8 +124,8 @@ func compileMap[S any](mp Map[S]) mapped[S] {
 			}
 			ids[p.ID] = true
 		}
-		if p.Entry != nil {
-			c.reg.fail(path, "a tab has no row: Entry is for a page placed as a row of a panel")
+		if !rowZero(p.Row) {
+			c.reg.fail(path, "a tab has no row: Row is for a page placed as a row of a panel")
 		}
 		c.pages = append(c.pages, c.page(p, path, tabs))
 	}
@@ -225,20 +225,21 @@ func (c *mapper[S]) item(it Addon[S], path, parent string, sc *scope[S], depth i
 		if v.ID == "" {
 			v.ID = path
 		}
-		entry := v.Entry
-		v.Entry = nil
+		row := v.Row
+		v.Row = Option[S]{}
 		if !c.view(v, path) {
 			return nil
 		}
-		return c.row(entryRow(entry, v.Title, v.ID), path, sc)
+		return c.opener(row, v.Title, v.ID, path, sc)
 	case Page[S]:
+		v.Title = cmp.Or(v.Title, v.Row.Label)
 		spath := parent + " > " + cmp.Or(v.Title, "page")
 		def := c.page(v, spath, newScope[S](false))
 		id := cmp.Or(v.ID, spath)
 		if !c.view(View[S]{ID: id, Title: cmp.Or(v.Title, "page"), Badge: v.Badge, Session: v.Session, sub: &def}, path) {
 			return nil
 		}
-		return c.row(entryRow(v.Entry, v.Title, id), path, sc)
+		return c.opener(v.Row, v.Title, id, path, sc)
 	case Widget[S]:
 		c.reg.fail(path, "widget %q is a panel of its own: {Widget: ...}, not a row", v.Title)
 	case Shortcut[S]:
@@ -248,9 +249,9 @@ func (c *mapper[S]) item(it Addon[S], path, parent string, sc *scope[S], depth i
 	case Invalid[S]:
 		c.reg.fail(path, "%s", v.Reason)
 	default:
-		// A ready-made addon: its options are rows here, a view with an Entry is
-		// a row that opens it, and any other view, shortcut or hook it brings
-		// along is registered without a row of its own.
+		// A ready-made addon: its options are rows here, a view with a Row is a
+		// row that opens it, and any other view, shortcut or hook it brings along
+		// is registered without a row of its own.
 		if depth >= maxAddonDepth {
 			c.reg.fail(path, "addon %T expands into addons more than %d levels deep", it, maxAddonDepth)
 			return nil
@@ -259,7 +260,7 @@ func (c *mapper[S]) item(it Addon[S], path, parent string, sc *scope[S], depth i
 		for _, sub := range it.Addons() {
 			switch x := sub.(type) {
 			case View[S]:
-				if x.Entry != nil {
+				if !rowZero(x.Row) {
 					rows = append(rows, c.item(x, path, parent, sc, depth+1)...)
 					continue
 				}
@@ -277,22 +278,28 @@ func (c *mapper[S]) item(it Addon[S], path, parent string, sc *scope[S], depth i
 	return nil
 }
 
-// entryRow is the row that opens view id, drawn as e says.
-func entryRow[S any](e *Entry[S], title, id string) Option[S] {
-	if e == nil {
-		e = &Entry[S]{}
+// opener checks and numbers r, the row that opens view or sub-page id: its
+// label defaults to title, and its action is opening it.
+func (c *mapper[S]) opener(r Option[S], title, id, path string, sc *scope[S]) []Option[S] {
+	if r.actions() > 0 {
+		c.reg.fail(path, "the row %q opens %q: it sets no Run, Do, Opens or Modal of its own", cmp.Or(r.Label, title), title)
+		return nil
 	}
-	return Option[S]{
-		Label: cmp.Or(e.Label, title), Hotkey: e.Hotkey, HotkeyDisplay: e.HotkeyDisplay,
-		HotkeyTone: e.HotkeyTone, HotkeyHint: e.HotkeyHint, Badge: e.Badge, Note: e.Note,
-		Opens: id,
-	}
+	r.Label = cmp.Or(r.Label, title)
+	r.Opens = id
+	return c.row(r, path, sc)
+}
+
+// rowZero reports whether r says nothing about how a row looks or acts.
+func rowZero[S any](r Option[S]) bool {
+	return r.Label == "" && r.Hotkey == "" && r.HotkeyDisplay == "" && r.HotkeyHint == "" &&
+		r.HotkeyTone == ToneDefault && r.Badge == nil && r.Note == "" && r.actions() == 0
 }
 
 // view registers a view and reports whether it was valid.
 func (c *mapper[S]) view(v View[S], path string) bool {
-	if e := v.Entry; e != nil {
-		c.reg.fail(path, "view %q has an Entry but no row: place the view as a row of a panel instead", v.ID)
+	if !rowZero(v.Row) {
+		c.reg.fail(path, "view %q has a Row but is not placed as one: place the view in a panel's Items instead", v.ID)
 		return false
 	}
 	before := len(c.reg.errs)

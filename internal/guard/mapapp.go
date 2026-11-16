@@ -37,6 +37,15 @@ func MapKinds() []string {
 
 var mapFileName = regexp.MustCompile(`^[a-z][a-z0-9_]*_(opt|widget|view|page|modal|shortcut|hook)(_test)?\.go$`)
 
+var mapPartName = regexp.MustCompile(`^[a-z][a-z0-9_]*_map\.go$`)
+
+// IsMapFile reports whether rel is part of an addons package's map: addons.go,
+// the root, or a <name>_map.go file that maps one page or window.
+func IsMapFile(rel string) bool {
+	b := path.Base(rel)
+	return b == MapFile || mapPartName.MatchString(b)
+}
+
 // IsFeatureFile reports whether rel is a feature file of a map-laid-out addons
 // package by its name, such as backup_opt.go.
 func IsFeatureFile(rel string) bool {
@@ -49,13 +58,16 @@ func IsFeatureFile(rel string) bool {
 // are every source loaded, from which the dashboard package's types are read.
 func mapFindings(dir string, files, all []Source) []Finding {
 	var out []Finding
-	var features []Source
+	var features, maps []Source
 	var mapFile Source
 	for _, s := range files {
 		base := path.Base(s.Rel)
 		switch {
-		case base == MapFile:
-			mapFile = s
+		case IsMapFile(s.Rel):
+			maps = append(maps, s)
+			if base == MapFile {
+				mapFile = s
+			}
 		case IsFeatureFile(s.Rel):
 			features = append(features, s)
 		case base == GenFile || base == DocFile:
@@ -64,7 +76,7 @@ func mapFindings(dir string, files, all []Source) []Finding {
 				Hint: "delete it; put the package comment in " + MapFile})
 		default:
 			out = append(out, Finding{Rule: "A1", File: s.Rel, Line: 1,
-				Msg:  "a feature file is named <name>_<kind>.go (kinds: " + strings.Join(MapKinds(), ", ") + "); the map is " + MapFile,
+				Msg:  "a feature file is named <name>_<kind>.go (kinds: " + strings.Join(MapKinds(), ", ") + "); the map is " + MapFile + " and <name>_map.go files",
 				Hint: "rename the file, for example " + strings.TrimSuffix(base, ".go") + "_opt.go"})
 		}
 	}
@@ -108,12 +120,14 @@ func mapFindings(dir string, files, all []Source) []Finding {
 			Hint: "write " + MapFile + " with func Map() dashboard.Map (see dashygotui rules design)"})
 	} else {
 		used := map[string]int{}
-		ast.Inspect(mapFile.File, func(n ast.Node) bool {
-			if id, ok := n.(*ast.Ident); ok {
-				used[id.Name]++
-			}
-			return true
-		})
+		for _, m := range maps {
+			ast.Inspect(m.File, func(n ast.Node) bool {
+				if id, ok := n.(*ast.Ident); ok {
+					used[id.Name]++
+				}
+				return true
+			})
+		}
 		for _, s := range features {
 			for _, d := range s.File.Decls {
 				gd, ok := d.(*ast.GenDecl)
@@ -127,7 +141,7 @@ func mapFindings(dir string, files, all []Source) []Finding {
 						case used[id.Name] == 0:
 							out = append(out, Finding{Rule: "A13", File: s.Rel, Line: s.Line(id.Pos()),
 								Msg:  id.Name + " is not placed in the map, so it never appears",
-								Hint: "add it to a panel, Shortcuts, Hooks or Views in " + MapFile + ", or delete the file"})
+								Hint: "add it to a panel, Shortcuts, Hooks or Views in the map, or delete the file"})
 						case used[id.Name] > 1:
 							out = append(out, Finding{Rule: "A13", File: s.Rel, Line: s.Line(id.Pos()),
 								Msg:  id.Name + " is placed in the map more than once",

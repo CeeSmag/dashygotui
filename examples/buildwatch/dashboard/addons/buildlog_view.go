@@ -12,7 +12,7 @@ import (
 
 var buildlogView = dashboard.View{
 	ID: "buildlog", Title: "Build Log", Follow: true,
-	Entry: &dashboard.Entry{Hotkey: "l", HotkeyHint: "Build log"},
+	Row:   dashboard.Option{Hotkey: "l", HotkeyHint: "Build log"},
 	Badge: func(c *dashboard.Ctx) string { return c.Count(len(c.State().Builds)*20, "lines") },
 	Body: func(c *dashboard.Ctx, _ dashygotui.Size) []string {
 		var lines []string

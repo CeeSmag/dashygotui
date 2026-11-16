@@ -52,7 +52,7 @@ Page is a tab of the dashboard, in [Map.Pages], or a sub-page: a page placed as 
 | Field | Type | What it does |
 | --- | --- | --- |
 | `ID` | `string` | ID is the name [Context.GotoPage] uses for a tab, and [Context.OpenView] and [Config.StartView] for a sub-page. Optional; unique when set. |
-| `Title` | `string` | Title is the tab label. Required. |
+| `Title` | `string` | Title is the tab label, and the header of a sub-page. Required for a tab; a sub-page's defaults to its Row's Label. |
 | `ShortTitle` | `string` | ShortTitle is used when the terminal is narrower than 100 columns. |
 | `TinyTitle` | `string` | TinyTitle is used when the terminal is narrower than 75 columns. |
 | `Layout` | `Layout` | Layout arranges the page's panels. The zero value is [LayoutAuto]. |
@@ -62,7 +62,7 @@ Page is a tab of the dashboard, in [Map.Pages], or a sub-page: a page placed as 
 | `FallbackWhen` | `func(Size) bool` | FallbackWhen decides for any rule FallbackBelow cannot say, such as "narrow and short, or very short". It receives the size of the page body. Fallback needs FallbackBelow or FallbackWhen, not both. |
 | `Session` | `func(*Context[S]) (end func())` | Session is called when the page becomes the one on screen and returns the function to call when it stops being: when the user moves to another page or opens a view over it. Coming back starts a new session. Use it for work that only matters while the page is visible, such as asking a backend for more detail. Like [View.Session], it is not called when the dashboard quits, and a pop-up over the page does not end it. Optional. |
 | `Panels` | `[]Panel[S]` | Panels are what the page shows, in order: each a widget or a list of rows, arranged by Layout. |
-| `Entry` | `*Entry[S]` | Entry is how the row that opens the page looks when the page is placed as a row of a panel: a sub-page. Its Label defaults to the page's Title. It is not used on a tab. Optional. |
+| `Row` | `Option[S]` | Row is the row that opens the page when the page is placed as a row of a panel: a sub-page, a window the row opens. It is an ordinary option, often declared in a feature file of its own (diag_opt.go), with a Label, Hotkey, HotkeyHint or Badge; its action is opening the page, so it sets no Run, Do, Opens or Modal. A tab has no row. Optional. |
 
 ### `Panel`
 
@@ -96,20 +96,6 @@ Option is one numbered row of a panel: the thing an addon adds to a menu. The ma
 | `Opens` | `string` | Opens is the ID of a registered [View] to open. It is checked at startup, so a mistyped ID is an error rather than a message at run time. |
 | `Modal` | `func(*Context[S]) Modal[S]` | Modal returns a pop-up to open, such as a [modal.Confirm] or a notice. |
 
-### `Entry`
-
-Entry is how the row that opens a view or a sub-page looks; see [View.Entry] and [Page.Entry].
-
-| Field | Type | What it does |
-| --- | --- | --- |
-| `Label` | `string` | Label is the row text. It defaults to the view's or page's Title. |
-| `Hotkey` | `string` | Hotkey, HotkeyDisplay, HotkeyTone and HotkeyHint are those of [Option]. |
-| `HotkeyDisplay` | `string` |  |
-| `HotkeyTone` | `Tone` |  |
-| `HotkeyHint` | `string` |  |
-| `Badge` | `func(*Context[S]) string` | Badge and Note are those of [Option]. |
-| `Note` | `string` |  |
-
 ### `Widget`
 
 Widget is a read-only panel: a chart, a gauge, a status readout. The map places it as a panel of a page ([Panel].Widget).
@@ -136,7 +122,7 @@ View is a full-screen body opened from a row, a shortcut or [Context.OpenView], 
 | `Hints` | `func(*Context[S]) []Hint` | Hints returns extra footer hints, shown with the view's own. Optional. |
 | `Mode` | `string` | Mode is the footer's left-hand label, such as "LIVE". It defaults to the Title in capitals. |
 | `Tag` | `func(*Context[S]) string` | Tag returns a short muted note for the header, such as "Mode: ON". Empty shows nothing. Header is the way to add several or styled segments. Optional. |
-| `Entry` | `*Entry[S]` | Entry is how the row that opens the view looks, when the view is placed as a row of a panel: its label, hotkey, footer hint and badge. Optional. |
+| `Row` | `Option[S]` | Row is the row that opens the view, when the view is placed as a row of a panel: its Label (the view's Title by default), Hotkey, HotkeyHint, Badge or Note. Its action is opening the view, so it sets no Run, Do, Opens or Modal. Optional. |
 | `Body` | `func(*Context[S], Size) []string` | Body draws the view. It returns rows for the given body size. Required. |
 | `Follow` | `bool` | Follow makes the view a log: Scroll and Tail, drawn in a panel. It needs Body. |
 | `Framed` | `bool` | Framed draws the body in a bordered panel with the view's Title, as Panel does with no settings. It needs Body. |

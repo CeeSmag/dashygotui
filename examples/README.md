@@ -4,7 +4,7 @@ Three applications, all built on the same library and tested end to end.
 
 | | What it is | Run it |
 | --- | --- | --- |
-| [`showcase`](showcase/) | **Uses every feature.** Six pages, 44 options, 11 widgets, 5 views (one of them a sub-page), 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 50 feature files and one map. Start here. | `make run` |
+| [`showcase`](showcase/) | **Uses every feature.** Six pages, 44 options, 11 widgets, 5 views (one of them a sub-page), 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 51 feature files and a map split by page. Start here. | `make run` |
 | [`buildwatch`](buildwatch/) | **A second, unrelated app** (a CI build monitor) written entirely in the short forms: about 100 lines of addon code. Compare it with the showcase. | `go run ./examples/buildwatch` |
 | [`demo`](demo/) | The small quickstart: three pages and a handful of addons. Also the library's integration test. | `make run-demo` |
 
@@ -42,8 +42,8 @@ brackets is the option number: type it anywhere to jump there.
 
 | Feature | Where |
 | --- | --- |
-| **The map**: every page, panel and row placed in one file; each feature in a file of its own that says only what it does | `addons/addons.go`; `addons/*_<kind>.go` |
-| Every layout: grid, rows, auto, columns, two-over-one, one-over-two | the pages in `addons/addons.go` |
+| **The map**: every page, panel and row placed by the map, split by page; each feature in a file of its own that says only what it does | `addons/addons.go` and `addons/*_map.go`; `addons/*_<kind>.go` |
+| Every layout: grid, rows, auto, columns, two-over-one, one-over-two | the `*_map.go` files |
 | Tab badges; short and tiny tab titles (resize the terminal) | `Monitor` tab, every page title |
 | Panel `Noun`, panel `Badge`, widget `Badge`, `MinHeight`, `Subtitle`; `Panel.Number` | `Actions` page, `system_widget.go` |
 | Custom header; rebound key (Backspace goes back); `OnForceQuit` (ctrl+c asks) | `dashboard.go` |
@@ -56,7 +56,7 @@ brackets is the option number: type it anywhere to jump there.
 | `Context.GotoPage` | `[60]`-`[62]` |
 | **Pop-ups**: `Notice` (static, live, scrolling), `Confirm`, `Typed`, `Edit` (validate, save, submit, secret, empty, limit), `Choice`, `Slider` | `[30]`-`[38]`, `[10]`-`[15]` |
 | **Custom pop-ups**: `Modal`, `ResultModal`, chained flows | `[40]` dice, `[41]` ping, `[42]` three steps |
-| **Sub-page**: a `Page` placed as a row, with panels of its own, its own numbering and hotkeys, a `Session` and a header badge; a row opening a view by ID | `[50]` diagnostics (`diagnostics_*.go`) |
+| **Window (sub-page)**: a plain option opens it (`diagnostics_opt.go`), the map fills it (`diagnostics_map.go`); its own numbering and hotkeys, a `Session` and a header badge; a row opening a view by ID | `[50]` diagnostics (`diagnostics_*.go`) |
 | **Views**: custom body and keys | `[51]` processes |
 | **Scrolling view** (`Scroll`) with a scroll bar; `OnEnter` / `OnLeave` hooks | `[53]` release notes (`n`) |
 | **Tail view** (`Tail`): starts at the newest row, holds its place while rows arrive, End goes live | `[54]` event stream (`e`) |

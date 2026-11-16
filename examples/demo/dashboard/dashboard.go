@@ -50,8 +50,6 @@ type (
 	Widget = dashygotui.Widget[State]
 	// View is a full-screen view.
 	View = dashygotui.View[State]
-	// Entry is how the row that opens a view or a sub-page looks.
-	Entry = dashygotui.Entry[State]
 	// Modal is a pop-up.
 	Modal = dashygotui.Modal[State]
 	// Shortcut is a key that works on every page, or everywhere.

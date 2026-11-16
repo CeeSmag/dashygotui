@@ -83,9 +83,11 @@ info, err := dashboard.Run(ctx, st, addons.Map())
 
 Most features are shorter still: an option that opens a view is `Opens: "logs"`,
 one that shows a pop-up is `Modal: ...`, an action with nothing to return is
-`Do: ...`, a view placed as a row is opened by that row, a page placed as a row is a
-sub-page, and a saved setting is one `stdaddons.Toggle`, `Number`, `Pick` or
-`Text`. Ready-made addons such as the theme picker go in the map directly, with no
+`Do: ...`, a view placed as a row is opened by that row, and a saved setting is one
+`stdaddons.Toggle`, `Number`, `Pick` or `Text`. An option that opens a **window**
+is a plain option (`Option{Label: "Diagnostics", Hotkey: "d"}`); the map makes it
+the `Row` of a page placed as a row and says what the window holds. A big
+dashboard splits the map by page into `<name>_map.go` files. Ready-made addons such as the theme picker go in the map directly, with no
 file. `dashygotui new <kind> <name>` writes a starter from [`templates/`](templates/)
 and prints the line to add to the map.
 
@@ -95,7 +97,8 @@ and prints the line to add to the map.
   stacking on narrow terminals, never overflowing at any size).
 - **Numbered options**, numbered by their place in the map: type a number
   anywhere to jump to that option, even on another page.
-- **Sub-pages**: a page placed as a row opens full-screen with panels of its own.
+- **Windows**: a plain option opens a page of panels of its own, which the map
+  fills.
 - **Modals**: edit, confirm, type-the-word, notice, choice list, slider
   ([`modal`](modal/)).
 - **Full-screen views** (with engine-managed scrolling and enter/leave hooks),

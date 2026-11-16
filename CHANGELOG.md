@@ -5,6 +5,49 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [0.6.0] - 2026-11-16
+
+**A window is an option and the map.** An option that opens a window is a plain
+option in a file of its own; the map opens the window and says what is inside.
+The map can be split by page. The decision is in `docs/DESIGN.md`. This release
+breaks the API; see **Removed** and **Migrating from 0.5**.
+
+### Added
+
+- **`Page.Row`**: the option that opens a page placed as a row (a window). It is an
+  ordinary `Option` with a label, hotkey and badge and no action; the map gives it
+  its action. A window's `Title` defaults to its row's label.
+- **Map files.** The map may be split by page: `addons.go` keeps `Map()`, and a page
+  or window gets `<name>_map.go`, a function returning it. `dashygotui check` treats
+  every map file as the map (A1, A2, A3, A13, C1); `make deletion-test` allows a
+  deleted feature to break any of them. `dashygotui new map <name>` writes one, from
+  the new `map` template.
+- A row that opens a view or a window and sets an action of its own is a startup
+  error.
+
+### Changed
+
+- **`View.Row`** replaces `View.Entry`: the row that opens a placed view is an
+  `Option`, like any row.
+- The `page` template describes a window: its option, its map and its behaviour.
+- The showcase's map is split by page, and Diagnostics, in the showcase and the
+  demo, opens from a plain option (`diagnostics_opt.go`); the showcase fills it in
+  `diagnostics_map.go`.
+
+### Removed
+
+- **`Entry`**, `Page.Entry` and `View.Entry`: use `Row`.
+
+### Migrating from 0.5
+
+1. `Entry: &dashboard.Entry{...}` becomes `Row: dashboard.Option{...}`, with the same
+   fields. Remove the `Entry` alias from the dashboard package.
+2. Optionally, move a window's row into a file of its own
+   (`var diagOpt = dashboard.Option{Label: "Diagnostics", Hotkey: "d"}`) and give the
+   window `Row: diagOpt`; its `Title` may then go.
+3. Optionally, split a long map: a function per page in `<name>_map.go`, listed in
+   `addons.go`.
+
 ## [0.5.0] - 2026-11-16
 
 **The map.** A feature says only what it does, and one hand-written file, the map

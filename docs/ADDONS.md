@@ -18,7 +18,8 @@ quickstart.
 | a saved setting | `<name>_opt.go` | a `stdaddons.Toggle`, `Number`, `Pick` or `Text` | in a panel's `Items` |
 | a read-only panel | `<name>_widget.go` | a `Widget` | as a panel: `{Widget: x}` |
 | a full-screen view | `<name>_view.go` | a `View` | in a panel's `Items` (the row opens it), or `Map.Views` |
-| a sub-page: panels opened from a row | `<name>_page.go` | what it does: `Session`, `Badge` | a `Page` in a panel's `Items`, with its `Panels` |
+| a window: panels opened from a row | `<name>_opt.go` (the row) and `<name>_page.go` (`Session`, `Badge`) | an `Option` with no action | a `Page` with that `Row`, in a panel's `Items`, with its `Panels` |
+| the map of one page or window | `<name>_map.go` | a function returning the `Page` | in `Map.Pages`, or a panel's `Items` |
 | a custom pop-up | `<name>_modal.go` | an `Option` with a `Modal` | in a panel's `Items` |
 | a key that is not a row | `<name>_shortcut.go` | a `Shortcut` | `Map.Shortcuts` |
 | a reaction to ticks, messages, results | `<name>_hook.go` | a `Hook` | `Map.Hooks` |
@@ -71,11 +72,17 @@ func Map() dashboard.Map {
 - **Rows are numbered by position**, across the tab pages in map order. A panel's
   `Number` sets where its count starts; typing `1` then `0` jumps to `[10]`. Two
   rows with one number is a startup error.
-- A **`View`** placed as a row is opened by that row; its `Entry` says how the row
-  looks (`Label`, `Hotkey`, `HotkeyHint`, `Note`, `Badge`).
-- A **`Page`** placed as a row is a **sub-page**: the row opens it full-screen with
-  panels of its own, numbered from 1, its rows' hotkeys working only inside it, and
-  Back returns. Its `Session` and `Badge` work as a tab's do; its `Entry` is its row.
+- A **`View`** placed as a row is opened by that row; its `Row` (an `Option` with no
+  action) says how the row looks (`Label`, `Hotkey`, `HotkeyHint`, `Note`, `Badge`).
+- A **`Page`** placed as a row is a **window** (a sub-page): the row opens it
+  full-screen with panels of its own, numbered from 1, its rows' hotkeys working
+  only inside it, and Back returns. Its `Row` is the option that opens it, a plain
+  option from a feature file such as `diag_opt.go`; its title defaults to that
+  option's label. Its `Session` and `Badge` work as a tab's do.
+- **The map can be split by page.** `addons.go` holds `Map()` and lists the tabs;
+  a page or window that is longer than a screen gets its own `<name>_map.go` with
+  a function returning it (`func setupPage() dashboard.Page`). Map files place
+  features and nothing else: no variables, no behaviour.
 - A ready-made addon from `stdaddons` is placed directly, with no file.
 - Each feature is placed once. A second way into a view is an option with `Opens`.
 - Panel `Title`, `Subtitle`, `Badge` and `Noun` dress a list of rows; on a widget
@@ -275,9 +282,9 @@ opened from a row, use a sub-page instead (a `Page` placed as a row).
   when it appears and stop it when it goes. They do not run when the dashboard
   quits; stop long work with the context you gave `Run`.
 - **`Keys`** sees every key first.
-- **`Entry`** is how the row that opens the view looks, when the view is placed as
-  a row: its hotkey and footer hint, a note or badge. `Label` defaults to the
-  view's title.
+- **`Row`** is how the row that opens the view looks, when the view is placed as
+  a row: an `Option` with its hotkey and footer hint, a note or badge, and no
+  action. `Label` defaults to the view's title.
 - **`Follow`** is a log: `Scroll`, `Tail` and a panel. **`Framed`** draws any `Body` in
   a panel with the view's title. Both need `Body`.
 - **`Tag`** adds a short muted note to the header (`"Mode: ON"`).

@@ -15,8 +15,9 @@ import (
 	"github.com/CeeSmag/dashygotui/templates"
 )
 
-// kinds are the feature kinds `new` can write, each with a template.
-func kinds() []string { return guard.MapKinds() }
+// kinds are the kinds `new` can write, each with a template: the feature kinds,
+// and map, the map of one page or window.
+func kinds() []string { return append(guard.MapKinds(), "map") }
 
 var (
 	moduleRe  = regexp.MustCompile(`(?m)^module\s+(\S+)`)
@@ -99,6 +100,8 @@ func placement(kind, id, label string) string {
 		return "in Map.Shortcuts: " + id + "Shortcut"
 	case "hook":
 		return "in Map.Hooks: " + id + "Hook"
+	case "map":
+		return "in Map.Pages for a tab: " + id + "Page(); or in a panel's Items for a window its Row opens"
 	}
 	return "in the Items of a panel: " + id + "Opt"
 }

@@ -1038,7 +1038,7 @@ func TestStdaddonsSettingsAreOneLineEach(t *testing.T) {
 
 func TestViewEntriesNeedNoSeparateOption(t *testing.T) {
 	d := newApp(t, store.NewMemory())
-	d.RequireContains("[d] Diagnostics") // Entry.HotkeyHint advertises the hotkey in the footer
+	d.RequireContains("[d] Diagnostics") // the row's HotkeyHint advertises the hotkey in the footer
 	d.Press("tab", "tab", "tab", "tab")
 	d.RequireContains("Diagnostics (d)", "Processes (p)", "Release Notes (n)")
 	d.Press("d")
@@ -1080,7 +1080,7 @@ func TestExamplesReadmeCountsAreTrue(t *testing.T) {
 	all, _ := filepath.Glob("dashboard/addons/*.go")
 	var files []string // the feature files, not the map
 	for _, f := range all {
-		if filepath.Base(f) != "addons.go" {
+		if b := filepath.Base(f); b != "addons.go" && !strings.HasSuffix(b, "_map.go") {
 			files = append(files, f)
 		}
 	}

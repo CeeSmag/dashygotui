@@ -164,3 +164,53 @@ func Map() dashboard.Map { return dashboard.Map{Items: []any{backupOpt, backupOp
 		t.Fatalf("findings = %v, want one A13 about placing it twice", rep.Findings)
 	}
 }
+
+// A map can be split: addons.go lists the pages, and a <name>_map.go file maps
+// one page or window. Map files place features and use anything of the
+// dashboard package; they hold no variables.
+func TestMapPartFiles(t *testing.T) {
+	t.Parallel()
+	root := mapSrc(t, mapAddons+guard.MapFile, `package addons
+import "example.com/app/dashboard"
+func Map() dashboard.Map { return dashboard.Map{Pages: []any{setupPage()}} }`)
+	part := func(code string) guard.Source { return mapSrc(t, mapAddons+"setup_map.go", code) }
+	tests := []struct {
+		name, code, want string
+	}{
+		{"places a feature and uses the dashboard package", `package addons
+import "example.com/app/dashboard"
+func setupPage() any { _ = dashboard.Helper(); return []any{backupOpt} }`, ""},
+		{"a variable in a map file", `package addons
+import "example.com/app/dashboard"
+var extra = dashboard.Option{}
+func setupPage() any { return []any{backupOpt, extra} }`, "A3"},
+		{"placed in two map files", `package addons
+func setupPage() any { return []any{backupOpt} }`, "A13"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			files := mapApp(t)
+			files[1] = root
+			if tt.want == "A13" { // the root places it as well
+				files[1] = mapSrc(t, mapAddons+guard.MapFile, `package addons
+import "example.com/app/dashboard"
+func Map() dashboard.Map { return dashboard.Map{Pages: []any{setupPage(), backupOpt}} }`)
+			}
+			files = append(files, part(tt.code))
+			rep := guard.CheckApp(files)
+			if got := strings.Join(rules(rep.Findings), " "); got != tt.want {
+				t.Fatalf("rules = %q, want %q: %v", got, tt.want, rep.Findings)
+			}
+		})
+	}
+	if got := guard.ChangeFindings([]guard.ChangedFile{
+		{Path: "dashboard/addons/restart_opt.go", Status: 'A'},
+		{Path: "dashboard/addons/setup_map.go", Status: 'M'},
+	}); len(got) != 0 {
+		t.Errorf("C1 for a page's map file: %v", got)
+	}
+	if got := guard.AddonNameViolations("x/addons/setup_map.go"); len(got) != 0 {
+		t.Errorf("AddonNameViolations = %v", got)
+	}
+}

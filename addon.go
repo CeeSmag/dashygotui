@@ -114,9 +114,11 @@ type View[S any] struct {
 	// shows nothing. Header is the way to add several or styled segments.
 	// Optional.
 	Tag func(*Context[S]) string
-	// Entry is how the row that opens the view looks, when the view is placed as
-	// a row of a panel: its label, hotkey, footer hint and badge. Optional.
-	Entry *Entry[S]
+	// Row is the row that opens the view, when the view is placed as a row of a
+	// panel: its Label (the view's Title by default), Hotkey, HotkeyHint, Badge or
+	// Note. Its action is opening the view, so it sets no Run, Do, Opens or
+	// Modal. Optional.
+	Row Option[S]
 	// Body draws the view. It returns rows for the given body size. Required.
 	Body func(*Context[S], Size) []string
 	// Follow makes the view a log: Scroll and Tail, drawn in a panel. It needs
@@ -174,21 +176,6 @@ type View[S any] struct {
 	sub *pageDef[S]
 }
 
-// Entry is how the row that opens a view or a sub-page looks; see
-// [View.Entry] and [Page.Entry].
-type Entry[S any] struct {
-	// Label is the row text. It defaults to the view's or page's Title.
-	Label string
-	// Hotkey, HotkeyDisplay, HotkeyTone and HotkeyHint are those of [Option].
-	Hotkey        string
-	HotkeyDisplay string
-	HotkeyTone    Tone
-	HotkeyHint    string
-	// Badge and Note are those of [Option].
-	Badge func(*Context[S]) string
-	Note  string
-}
-
 // ViewPanel is the frame of a view whose Body is drawn in a panel. See
 // [View.Panel].
 type ViewPanel[S any] struct {
@@ -209,7 +196,8 @@ type Page[S any] struct {
 	// ID is the name [Context.GotoPage] uses for a tab, and [Context.OpenView]
 	// and [Config.StartView] for a sub-page. Optional; unique when set.
 	ID string
-	// Title is the tab label. Required.
+	// Title is the tab label, and the header of a sub-page. Required for a tab;
+	// a sub-page's defaults to its Row's Label.
 	Title string
 	// ShortTitle is used when the terminal is narrower than 100 columns.
 	ShortTitle string
@@ -244,8 +232,10 @@ type Page[S any] struct {
 	// Panels are what the page shows, in order: each a widget or a list of rows,
 	// arranged by Layout.
 	Panels []Panel[S]
-	// Entry is how the row that opens the page looks when the page is placed as
-	// a row of a panel: a sub-page. Its Label defaults to the page's Title. It
-	// is not used on a tab. Optional.
-	Entry *Entry[S]
+	// Row is the row that opens the page when the page is placed as a row of a
+	// panel: a sub-page, a window the row opens. It is an ordinary option, often
+	// declared in a feature file of its own (diag_opt.go), with a Label, Hotkey,
+	// HotkeyHint or Badge; its action is opening the page, so it sets no Run, Do,
+	// Opens or Modal. A tab has no row. Optional.
+	Row Option[S]
 }

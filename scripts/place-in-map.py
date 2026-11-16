@@ -3,7 +3,7 @@
 
     place-in-map.py <addons.go> <kind> <id>
 
-kind is a feature kind (opt, widget, view, page, modal, shortcut, hook) and id
+kind is a feature kind (opt, widget, view, page, modal, shortcut, hook) or map, and id
 the feature's Go name prefix, as `dashygotui new` writes it (storageLimit for
 storage_limit). A shortcut joins Map.Shortcuts, a hook Map.Hooks; anything else
 goes on a new last page, so the rows already there keep their numbers.
@@ -33,6 +33,10 @@ def main():
             src = src.replace(key, key + ident + "Shortcut, ", 1)
         else:
             src = src.replace("return dashboard.Map{", "return dashboard.Map{\n\t\t" + key + ident + "Shortcut},", 1)
+    elif kind == "map":
+        start = src.index("Pages: []dashboard.Page{") + len("Pages: []dashboard.Page")
+        end = closing(src, start)
+        src = src[:end] + ident + "Page(),\n" + src[end:]
     elif kind == "hook":
         key = "Hooks: []dashboard.Hook{"
         if key in src:

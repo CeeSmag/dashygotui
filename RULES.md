@@ -114,8 +114,9 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 - **The map places everything.** `addons/addons.go` holds `func Map()`, which
   returns the dashboard's `Map`: its pages, the panels on each page (a widget,
   or a list of rows), the rows in each panel, and the dashboard's shortcuts,
-  hooks and views without a row. Every feature value is placed there, exactly
-  once. **[enforced: A13]** A ready-made addon from `stdaddons` is placed in the
+  hooks and views without a row. A page or window may be mapped in a file of its
+  own, `<name>_map.go`. Every feature value is placed in the map exactly once.
+  **[enforced: A13]** A ready-made addon from `stdaddons` is placed in the
   map directly and needs no file.
 - The map is passed to `dashygotui.New` in `Config.Map`. A test builds the map it
   needs.
@@ -202,7 +203,10 @@ explain why.
 
 - Feature files are named `<name>_<kind>.go`, the kind one of `opt`, `widget`,
   `view`, `page`, `modal`, `shortcut` and `hook` (plus `_test.go`). The package
-  also holds the map, `addons.go`, and nothing else. **[enforced: A1]**
+  also holds the map: `addons.go`, and a `<name>_map.go` file for any page or
+  window that deserves its own. Nothing else. **[enforced: A1]**
+- An option that opens a window is a plain option with no action. The map makes
+  it the `Row` of a `Page` placed as a row and fills the window.
 - A feature file declares its addons as unexported top-level values and contains
   no `init()`. A feature reaches the library only through the `*Context[S]` its
   callbacks are handed, and the application only through `State`. No

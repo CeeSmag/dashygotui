@@ -37,7 +37,7 @@ The short version:
    prints where the line goes.
    A feature file uses nothing of the application but the dashboard package's types:
    what the application knows and does is reached through ` + "`State`" + `.
-2. **Use the short forms** from the cookbook (` + "`Opens`, `Do`, `Entry`, `stdaddons.Toggle`" + `...).
+2. **Use the short forms** from the cookbook (` + "`Opens`, `Do`, `Row`, `stdaddons.Toggle`" + `...).
    If an addon is long, something is missing from the library.
 3. **If the library cannot do it, stop and record a gap** in GAPS.md. Do not wrap,
    copy or fork library code, and do not override a default to get around a limit.
@@ -136,7 +136,7 @@ description: Use when adding or changing anything on this application's dashboar
        %[1]s rules
 
 2. Look in the cookbook part of that output for the shortest form. Most addons are a few
-   lines (` + "`Opens`, `Do`, `Modal`, `Entry`, `stdaddons.Toggle/Number/Pick/Text`" + `).
+   lines (` + "`Opens`, `Do`, `Modal`, `Row`, `stdaddons.Toggle/Number/Pick/Text`" + `).
 3. Add **one new file** in ` + "`addons/`" + ` (` + "`%[1]s new <kind> <name>`" + ` writes a starter
    and says where it goes), then place it in the map, ` + "`addons/addons.go`" + `.
    Edit no other file. If another file really must change, say why in your reply.

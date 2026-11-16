@@ -59,8 +59,8 @@ func goodConfig() dashygotui.Config[auditState] {
 				return &modal.Notice[auditState]{Title: "About", Lines: []string{"plain ascii text"}}
 			}},
 		dashygotui.View[auditState]{ID: "v", Title: "A View",
-			Body:  func(*actx, dashygotui.Size) []string { return []string{"hello"} },
-			Entry: &dashygotui.Entry[auditState]{}},
+			Body: func(*actx, dashygotui.Size) []string { return []string{"hello"} },
+			Row:  dashygotui.Option[auditState]{Note: "full screen"}},
 	)
 	return dashygotui.Config[auditState]{
 		Title: "T", Map: dashygotui.Map[auditState]{Pages: []dashygotui.Page[auditState]{{ID: "p", Title: "Page", Panels: []dashygotui.Panel[auditState]{

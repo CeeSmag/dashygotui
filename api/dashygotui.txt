@@ -140,13 +140,6 @@ dashygotui: field Config.StartView []string
 dashygotui: field Config.Store Store
 dashygotui: field Config.Timer func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd
 dashygotui: field Config.Title string
-dashygotui: field Entry.Badge func(*Context[S]) string
-dashygotui: field Entry.Hotkey string
-dashygotui: field Entry.HotkeyDisplay string
-dashygotui: field Entry.HotkeyHint string
-dashygotui: field Entry.HotkeyTone Tone
-dashygotui: field Entry.Label string
-dashygotui: field Entry.Note string
 dashygotui: field ExitInfo.Message string
 dashygotui: field ExitInfo.Reason string
 dashygotui: field Hint.Key string
@@ -196,13 +189,13 @@ dashygotui: field OutlineOption.Label string
 dashygotui: field OutlineOption.Number int
 dashygotui: field OutlineOption.Page string
 dashygotui: field Page.Badge func(*Context[S]) string
-dashygotui: field Page.Entry *Entry[S]
 dashygotui: field Page.Fallback func(*Context[S], Size) []string
 dashygotui: field Page.FallbackBelow Size
 dashygotui: field Page.FallbackWhen func(Size) bool
 dashygotui: field Page.ID string
 dashygotui: field Page.Layout Layout
 dashygotui: field Page.Panels []Panel[S]
+dashygotui: field Page.Row Option[S]
 dashygotui: field Page.Session func(*Context[S]) (end func())
 dashygotui: field Page.ShortTitle string
 dashygotui: field Page.TinyTitle string
@@ -233,7 +226,6 @@ dashygotui: field TaskResult.Token int
 dashygotui: field View.Appended func(*Context[S]) int
 dashygotui: field View.Badge func(*Context[S]) string
 dashygotui: field View.Body func(*Context[S], Size) []string
-dashygotui: field View.Entry *Entry[S]
 dashygotui: field View.Follow bool
 dashygotui: field View.Framed bool
 dashygotui: field View.Header func(*Context[S]) []panel.Segment
@@ -244,6 +236,7 @@ dashygotui: field View.Mode string
 dashygotui: field View.OnEnter func(*Context[S]) tea.Cmd
 dashygotui: field View.OnLeave func(*Context[S]) tea.Cmd
 dashygotui: field View.Panel *ViewPanel[S]
+dashygotui: field View.Row Option[S]
 dashygotui: field View.Scroll bool
 dashygotui: field View.Session func(*Context[S]) (end func())
 dashygotui: field View.Tag func(*Context[S]) string
@@ -335,7 +328,6 @@ dashygotui: type BackgroundMode int
 dashygotui: type Config[S any] struct
 dashygotui: type Context[S any] struct
 dashygotui: type Dashboard[S any] struct
-dashygotui: type Entry[S any] struct
 dashygotui: type ExitInfo struct
 dashygotui: type GlyphMode int
 dashygotui: type Hint struct

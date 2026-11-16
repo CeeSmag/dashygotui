@@ -170,10 +170,10 @@ func allReadOnly(vs *ast.ValueSpec) bool {
 
 func AddonNameViolations(rel string) []string {
 	base := path.Base(rel)
-	if mapFileName.MatchString(base) || base == MapFile {
+	if mapFileName.MatchString(base) || IsMapFile(rel) {
 		return nil
 	}
-	return []string{fmt.Sprintf("%s: feature files are named <name>_<kind>.go (kinds: %s) beside the map, addons.go", rel, strings.Join(MapKinds(), ", "))}
+	return []string{fmt.Sprintf("%s: feature files are named <name>_<kind>.go (kinds: %s) beside the map, addons.go and <name>_map.go", rel, strings.Join(MapKinds(), ", "))}
 }
 
 // --- Rule: addons never depend on each other (sections 3 and 10) ---
@@ -183,7 +183,7 @@ func AddonNameViolations(rel string) []string {
 func CouplingViolations(files map[string]*ast.File) []string {
 	addons := map[string]*ast.File{}
 	for rel, f := range files {
-		if path.Base(rel) != MapFile { // the map uses every feature by design
+		if !IsMapFile(rel) { // the map uses every feature by design
 			addons[rel] = f
 		}
 	}

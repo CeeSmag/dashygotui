@@ -114,7 +114,7 @@ func TestAddRejectsNil(t *testing.T) {
 func TestViewEntryRegistersTheOption(t *testing.T) {
 	f := newFixture(t)
 	v := plainView(f.reg, "diag")
-	v.Entry = &dashygotui.Entry[state]{Hotkey: "d", HotkeyHint: "Diagnostics",
+	v.Row = dashygotui.Option[state]{Hotkey: "d", HotkeyHint: "Diagnostics",
 		HotkeyDisplay: "D", Note: "health and logs"}
 	f.reg.Add(v)
 	d := f.driver(140, 40)
@@ -128,7 +128,7 @@ func TestViewEntryRegistersTheOption(t *testing.T) {
 func TestSubPageRowsAreNumberedFromOne(t *testing.T) {
 	f := newFixture(t)
 	noop := func(*ctx) {}
-	f.reg.Add(dashygotui.Page[state]{Title: "Tools", Entry: &dashygotui.Entry[state]{Hotkey: "t"},
+	f.reg.Add(dashygotui.Page[state]{Title: "Tools", Row: dashygotui.Option[state]{Hotkey: "t"},
 		Panels: []panelT{{Title: "Tools", Items: []dashygotui.Addon[state]{
 			option{Label: "First Tool", Do: func(*ctx) { f.log = append(f.log, "first") }},
 			option{Label: "Second Tool", Do: noop, Note: "muted note"},

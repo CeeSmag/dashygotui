@@ -95,7 +95,7 @@ func referenceText(t *testing.T) string {
 		title, dir string
 		types      []string
 	}{
-		{"Package dashygotui", ".", []string{"Config", "Map", "Page", "Panel", "Option", "Entry", "Widget", "View", "ViewPanel", "Shortcut", "Hook"}},
+		{"Package dashygotui", ".", []string{"Config", "Map", "Page", "Panel", "Option", "Widget", "View", "ViewPanel", "Shortcut", "Hook"}},
 		{"Package modal", "modal", []string{"Edit", "Confirm", "Typed", "Notice", "Choice", "Slider"}},
 		{"Package stdaddons", "stdaddons", []string{"Toggle", "Number", "Pick", "Text", "ThemePicker", "RefreshRatePicker", "SpacingMenu", "DisplayPicker", "BackgroundPicker", "TransparencyToggle", "LogView"}},
 	} {

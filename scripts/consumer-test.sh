@@ -53,14 +53,14 @@ if grep -q 'dashygotui@v0.4.0 rules' AGENTS.md && [ -f CLAUDE.md ] && [ -f GAPS.
 "$cli" init -claude >/dev/null
 if [ -f .claude/skills/dashygotui/SKILL.md ] && grep -q 'cmd/dashygotui@v0.4.0 check -q' .claude/settings.json && python3 -c 'import json;json.load(open(".claude/settings.json"))'; then step "init -claude writes a skill and a valid hook"; else bad "init -claude"; fi
 
-for kind in opt widget view page modal shortcut hook; do
+for kind in opt widget view page modal shortcut hook map; do
 	if "$cli" new "$kind" scaffold >"$scratch/out" 2>"$scratch/err" && grep -q 'Place it in .*addons.go' "$scratch/out"; then
 		step "new $kind says where it goes"
 	else
 		bad "new $kind: $(cat "$scratch/err" "$scratch/out")"
 	fi
 done
-for kind in opt widget view page modal shortcut hook; do
+for kind in opt widget view page modal shortcut hook map; do
 	python3 "$root/scripts/place-in-map.py" dashboard/addons/addons.go "$kind" scaffold
 done
 gofmt -w dashboard/addons/addons.go

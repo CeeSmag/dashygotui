@@ -45,7 +45,7 @@ var streamTick = dashboard.Hook{Tick: streamSample}
 
 var streamView = dashboard.View{
 	ID: "stream", Title: "Event Stream", Mode: "STREAM",
-	Entry: &dashboard.Entry{Hotkey: "e"},
+	Row: dashboard.Option{Hotkey: "e"},
 	// Follow is Scroll, Tail and a panel in one word. Setting Panel as well
 	// gives the panel its own title and subtitle; the scroll position goes in
 	// its bottom border.

@@ -3,7 +3,6 @@ package guard
 import (
 	"go/ast"
 	"go/token"
-	"path"
 )
 
 // The rules for an addons package as a whole about its values (docs/DESIGN.md,
@@ -83,7 +82,7 @@ func valueFindings(files []Source) []Finding {
 // with a generated list, or "" when it is a proper addon value.
 func valueSpecProblem(s Source, vs *ast.ValueSpec) string {
 	switch {
-	case path.Base(s.Rel) == MapFile:
+	case IsMapFile(s.Rel):
 		return "package-level variable " + joinNames(vs.Names) + " in the map: the map places addons, each declared in its own file"
 	case !IsFeatureFile(s.Rel):
 		return "package-level variable " + joinNames(vs.Names) + " outside an addon file"
