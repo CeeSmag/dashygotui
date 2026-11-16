@@ -15,21 +15,23 @@ Machine-enforced rules are marked **[enforced]** and are checked by
 `dashygotui` is a generic library for building Bubble Tea v2 dashboards with as
 little application code as possible.
 
-> **Zero-edit extension.** Adding an option, widget, view, shortcut or modal to
-> an application means adding **exactly one new hand-written file** in that
-> application's `addons/` directory. No other file is edited by hand: not the
-> dashboard file, not a registry table, not a README index. The generated
-> `addons_gen.go` changes with it and is regenerated, never edited (`go generate`).
-> **[enforced: addon guard tests, rule A11 and `make deletion-test`]**
+> **One feature, one file, one line in the map.** Adding an option, widget,
+> view, sub-page, shortcut, modal or hook to an application means adding
+> **exactly one new hand-written file** in that application's `addons/`
+> directory and placing it in the **map**, `addons/addons.go`. No other file is
+> edited: not the dashboard file, not a sibling feature, not a README index. A
+> feature file says only what the feature does; only the map says where it goes.
+> **[enforced: addon guard tests, rules A1, A2, A13, C1 and `make deletion-test`]**
 
 Corollaries:
 
-- Deleting any single addon file and regenerating must leave the module
-  compiling and the dashboard running. **[enforced: `make deletion-test`]**
-- A feature that needs persistence, a background task, a shortcut, a modal and
-  a sub-view declares all of them in the same file.
-- Editing an existing file to introduce a new addon is prohibited unless it is
-  genuinely unavoidable and the reason is stated in the change description.
+- Deleting any single feature file breaks only the map's lines that placed it.
+  **[enforced: `make deletion-test`]**
+- A feature that needs persistence, a background task, a modal and a hook
+  declares all of them in the same file.
+- Editing an existing file other than the map to introduce a new feature is
+  prohibited unless it is genuinely unavoidable and the reason is stated in the
+  change description.
 
 ## 2. Style baseline (all four are required)
 
@@ -44,9 +46,9 @@ project-specific consequences explicit.
 ## 3. Layout and dependency boundaries
 
 ```
-main.go  --imports-->  dashboard          (pages, section slots, Run)
-         --imports-->  dashboard/addons   (opt_*.go, widget_*.go, view_*.go, modal_*.go, shortcut_*.go,
-                                           doc.go, addons_gen.go with All())
+main.go  --imports-->  dashboard          (State and its methods, Poll, Run, short type names)
+         --imports-->  dashboard/addons   (addons.go: the map, Map(); *_opt.go, *_widget.go, *_view.go,
+                                           *_page.go, *_modal.go, *_shortcut.go, *_hook.go)
 addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 ```
 
@@ -54,10 +56,14 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
   `modal`, `stdaddons`, `store`, `dashtest`, and anything under `internal/`)
   **never** imports `examples/` or any `addons` package. **[enforced]**
 - `dashboard` **never** imports `addons`. Only `main` does, and it passes
-  `addons.All()` to the dashboard.
-- Addon files **never** depend on each other: no calling a function, using a
-  type or reading a variable declared in a sibling addon file. Shared code
-  moves into the `dashboard` package or the library. **[enforced]**
+  `addons.Map()` to the dashboard.
+- Feature files **never** depend on each other: no calling a function, using a
+  type or reading a variable declared in a sibling feature file. Only the map
+  uses them. **[enforced]**
+- A feature file uses nothing of the application but the `dashboard` package's
+  types: `State` (its fields and methods) and the short type names. What the
+  application knows and does is a method of `State`; how something looks, where
+  two applications would want it, belongs in the library. **[enforced: A2]**
 - The core is OS-agnostic: no `syscall`, `golang.org/x/sys`, `net/http`, no
   `runtime.GOOS`/`GOARCH` branching, no `/proc` or other platform paths.
   `os/exec` is allowed in exactly one library file (`exec.go`), which wraps
@@ -87,7 +93,7 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 - The library follows semantic versioning. Do not change an exported signature
   without calling it out as a breaking change.
 
-## 5. Globals, `init()` and addons as values
+## 5. Globals, `init()`, addons as values, and the map
 
 - The library has **no mutable package-level state** and **no `init()`**.
   Package-level `var` is limited to sentinel errors (`errors.New` /
@@ -95,27 +101,30 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
   **[enforced]**
 - Theme, spacing, refresh interval and every other piece of runtime state live
   on the `Dashboard` value and are passed explicitly to renderers.
-- An application has **no registry and no `init()`** either. An addon is a value:
-  every top-level `var` in an addon file is an addon literal (`Option`, `Widget`,
-  `View`, `Shortcut`, `Hook`, a `stdaddons` value, or a type of the file's own
-  with an `Addons` method), unexported, and never assigned to. **[enforced: A3,
-  A12]** The dashboard package may hold process-wide resources the addons share,
-  such as a log buffer and its loggers; it holds no state of the dashboard's own.
-- Helpers in an addon file (functions, constants, types) share the package's
-  namespace with every other addon file, so they are named after the file
+- An application has **no registry and no `init()`** either. A feature is a
+  value: every top-level `var` in a feature file is an addon literal (`Option`,
+  `Widget`, `View`, `Shortcut`, `Hook`, a `stdaddons` value, or a type of the
+  file's own with an `Addons` method), unexported, and never assigned to.
+  **[enforced: A3, A12]** The dashboard package may hold process-wide resources
+  (a log buffer and its loggers), reached by the features through `State`; it
+  holds no state of the dashboard's own.
+- Helpers in a feature file (functions, constants, types) share the package's
+  namespace with every other feature file, so they are named after the file
   (`networkHistory`, not `history`). A clash is a compile error.
-- The list of addons is generated: `dashygotui gen` writes `addons_gen.go`, whose
-  `All()` returns every addon wrapped in `At("file.go:line", ...)`. It is checked
-  in and never edited; a stale list is an error. **[enforced: A11]**
-- Addons are passed to `dashygotui.New` in `Config.Addons`. A test passes only
-  the addons it needs.
-- Validation never panics. `dashygotui.New` reports every problem at once, each
-  with the `file:line` that `At` recorded, before the UI starts.
-- The order of `All()` must not be relied on. Ordering of options, widgets and
-  panels comes only from the explicit `Order` field, then the stable `Key`.
-- Option numbers are assigned by hand and are unique across the dashboard. A
-  duplicate number, duplicate key, or reference to an unknown page or section
-  is a startup error that names both offending call sites.
+- **The map places everything.** `addons/addons.go` holds `func Map()`, which
+  returns the dashboard's `Map`: its pages, the panels on each page (a widget,
+  or a list of rows), the rows in each panel, and the dashboard's shortcuts,
+  hooks and views without a row. Every feature value is placed there, exactly
+  once. **[enforced: A13]** A ready-made addon from `stdaddons` is placed in the
+  map directly and needs no file.
+- The map is passed to `dashygotui.New` in `Config.Map`. A test builds the map it
+  needs.
+- **Rows are numbered by position**, across the tab pages in map order; a
+  panel's `Number` sets where its count starts. A sub-page numbers its own rows
+  from 1. Two rows with one number, or anything else wrong in the map, is a
+  startup error that names its place in the map
+  (`Control > Quick Actions > row 3`). Validation never panics, and reports every
+  problem at once before the UI starts.
 
 ## 6. Errors
 
@@ -185,37 +194,36 @@ addons   --imports-->  dashboard  --imports-->  dashygotui (this library)
 ## 9a. Architecture guard tests
 
 `arch_test.go` parses the source with `go/parser` and enforces sections 3, 5
-and 10. The generated `addons_gen.go` files of the examples are checked for
-staleness the same way an application's are. Do not weaken, skip, or work around a guard test. If a guard is wrong,
-change the guard in the same change and explain why.
+and 10, on the library and on the examples. Do not weaken, skip, or work around
+a guard test. If a guard is wrong, change the guard in the same change and
+explain why.
 
 ## 10. Addon rules (`addons/` directories)
 
-- File names are `opt_<name>.go`, `widget_<name>.go`, `view_<name>.go`,
-  `modal_<name>.go` or `shortcut_<name>.go` (plus `_test.go`). The package also
-  holds `doc.go` (the `//go:generate` line, written once) and the generated
-  `addons_gen.go`. **[enforced]**
-- An addon file declares its addons as unexported top-level values and contains
-  no `init()`. An addon reaches the library only through the `*Context[S]` its
-  callbacks are handed. No package-level mutable state: an addon's own state
-  lives in `dashygotui.Local`, a modal's or view's in its struct.
+- Feature files are named `<name>_<kind>.go`, the kind one of `opt`, `widget`,
+  `view`, `page`, `modal`, `shortcut` and `hook` (plus `_test.go`). The package
+  also holds the map, `addons.go`, and nothing else. **[enforced: A1]**
+- A feature file declares its addons as unexported top-level values and contains
+  no `init()`. A feature reaches the library only through the `*Context[S]` its
+  callbacks are handed, and the application only through `State`. No
+  package-level mutable state: a feature's own state lives in
+  `dashygotui.Local`, a modal's or view's in its struct.
   **[enforced on applications: dashygotui check]**
-- After adding, renaming or deleting an addon file, run `go generate ./...`.
-  `dashygotui check` fails while `addons_gen.go` is stale.
-- Pages and section containers are declared in the dashboard file, not in
-  addons. An addon targets them by string ID.
-- Persisted addon settings use `Context.Store()` with a key namespaced by the
-  addon's own `Key`.
-- Copy a file from `templates/` to start a new addon.
+- Pages, panels and their order are written in the map, never in a feature.
+- Persisted settings use `Context.Store()` with a key of the feature's own; a
+  `stdaddons` setting is saved under its `Key`.
+- Start a new feature with `dashygotui new <kind> <name>`, which writes it from
+  `templates/` and prints the line to add to the map.
 
 ## 11. Tooling gate
 
 `make check` runs: `gofmt`/`goimports` check, `go vet`, `staticcheck`,
 `golangci-lint`, `govulncheck`, `go test -race -shuffle=on ./...` (which includes the
-guard, API-snapshot, reference and documentation tests), `make deletion-test` (every
-addon removable after regenerating), `make template-test` (every file in
-`templates/` compiles and validates cleanly), `make consumer-test` (a throw-away application scaffolds, builds,
-passes `dashygotui check` and fails it for each bad addon), `make app-check` (the
+guard, API-snapshot, reference and documentation tests), `make deletion-test` (deleting
+any feature file breaks only the map lines that placed it), `make template-test` (every
+file in `templates/` compiles, places and validates cleanly), `make consumer-test` (a
+throw-away application scaffolds, builds, passes `dashygotui check` and fails it for
+each bad feature), `make app-check` (the
 examples obey the application rules), `make api-check` (an API change comes with a
 changelog entry) and `go mod tidy -diff`. All must pass. Never skip, silence or loosen a
 check to make a change pass; fix the cause. A `//nolint` needs a specific linter
@@ -232,11 +240,10 @@ library.
    `docs/ADDONS.md` and `docs/COOKBOOK.md` before writing an addon.
 2. Do only what was asked. Do not create, rename or delete files that were not
    requested. Keep diffs minimal and focused.
-3. To add an addon, add one file. If you believe another file must change, stop
-   and say why instead of editing it.
-4. Do not add dependencies, build tags, global state or `init()`. The only code
-   generation is `dashygotui gen` writing `addons_gen.go`; never hand-edit its
-   output and never add another generator.
+3. To add a feature, add one file and its line in the map. If you believe
+   another file must change, stop and say why instead of editing it.
+4. Do not add dependencies, build tags, global state or `init()`, and do not add
+   code generation.
 5. Do not invent APIs that are not in the library; read the code and the godoc.
 6. Run `make check` before declaring a task done. Report failures with their
    output; never claim success for a check you did not run.

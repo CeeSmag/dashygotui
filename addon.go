@@ -8,22 +8,9 @@ import (
 	"github.com/CeeSmag/dashygotui/panel"
 )
 
-// Option is one numbered, selectable row in a section: the thing an addon adds
-// to a menu. Declare it as an addon (see [Config.Addons]).
+// Option is one numbered row of a panel: the thing an addon adds to a menu.
+// The map places it in a panel's Items, and its position there is its number.
 type Option[S any] struct {
-	// Key is a unique, stable identifier such as "storage". Required. It must not
-	// start with "dashygotui.", which the library keeps for its own settings.
-	Key string
-	// Section is the ID of the section the option appears in, as declared in
-	// [Config.Sections]. Required.
-	Section string
-	// Number is the number that selects the option from the keyboard: typing it
-	// jumps straight to the row, on any page. It must be positive and unique
-	// across the whole dashboard. Required.
-	Number int
-	// Order sorts the option within its section, ascending. When zero the
-	// Number is used.
-	Order int
 	// Label is the row text. Required.
 	Label string
 	// Hotkey is an optional key that runs the option directly from any
@@ -63,6 +50,9 @@ type Option[S any] struct {
 	Opens string
 	// Modal returns a pop-up to open, such as a [modal.Confirm] or a notice.
 	Modal func(*Context[S]) Modal[S]
+
+	// number is the row's number, given by its position in the map.
+	number int
 }
 
 // actions counts how many of Run, Do, Opens and Modal are set.
@@ -71,24 +61,9 @@ func (o Option[S]) actions() int { return actionCount(o.Run, o.Do, o.Opens, o.Mo
 // run performs the option's action.
 func (o Option[S]) run(c *Context[S]) tea.Cmd { return runAction(c, o.Run, o.Do, o.Opens, o.Modal) }
 
-func (o Option[S]) order() int {
-	if o.Order != 0 {
-		return o.Order
-	}
-	return o.Number
-}
-
-// Widget is a read-only panel on a page: a chart, a gauge, a status readout.
-// Declare it as an addon (see [Config.Addons]).
+// Widget is a read-only panel: a chart, a gauge, a status readout. The map
+// places it as a panel of a page ([Panel].Widget).
 type Widget[S any] struct {
-	// Key is a unique, stable identifier such as "disk_io". Required.
-	Key string
-	// Page is the ID of the page the widget appears on, as declared in
-	// [Config.Pages]. Required.
-	Page string
-	// Order sorts the widget among the page's panels (sections and widgets
-	// together), ascending.
-	Order int
 	// Title is shown in the panel's top border. Required.
 	Title string
 	// Subtitle is shown in the panel's bottom border. Optional.
@@ -110,27 +85,22 @@ type Widget[S any] struct {
 	Tick func(*Context[S], time.Time) tea.Cmd
 }
 
-// View is a full-screen page opened from an option or a shortcut with
-// [Context.OpenView] and left with the Back key. Declare it as an addon (see
-// [Config.Addons]).
+// View is a full-screen body opened from a row, a shortcut or
+// [Context.OpenView], and left with the Back key: a log, a long text, a table
+// with keys of its own. The map places it as a row of a panel (the row opens
+// it), or in [Map.Views] when it has no row. For a full page of panels opened
+// from a row, place a [Page] as the row instead: a sub-page.
 //
-// A view draws a header, a body and a footer. The body is, in order of
-// precedence, Body when set, otherwise a status panel (Status) above a menu of
-// numbered rows (Options), either of which may be absent.
+// A view draws a header, its Body and a footer.
 type View[S any] struct {
-	// ID is the unique name passed to [Context.OpenView]. Required.
+	// ID is the name [Context.OpenView], an option's Opens and
+	// [Config.StartView] use. A view in [Map.Views] needs one; a view placed as
+	// a row is named by its place in the map when it has none.
 	ID string
-	// Title names the view in the header and above the status panel. Required.
+	// Title names the view in the header and its panel. Required.
 	Title string
-	// Badge is shown beside the title. Optional.
+	// Badge is shown in the view's panel (Follow, Framed, Panel). Optional.
 	Badge func(*Context[S]) string
-	// Subtitle is shown in the bottom border of the status panel. Optional.
-	Subtitle string
-	// OptionsTitle names the options panel. It defaults to "Options".
-	OptionsTitle string
-	// OptionsSubtitle is shown in the bottom border of the options panel.
-	// Optional.
-	OptionsSubtitle string
 	// Header returns extra header segments, shown after the view title and
 	// before the clock, such as "Mode: ON". They are dropped before the title
 	// when the terminal is narrow. Optional.
@@ -144,21 +114,10 @@ type View[S any] struct {
 	// shows nothing. Header is the way to add several or styled segments.
 	// Optional.
 	Tag func(*Context[S]) string
-	// Status returns the rows of the status panel. Optional.
-	Status func(*Context[S], Size) []string
-	// Options returns the menu rows, called afresh on every frame so badges and
-	// availability can change. Numbers need only be unique within the view; a
-	// row with no Number is numbered by its position, from 1.
-	Options func(*Context[S]) []Option[S]
-	// Items is Options for a list that never changes: the rows themselves, with
-	// badges that may still change. Set Items or Options, not both.
-	Items []Option[S]
-	// Entry makes the view reachable from a menu: it registers an option that
-	// opens this view, with the hotkey and footer hint the entry asks for, so a
-	// view and the way into it are one declaration. Optional.
+	// Entry is how the row that opens the view looks, when the view is placed as
+	// a row of a panel: its label, hotkey, footer hint and badge. Optional.
 	Entry *Entry[S]
-	// Body draws the whole body itself, replacing Status and Options. It
-	// returns rows for the given body size.
+	// Body draws the view. It returns rows for the given body size. Required.
 	Body func(*Context[S], Size) []string
 	// Follow makes the view a log: Scroll and Tail, drawn in a panel. It needs
 	// Body.
@@ -215,18 +174,10 @@ type View[S any] struct {
 	sub *pageDef[S]
 }
 
-// hasOptions reports whether the view has a menu of rows.
-func (v View[S]) hasOptions() bool { return v.Options != nil || len(v.Items) > 0 }
-
-// Entry describes the option that opens a view; see [View.Entry].
+// Entry is how the row that opens a view or a sub-page looks; see
+// [View.Entry] and [Page.Entry].
 type Entry[S any] struct {
-	// Section is the ID of the section the option appears in. Required.
-	Section string
-	// Number is the option's number, unique across the dashboard. Required.
-	Number int
-	// Order sorts the option within its section. When zero the Number is used.
-	Order int
-	// Label is the row text. It defaults to the view's Title.
+	// Label is the row text. It defaults to the view's or page's Title.
 	Label string
 	// Hotkey, HotkeyDisplay, HotkeyTone and HotkeyHint are those of [Option].
 	Hotkey        string
@@ -251,31 +202,12 @@ type ViewPanel[S any] struct {
 	Subtitle string
 }
 
-// SectionSpec declares a section: a bordered panel on a page that holds
-// options. Sections are declared in the dashboard file; addons fill them with
-// options by section ID.
-type SectionSpec[S any] struct {
-	// ID is the unique name options refer to. Required.
-	ID string
-	// Page is the ID of the page the section appears on. Required.
-	Page string
-	// Order sorts the section among the page's panels, ascending.
-	Order int
-	// Title is shown in the panel's top border. Required.
-	Title string
-	// Subtitle is shown in the panel's bottom border. Optional.
-	Subtitle string
-	// Noun is the word counted in the default badge, "option" by default. The
-	// badge reads "[3 options]".
-	Noun string
-	// Badge overrides the default count badge. Optional.
-	Badge func(*Context[S]) string
-}
-
-// Page declares one tab of the dashboard. Pages appear in the order they are
-// listed in [Config.Pages].
+// Page is a tab of the dashboard, in [Map.Pages], or a sub-page: a page placed
+// as a row of a panel, which the row opens full-screen. Its Panels are what it
+// shows.
 type Page[S any] struct {
-	// ID is the unique name sections and widgets refer to. Required.
+	// ID is the name [Context.GotoPage] uses for a tab, and [Context.OpenView]
+	// and [Config.StartView] for a sub-page. Optional; unique when set.
 	ID string
 	// Title is the tab label. Required.
 	Title string
@@ -309,9 +241,8 @@ type Page[S any] struct {
 	// more detail. Like [View.Session], it is not called when the dashboard
 	// quits, and a pop-up over the page does not end it. Optional.
 	Session func(*Context[S]) (end func())
-	// Panels are what the page shows, in order: each a widget or a list of rows.
-	// Used in a [Map]; a page of [Config.Pages] takes its sections and widgets
-	// from [Config.Sections] and the addons instead.
+	// Panels are what the page shows, in order: each a widget or a list of rows,
+	// arranged by Layout.
 	Panels []Panel[S]
 	// Entry is how the row that opens the page looks when the page is placed as
 	// a row of a panel: a sub-page. Its Label defaults to the page's Title. It

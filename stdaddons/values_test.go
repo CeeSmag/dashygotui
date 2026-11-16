@@ -15,24 +15,28 @@ type valState struct{}
 func valueDash(t *testing.T, addons ...dashygotui.Addon[valState]) *dashtest.Driver {
 	t.Helper()
 	return dashtest.New(t, dashygotui.Config[valState]{
-		Title:    "Values",
-		Pages:    []dashygotui.Page[valState]{{ID: "p", Title: "Page"}},
-		Sections: []dashygotui.SectionSpec[valState]{{ID: "s", Page: "p", Title: "Settings"}},
-		Addons:   addons,
+		Title: "Values",
+		Map:   valueMap(addons...),
 	}, 140, 40)
+}
+
+// valueMap places the addons as the rows of one panel.
+func valueMap(addons ...dashygotui.Addon[valState]) dashygotui.Map[valState] {
+	return dashygotui.Map[valState]{Pages: []dashygotui.Page[valState]{{ID: "p", Title: "Page",
+		Panels: []dashygotui.Panel[valState]{{Title: "Settings", Items: addons}}}}}
 }
 
 func TestValueFormsDrawTheSameRows(t *testing.T) {
 	t.Parallel()
 	buf := logs.NewBuffer(10)
 	d := valueDash(t,
-		stdaddons.ThemePicker[valState]{Section: "s", Number: 1, Hotkey: "t"},
-		stdaddons.RefreshRatePicker[valState]{Section: "s", Number: 2},
-		stdaddons.SpacingMenu[valState]{Section: "s", Number: 3},
-		stdaddons.DisplayPicker[valState]{Section: "s", Number: 4},
-		stdaddons.BackgroundPicker[valState]{Section: "s", Number: 5},
-		stdaddons.TransparencyToggle[valState]{Section: "s", Number: 6},
-		stdaddons.LogView[valState]{Buffer: buf, Section: "s", Number: 7, Hotkey: "g"},
+		stdaddons.ThemePicker[valState]{Hotkey: "t"},
+		stdaddons.RefreshRatePicker[valState]{},
+		stdaddons.SpacingMenu[valState]{},
+		stdaddons.DisplayPicker[valState]{},
+		stdaddons.BackgroundPicker[valState]{},
+		stdaddons.TransparencyToggle[valState]{},
+		stdaddons.LogView[valState]{Buffer: buf, Hotkey: "g"},
 	)
 	d.RequireContains("Color Theme", "Refresh Rate", "Section Gap", "Display Mode", "Background", "Transparent Background", "Logs")
 	d.Press("t")
@@ -44,11 +48,9 @@ func TestValueFormsDrawTheSameRows(t *testing.T) {
 func TestLogViewNeedsABuffer(t *testing.T) {
 	t.Parallel()
 	_, err := dashygotui.New(dashygotui.Config[valState]{
-		Pages:    []dashygotui.Page[valState]{{ID: "p", Title: "Page"}},
-		Sections: []dashygotui.SectionSpec[valState]{{ID: "s", Page: "p", Title: "Settings"}},
-		Addons:   []dashygotui.Addon[valState]{dashygotui.At[valState]("opt_logs.go:3", stdaddons.LogView[valState]{Section: "s", Number: 1})},
+		Map: valueMap(stdaddons.LogView[valState]{}),
 	})
-	if err == nil || !strings.Contains(err.Error(), "opt_logs.go:3: log view has no Buffer") {
+	if err == nil || !strings.Contains(err.Error(), "Page > Settings > row 1: log view has no Buffer") {
 		t.Fatalf("got %v", err)
 	}
 }

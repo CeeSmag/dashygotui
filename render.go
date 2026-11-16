@@ -319,7 +319,7 @@ func (m *model[S]) menuBody(opts []Option[S], inter, w, h int, oneCol bool) []st
 func numTagWidth[S any](opts []Option[S]) int {
 	w := 3
 	for _, o := range opts {
-		w = max(w, len(strconv.Itoa(o.Number))+2)
+		w = max(w, len(strconv.Itoa(o.number))+2)
 	}
 	return w
 }
@@ -368,7 +368,7 @@ func (m *model[S]) menuRow(o Option[S], w, numW, labelW int, selected bool) stri
 	if selected {
 		mark = th.Key.Render(th.Pointer()) + " "
 	}
-	head := mark + th.Key.Render(text.Pad(fmt.Sprintf("[%d]", o.Number), numW)) + " "
+	head := mark + th.Key.Render(text.Pad(fmt.Sprintf("[%d]", o.number), numW)) + " "
 	avail := w - text.Width(head)
 	if avail <= 0 {
 		return text.Fit(head, w)

@@ -22,24 +22,24 @@ func TestOptionActionsOpensDoModal(t *testing.T) {
 	f := newFixture(t)
 	f.reg.View(plainView(f.reg, "diag"))
 	f.reg.Add(
-		option{Key: "open", Section: "actions", Number: 5, Label: "Open It", Opens: "diag"},
-		option{Key: "do", Section: "actions", Number: 6, Label: "Do It", Do: func(*ctx) { f.log = append(f.log, "did") }},
-		option{Key: "modal", Section: "actions", Number: 7, Label: "Ask It", Modal: func(*ctx) dashygotui.Modal[state] {
+		option{Label: "Open It", Opens: "diag"},
+		option{Label: "Do It", Do: func(*ctx) { f.log = append(f.log, "did") }},
+		option{Label: "Ask It", Modal: func(*ctx) dashygotui.Modal[state] {
 			return &modal.Notice[state]{Title: "Hello Modal", Lines: []string{"from an option"}}
 		}},
 	)
 	d := f.driver(120, 40)
 	d.Press("tab")
-	d.Type("6")
+	d.Type("4") // after the fixture's [1] and [2]: Open It, Do It, Ask It
 	d.Press("enter")
 	if got := strings.Join(f.log, ","); got != "did" {
 		t.Fatalf("Do did not run: %q", got)
 	}
-	d.Type("7")
+	d.Type("5")
 	d.Press("enter")
 	d.RequireContains("Hello Modal", "from an option")
 	d.Press("esc")
-	d.Type("5")
+	d.Type("3")
 	d.Press("enter")
 	d.RequireContains("this is diag")
 	d.Press("esc")
@@ -71,8 +71,8 @@ func TestShortcutActionsOpensDoModal(t *testing.T) {
 func TestExactlyOneActionIsRequired(t *testing.T) {
 	r := collect.New[state]()
 	r.Add(
-		option{Key: "none", Section: "actions", Number: 1, Label: "None"},
-		option{Key: "two", Section: "actions", Number: 2, Label: "Two", Opens: "v", Do: func(*ctx) {}},
+		option{Label: "None"},
+		option{Label: "Two", Opens: "v", Do: func(*ctx) {}},
 		dashygotui.Shortcut[state]{Key: "q1"},
 		dashygotui.Shortcut[state]{Key: "q2", Opens: "v", Do: func(*ctx) {}},
 	)
@@ -80,28 +80,23 @@ func TestExactlyOneActionIsRequired(t *testing.T) {
 	if err == nil {
 		t.Fatal("want errors")
 	}
-	for _, want := range []string{`option "none" needs exactly one`, `option "two" needs exactly one`,
+	for _, want := range []string{`option "None" needs exactly one`, `option "Two" needs exactly one`,
 		`shortcut "q1" needs exactly one`, `shortcut "q2" needs exactly one`} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("missing %q in:\n%v", want, err)
 		}
-	}
-	if !strings.Contains(err.Error(), "engine_short_test.go:") {
-		t.Errorf("Add must report the caller's file:line:\n%v", err)
 	}
 }
 
 func TestOpensMustNameARegisteredView(t *testing.T) {
 	r := collect.New[state]()
 	r.Add(
-		option{Key: "o", Section: "actions", Number: 1, Label: "O", Opens: "nope"},
+		option{Label: "O", Opens: "nope"},
 		dashygotui.Shortcut[state]{Key: "x", Opens: "nada"},
-		dashygotui.View[state]{ID: "v", Title: "V", Items: []option{{Label: "Go", Opens: "zip"}}},
 	)
 	c := baseConfig(r)
 	msg := errText(t, c)
-	for _, want := range []string{`option "o" opens unknown view "nope"`, `shortcut "x" opens unknown view "nada"`,
-		`item "Go" opens unknown view "zip"`} {
+	for _, want := range []string{`option "O" opens unknown view "nope"`, `shortcut "x" opens unknown view "nada"`} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("missing %q in:\n%s", want, msg)
 		}
@@ -111,7 +106,7 @@ func TestOpensMustNameARegisteredView(t *testing.T) {
 func TestAddRejectsNil(t *testing.T) {
 	r := collect.New[state]()
 	r.Add(nil)
-	if err := validate(r); err == nil || !strings.Contains(err.Error(), "nil addon") {
+	if err := validate(r); err == nil || !strings.Contains(err.Error(), "nil row") {
 		t.Errorf("Validate = %v", err)
 	}
 }
@@ -119,7 +114,7 @@ func TestAddRejectsNil(t *testing.T) {
 func TestViewEntryRegistersTheOption(t *testing.T) {
 	f := newFixture(t)
 	v := plainView(f.reg, "diag")
-	v.Entry = &dashygotui.Entry[state]{Section: "actions", Number: 16, Hotkey: "d", HotkeyHint: "Diagnostics",
+	v.Entry = &dashygotui.Entry[state]{Hotkey: "d", HotkeyHint: "Diagnostics",
 		HotkeyDisplay: "D", Note: "health and logs"}
 	f.reg.Add(v)
 	d := f.driver(140, 40)
@@ -130,47 +125,23 @@ func TestViewEntryRegistersTheOption(t *testing.T) {
 	d.RequireContains("this is diag")
 }
 
-func TestViewEntryNumberCollisionIsReported(t *testing.T) {
-	f := newFixture(t)
-	v := plainView(f.reg, "diag")
-	v.Entry = &dashygotui.Entry[state]{Section: "actions", Number: 1} // [1] is Run Backup
-	f.reg.Add(v)
-	_, err := dashygotui.New(f.cfg)
-	if err == nil || !strings.Contains(err.Error(), "reuses number 1") {
-		t.Fatalf("New = %v, want a number collision", err)
-	}
-}
-
-func TestViewItemsAreNumberedByPosition(t *testing.T) {
+func TestSubPageRowsAreNumberedFromOne(t *testing.T) {
 	f := newFixture(t)
 	noop := func(*ctx) {}
-	f.reg.Add(dashygotui.View[state]{
-		ID: "tools", Title: "Tools", Items: []option{
-			{Label: "First Tool", Do: func(*ctx) { f.log = append(f.log, "first") }},
-			{Label: "Second Tool", Do: noop, Note: "muted note"},
-			{Number: 9, Label: "Ninth Tool", Do: noop},
-		},
-		Entry: &dashygotui.Entry[state]{Section: "actions", Number: 30, Hotkey: "t"},
-	})
+	f.reg.Add(dashygotui.Page[state]{Title: "Tools", Entry: &dashygotui.Entry[state]{Hotkey: "t"},
+		Panels: []panelT{{Title: "Tools", Items: []dashygotui.Addon[state]{
+			option{Label: "First Tool", Do: func(*ctx) { f.log = append(f.log, "first") }},
+			option{Label: "Second Tool", Do: noop, Note: "muted note"},
+			option{Label: "Third Tool", Do: noop},
+		}}}})
 	d := f.driver(120, 30)
 	d.Press("t")
-	d.RequireContains("TOOLS") // Mode defaults to the title in capitals
-	d.RequireAbsent("VIEW")
-	d.RequireContains("[1]", "First Tool", "[2]", "Second Tool", "[muted note]", "[9]", "Ninth Tool")
+	d.RequireContains("TOOLS") // the footer's mode is the title in capitals
+	d.RequireContains("[1]", "First Tool", "[2]", "Second Tool", "[muted note]", "[3]", "Third Tool")
 	d.Type("1")
 	d.Press("enter")
 	if got := strings.Join(f.log, ","); got != "first" {
 		t.Errorf("log = %q", got)
-	}
-}
-
-func TestViewItemsAndOptionsAreExclusive(t *testing.T) {
-	r := collect.New[state]()
-	r.Add(dashygotui.View[state]{ID: "v", Title: "V",
-		Items:   []option{{Label: "A", Do: func(*ctx) {}}},
-		Options: func(*ctx) []option { return nil }})
-	if err := validate(r); err == nil || !strings.Contains(err.Error(), "both Options and Items") {
-		t.Errorf("Validate = %v", err)
 	}
 }
 
@@ -205,7 +176,7 @@ func TestViewFollowAndFramed(t *testing.T) {
 
 func TestFollowAndFramedNeedABody(t *testing.T) {
 	r := collect.New[state]()
-	r.Add(dashygotui.View[state]{ID: "v", Title: "V", Follow: true, Status: func(*ctx, dashygotui.Size) []string { return nil }})
+	r.Add(dashygotui.View[state]{ID: "v", Title: "V", Follow: true})
 	if err := validate(r); err == nil || !strings.Contains(err.Error(), "Follow or Framed") {
 		t.Errorf("Validate = %v", err)
 	}
@@ -268,8 +239,8 @@ func TestPageSessionFollowsThePageOnScreen(t *testing.T) {
 			return func() { events = append(events, name+"-") }
 		}
 	}
-	f.cfg.Pages[0].Session = session("monitor")
-	f.cfg.Pages[2].Session = session("theme")
+	f.cfg.Map.Pages[0].Session = session("monitor")
+	f.cfg.Map.Pages[2].Session = session("theme")
 	v := plainView(f.reg, "v")
 	v.Keys = func(c *ctx, msg tea.KeyPressMsg) (tea.Cmd, bool) {
 		if msg.String() == "g" {
@@ -308,7 +279,7 @@ func TestPageSessionFollowsThePageOnScreen(t *testing.T) {
 func TestPageSessionWaitsForTheStartView(t *testing.T) {
 	f := newFixture(t)
 	var events []string
-	f.cfg.Pages[0].Session = func(*ctx) func() {
+	f.cfg.Map.Pages[0].Session = func(*ctx) func() {
 		events = append(events, "begin")
 		return func() { events = append(events, "end") }
 	}
@@ -327,8 +298,8 @@ func TestPageSessionWaitsForTheStartView(t *testing.T) {
 func TestHotkeyHintOnlyWhenAsked(t *testing.T) {
 	f := newFixture(t)
 	f.reg.Add(
-		option{Key: "a", Section: "actions", Number: 40, Label: "A", Hotkey: "u", HotkeyHint: "Upload", Do: func(*ctx) {}},
-		option{Key: "b", Section: "actions", Number: 41, Label: "B", Hotkey: "i", Do: func(*ctx) {}},
+		option{Label: "A", Hotkey: "u", HotkeyHint: "Upload", Do: func(*ctx) {}},
+		option{Label: "B", Hotkey: "i", Do: func(*ctx) {}},
 	)
 	d := f.driver(160, 40)
 	d.RequireContains("[u] Upload")
@@ -378,36 +349,11 @@ func TestAppendedNeedsTail(t *testing.T) {
 	}
 }
 
-func TestViewItemNumbersMustBeUnique(t *testing.T) {
-	r := collect.New[state]()
-	r.Add(dashygotui.View[state]{ID: "v", Title: "V", Items: []option{
-		{Label: "A", Do: func(*ctx) {}},            // numbered 1 by position
-		{Number: 1, Label: "B", Do: func(*ctx) {}}, // explicit 1: clash
-		{Number: 7, Label: "C", Do: func(*ctx) {}},
-		{Label: "D", Do: func(*ctx) {}}, // numbered 4 by position, fine
-	}})
-	err := validate(r)
-	if err == nil || !strings.Contains(err.Error(), `item "B" has number 1, which "A" already has`) {
-		t.Fatalf("Validate = %v", err)
-	}
-	if strings.Count(err.Error(), "already has") != 1 {
-		t.Errorf("only the real clash should be reported: %v", err)
-	}
-}
-
-func TestOptionKeyMayNotUseTheLibrariesPrefix(t *testing.T) {
-	r := collect.New[state]()
-	r.Add(option{Key: dashygotui.ReservedKeyPrefix + "palette", Section: "actions", Number: 90, Label: "X", Do: func(*ctx) {}})
-	if err := validate(r); err == nil || !strings.Contains(err.Error(), "reserved for the library") {
-		t.Errorf("Validate = %v", err)
-	}
-}
-
 func TestInvalidRecordsAReasonAtTheCallSite(t *testing.T) {
 	r := collect.New[state]()
 	r.Add(dashygotui.Invalid[state]{Reason: "this setting makes no sense"})
 	err := validate(r)
-	if err == nil || !strings.Contains(err.Error(), "this setting makes no sense") || !strings.Contains(err.Error(), "engine_short_test.go:") {
+	if err == nil || !strings.Contains(err.Error(), "this setting makes no sense") || !strings.Contains(err.Error(), "Setup > Quick Actions") {
 		t.Errorf("Validate = %v", err)
 	}
 }

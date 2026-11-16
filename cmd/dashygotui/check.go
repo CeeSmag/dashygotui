@@ -38,7 +38,7 @@ func checkCmd(args []string, stdout, stderr io.Writer) int {
 	}
 	addons := 0
 	for _, s := range srcs {
-		if guard.InAddons(s.Rel) && !guard.IsSupportFile(s.Rel) {
+		if guard.InAddons(s.Rel) && guard.IsFeatureFile(s.Rel) {
 			addons++
 		}
 	}
@@ -84,13 +84,13 @@ func checkCmd(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	if len(rep.Findings) > 0 {
-		fmt.Fprintf(stdout, "\n%d finding(s) in %d addon file(s). See: dashygotui rules app-rules\n", len(rep.Findings), addons)
+		fmt.Fprintf(stdout, "\n%d finding(s) in %d feature file(s). See: dashygotui rules app-rules\n", len(rep.Findings), addons)
 		return exitFindings
 	}
 	if advice > 0 {
 		fmt.Fprintf(stdout, "\n%d note(s) about the change set (advice; -strict makes them fail). See: dashygotui rules app-rules\n", advice)
 	}
-	fmt.Fprintf(stdout, "ok: %d addon file(s) follow the application rules\n", addons)
+	fmt.Fprintf(stdout, "ok: %d feature file(s) follow the application rules\n", addons)
 	return exitOK
 }
 

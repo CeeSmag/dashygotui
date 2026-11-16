@@ -8,11 +8,12 @@ application on top of it. The detailed rules are in `RULES.md` (the library),
 
 **The complexity lives in the library. The simplicity lives in the application.**
 
-An application declares what its dashboard contains: pages, sections, and, one
-file per feature, options, widgets, views, shortcuts and pop-ups. The library does
-everything else: layout, keys, scrolling, theming, terminal quirks, polling,
-persistence, pop-ups, tests. If an addon is long, something is missing from the
-library, not from the addon.
+An application declares what its dashboard contains: one file per feature
+(options, widgets, views, sub-pages, shortcuts, pop-ups, hooks), each saying only
+what it does, and one map that says where everything goes. The library does
+everything else: layout, numbering, keys, scrolling, theming, terminal quirks,
+polling, persistence, pop-ups, tests. If a feature file is long, something is
+missing from the library, not from the feature.
 
 A rough yardstick: a feature that opens a view, saves a setting or shows a pop-up
 is **one declaration of a few lines**, not a function.
@@ -30,17 +31,17 @@ the library only if **all** of these hold:
    in what one application computes.
 4. It is additive, or the breaking change is called out in `CHANGELOG.md`.
 
-A feature that fails the gate belongs in the application's `dashboard` package or
-in one of its addons.
+A feature that fails the gate belongs in the application: a method of its `State`,
+or one of its feature files.
 
 ## Where code lives
 
 | It is... | It goes in... |
 | --- | --- |
 | Pure UI mechanics: layout, scrolling, keys, themes, pop-ups, settings widgets | the library |
-| The application's data and the actions on it | an addon file (one feature, one file) |
-| Helpers two or more addons share | the application's `dashboard` package |
-| Pages and sections | the application's dashboard file |
+| How one feature looks and what it does | its feature file, `addons/<name>_<kind>.go` |
+| What the application knows and does (data, actions, process-wide resources) | `State`, its fields and methods, in the `dashboard` package |
+| Where everything goes: pages, panels, rows, order, numbers, shortcuts, hooks | the map, `addons/addons.go` |
 | Anything specific to an operating system or a product | the application, never the library |
 
 ## The gap protocol (what to do when the library cannot do it)
@@ -62,8 +63,9 @@ type, copy its code, override its defaults with a workaround, or fork it. Instea
 - **They travel with the module.** `go run github.com/CeeSmag/dashygotui/cmd/dashygotui@<version> rules`
   prints the rules that match the version an application pins.
 - **They are checked.** `dashygotui check` lints an application's addons (rules A1
-  to A12, including a stale `addons_gen.go`), `check -changed` applies the one-file rule to a change, and `dashtest.Audit`
-  checks the dashboard at every size. All belong in the application's own `make check`.
+  to A13, including a feature the map does not place), `check -changed` applies the
+  one-file rule to a change, and `dashtest.Audit` checks the dashboard at every size.
+  All belong in the application's own `make check`.
 - **They reach the agent at the moment it matters.** `dashygotui init -claude` installs a
   skill and a hook, so findings arrive after the edit that caused them, not at the end.
 - **The library governs itself.** The exported API is snapshotted, the docs must
@@ -74,6 +76,9 @@ type, copy its code, override its defaults with a workaround, or fork it. Instea
   typing.
 
 ## Decision: addons are values (v0.4.0)
+
+*Superseded in v0.5.0 by "the map", below: the generated list, `At`,
+`Config.Addons` and placement by string ID are gone. Addons are still values.*
 
 Up to v0.3 an addon registered itself from `init()` into a package-level
 `Registry` that the application declared, and `main` blank-imported the addons
@@ -270,7 +275,8 @@ var backupOpt = dashboard.Option{Label: "Run Backup", Badge: backupBadge, Do: ba
 | `Entry{Section, Number, Order, ...}` | `Entry{Label, Hotkey, Badge, Note, ...}`: only how the row that opens a view or sub-page looks |
 | `View.Status`, `Options`, `Items`, `OptionsTitle`, `OptionsSubtitle`, `Subtitle` | a sub-page: a `Page` placed as a row. A `View` is a full-screen `Body` |
 | a separate `Hook` value beside a widget that samples | `Widget.Tick` |
-| `At`, `dashygotui gen`, `addons_gen.go`, `doc.go`, rule A11, `make deletion-test` | gone |
+| `At`, `dashygotui gen`, `addons_gen.go`, `doc.go`, rule A11 | gone |
+| `make deletion-test`: delete a file, regenerate, build | delete a file: only the map's lines that placed it may break |
 | `opt_backup.go` | `backup_opt.go`; kinds `opt`, `widget`, `view`, `page`, `modal`, `shortcut`, `hook` |
 | `Section`, `Number`, `Order` on the `stdaddons` values | gone (a setting keeps the `Key` it is saved under) |
 | rule 1: one file, nothing else edited | one feature file, and its line in `addons.go` |
@@ -286,5 +292,5 @@ Each phase ends with `make check` passing and is one commit.
 | 1 | The map in the library beside the v0.4 API: `Config.Map`, `Panel`, sub-pages, `Widget.Tick`, numbering by position, map-path errors | no | done |
 | 2 | `dashygotui check` for the map layout (A1, A2, A13 and C1 adapted), beside the v0.4 layout | no | done |
 | 3 | The three examples move onto the map, and with them the templates, `new`, `init` and the scripts that use the demo | no | done |
-| 4 | The v0.4 placement API, `gen` and A11 removed; rules and docs final; v0.5.0 | yes | |
+| 4 | The v0.4 placement API, `gen` and A11 removed; rules and docs final; v0.5.0 | yes | done |
 | 5 | The first production application moves onto v0.5.0 | n/a | |

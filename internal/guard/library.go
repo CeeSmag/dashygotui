@@ -10,7 +10,6 @@ import (
 	"go/ast"
 	"go/token"
 	"path"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -169,14 +168,12 @@ func allReadOnly(vs *ast.ValueSpec) bool {
 
 // --- Rule: addon file names (section 10) ---
 
-var addonFileName = regexp.MustCompile(`^(opt|widget|view|modal|shortcut)_[a-z0-9_]+(_test)?\.go$`)
-
 func AddonNameViolations(rel string) []string {
 	base := path.Base(rel)
-	if addonFileName.MatchString(base) || isSupportFile(rel) || mapFileName.MatchString(base) || base == MapFile {
+	if mapFileName.MatchString(base) || base == MapFile {
 		return nil
 	}
-	return []string{fmt.Sprintf("%s: addon files must be named <name>_<kind>.go (kinds: %s) beside the map, addons.go, or in the v0.4 layout opt_*.go, widget_*.go, view_*.go, modal_*.go or shortcut_*.go", rel, strings.Join(MapKinds(), ", "))}
+	return []string{fmt.Sprintf("%s: feature files are named <name>_<kind>.go (kinds: %s) beside the map, addons.go", rel, strings.Join(MapKinds(), ", "))}
 }
 
 // --- Rule: addons never depend on each other (sections 3 and 10) ---
@@ -186,7 +183,7 @@ func AddonNameViolations(rel string) []string {
 func CouplingViolations(files map[string]*ast.File) []string {
 	addons := map[string]*ast.File{}
 	for rel, f := range files {
-		if b := path.Base(rel); b != GenFile && b != MapFile { // the list and the map use every addon by design
+		if path.Base(rel) != MapFile { // the map uses every feature by design
 			addons[rel] = f
 		}
 	}

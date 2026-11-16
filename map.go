@@ -25,11 +25,6 @@ type Map[S any] struct {
 	Views []View[S]
 }
 
-// used reports whether the map holds anything.
-func (mp Map[S]) used() bool {
-	return len(mp.Pages)+len(mp.Shortcuts)+len(mp.Hooks)+len(mp.Views) > 0
-}
-
 // Panel is one bordered panel of a page: one widget, or a list of numbered
 // rows. Set Widget or Items, not both.
 type Panel[S any] struct {
@@ -101,7 +96,7 @@ func newScope[S any](global bool) *scope[S] {
 
 // compileMap checks mp and turns it into pages and registered addons.
 func compileMap[S any](mp Map[S]) mapped[S] {
-	c := &mapper[S]{reg: collect[S](nil)}
+	c := &mapper[S]{reg: newRegistry[S]()}
 	for i, s := range mp.Shortcuts {
 		s.register(c.reg, fmt.Sprintf("Map.Shortcuts[%d]", i))
 	}
@@ -156,7 +151,7 @@ func (c *mapper[S]) page(p Page[S], path string, sc *scope[S]) pageDef[S] {
 		ppath := path + " > " + panelName(pn, i)
 		if pn.isWidget() {
 			if w, ok := c.widget(pn, ppath); ok {
-				def.panels = append(def.panels, panelDef[S]{id: ppath, order: i, widget: &w})
+				def.panels = append(def.panels, panelDef[S]{widget: &w})
 			}
 			continue
 		}
@@ -172,7 +167,7 @@ func (c *mapper[S]) page(p Page[S], path string, sc *scope[S]) pageDef[S] {
 		for j, it := range pn.Items {
 			rows = append(rows, c.item(it, fmt.Sprintf("%s > row %d", ppath, j+1), path+" > "+panelName(pn, i), sc, 0)...)
 		}
-		def.panels = append(def.panels, panelDef[S]{id: ppath, order: i, opts: rows,
+		def.panels = append(def.panels, panelDef[S]{opts: rows,
 			sec: &section[S]{title: pn.Title, subtitle: pn.Subtitle, noun: pn.Noun, badge: pn.Badge}})
 	}
 	return def
@@ -196,10 +191,6 @@ func (c *mapper[S]) widget(pn Panel[S], path string) (Widget[S], bool) {
 		c.reg.fail(path, "a widget panel has no rows to number or count: Number and Noun are for Items")
 		ok = false
 	}
-	if w.Key != "" || w.Page != "" || w.Order != 0 {
-		c.reg.fail(path, "widget sets Key, Page or Order: the Map places it")
-		ok = false
-	}
 	w.Title = cmp.Or(pn.Title, w.Title)
 	w.Subtitle = cmp.Or(pn.Subtitle, w.Subtitle)
 	if pn.Badge != nil {
@@ -219,7 +210,6 @@ func (c *mapper[S]) widget(pn Panel[S], path string) (Widget[S], bool) {
 	if w.Tick != nil {
 		c.reg.onTick = append(c.reg.onTick, w.Tick)
 	}
-	c.reg.widgets = append(c.reg.widgets, w)
 	return w, true
 }
 
@@ -229,8 +219,6 @@ func (c *mapper[S]) item(it Addon[S], path, parent string, sc *scope[S], depth i
 	switch v := it.(type) {
 	case nil:
 		c.reg.fail(path, "nil row")
-	case sited[S]:
-		return c.item(v.addon, path, parent, sc, depth)
 	case Option[S]:
 		return c.row(v, path, sc)
 	case View[S]:
@@ -260,19 +248,29 @@ func (c *mapper[S]) item(it Addon[S], path, parent string, sc *scope[S], depth i
 	case Invalid[S]:
 		c.reg.fail(path, "%s", v.Reason)
 	default:
-		// A ready-made addon: its options are rows here, and a view it brings
-		// is registered without a row of its own.
+		// A ready-made addon: its options are rows here, a view with an Entry is
+		// a row that opens it, and any other view, shortcut or hook it brings
+		// along is registered without a row of its own.
 		if depth >= maxAddonDepth {
 			c.reg.fail(path, "addon %T expands into addons more than %d levels deep", it, maxAddonDepth)
 			return nil
 		}
 		var rows []Option[S]
 		for _, sub := range it.Addons() {
-			if view, ok := sub.(View[S]); ok {
-				c.view(view, path)
-				continue
+			switch x := sub.(type) {
+			case View[S]:
+				if x.Entry != nil {
+					rows = append(rows, c.item(x, path, parent, sc, depth+1)...)
+					continue
+				}
+				c.view(x, path)
+			case Shortcut[S]:
+				x.register(c.reg, path)
+			case Hook[S]:
+				x.register(c.reg, path)
+			default:
+				rows = append(rows, c.item(sub, path, parent, sc, depth+1)...)
 			}
-			rows = append(rows, c.item(sub, path, parent, sc, depth+1)...)
 		}
 		return rows
 	}
@@ -288,8 +286,6 @@ func entryRow[S any](e *Entry[S], title, id string) Option[S] {
 		Label: cmp.Or(e.Label, title), Hotkey: e.Hotkey, HotkeyDisplay: e.HotkeyDisplay,
 		HotkeyTone: e.HotkeyTone, HotkeyHint: e.HotkeyHint, Badge: e.Badge, Note: e.Note,
 		Opens: id,
-		// Kept for the check below: a placed entry must not place itself.
-		Section: e.Section, Number: e.Number, Order: e.Order,
 	}
 }
 
@@ -311,22 +307,11 @@ func (c *mapper[S]) row(o Option[S], path string, sc *scope[S]) []Option[S] {
 		c.reg.fail(path, format, args...)
 		ok = false
 	}
-	if o.Section != "" || o.Number != 0 || o.Order != 0 {
-		fail("option %q sets Section, Number or Order: the Map places and numbers it", o.Label)
-	}
 	if strings.TrimSpace(o.Label) == "" {
 		fail("option has no Label")
 	}
 	if n := o.actions(); n != 1 {
 		fail("option %q needs exactly one of Run, Do, Opens and Modal, has %d", o.Label, n)
-	}
-	if o.Key != "" {
-		switch {
-		case c.reg.optionKeys[o.Key] != "":
-			fail("option %q is placed twice (first at %s)", o.Key, c.reg.optionKeys[o.Key])
-		default:
-			c.reg.optionKeys[o.Key] = path
-		}
 	}
 	if hk := o.Hotkey; hk != "" {
 		switch {
@@ -336,6 +321,9 @@ func (c *mapper[S]) row(o Option[S], path string, sc *scope[S]) []Option[S] {
 			fail("option %q hotkey %q is already a shortcut (%s)", o.Label, hk, c.reg.shortcutKey[hk])
 		default:
 			sc.hotkeys[hk] = path
+			if sc.global {
+				c.reg.hotkeys[hk] = path
+			}
 		}
 	}
 	n := sc.next
@@ -347,7 +335,7 @@ func (c *mapper[S]) row(o Option[S], path string, sc *scope[S]) []Option[S] {
 		return nil
 	}
 	sc.numbers[n] = fmt.Sprintf("%s (%q)", path, o.Label)
-	o.Number = n
+	o.number = n
 	if sc.global {
 		c.reg.options = append(c.reg.options, o)
 	} else {

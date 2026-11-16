@@ -15,10 +15,10 @@ import (
 // The settings in this file are one-line declarations for the most common kind
 // of option: a value the user can change, remembered between runs in the
 // dashboard's Store under the setting's Key. Each is a [dashygotui.Addon], declared
-// as a value in its own file:
+// as a value in its own file and placed in the map like any row:
 //
 //	var storageLimitSetting = stdaddons.Number[dashboard.State]{
-//		Key: "storage.limit_gb", Section: "settings", Number: 10, Label: "Storage Limit",
+//		Key: "storage.limit_gb", Label: "Storage Limit",
 //		Unit: "GB", Min: 1, Max: 1000, Default: 50,
 //	}
 //
@@ -28,14 +28,8 @@ import (
 
 // Toggle is an on/off setting. Opening the row flips it.
 type Toggle[S any] struct {
-	// Key names the setting in the Store and the option. Required and unique.
+	// Key names the setting in the Store. Required and unique.
 	Key string
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
-	// Order sorts the option within its section. Optional.
-	Order int
 	// Label is the row text. Required.
 	Label string
 	// Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option].
@@ -53,13 +47,16 @@ func (t Toggle[S]) Addons() []dashygotui.Addon[S] {
 	if strings.TrimSpace(t.Key) == "" {
 		return invalid[S]("stdaddons.Toggle %q has no Key: the Key names the setting in the Store", t.Label)
 	}
+	if strings.HasPrefix(t.Key, dashygotui.ReservedKeyPrefix) {
+		return invalid[S]("stdaddons.Toggle %q: Key %q starts with %q, which is reserved for the library's own settings", t.Label, t.Key, dashygotui.ReservedKeyPrefix)
+	}
 	value := func(c *dashygotui.Context[S]) bool {
 		on := t.Default
 		_, _ = c.Store().Get(t.Key, &on) // a missing or unreadable value keeps the default
 		return on
 	}
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Key: t.Key, Section: t.Section, Number: t.Number, Order: t.Order, Label: t.Label,
+		Label:  t.Label,
 		Hotkey: t.Hotkey, HotkeyDisplay: t.HotkeyDisplay, HotkeyHint: t.HotkeyHint,
 		Badge: func(c *dashygotui.Context[S]) string { return c.OnOff(value(c)) },
 		Run: func(c *dashygotui.Context[S]) tea.Cmd {
@@ -79,14 +76,8 @@ func (t Toggle[S]) Addons() []dashygotui.Addon[S] {
 
 // Number is a whole-number setting, edited in a pop-up that validates the range.
 type Number[S any] struct {
-	// Key names the setting in the Store and the option. Required and unique.
+	// Key names the setting in the Store. Required and unique.
 	Key string
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
-	// Order sorts the option within its section. Optional.
-	Order int
 	// Label is the row text. Required.
 	Label string
 	// Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option].
@@ -112,6 +103,9 @@ func (n Number[S]) Addons() []dashygotui.Addon[S] {
 	if strings.TrimSpace(n.Key) == "" {
 		return invalid[S]("stdaddons.Number %q has no Key: the Key names the setting in the Store", n.Label)
 	}
+	if strings.HasPrefix(n.Key, dashygotui.ReservedKeyPrefix) {
+		return invalid[S]("stdaddons.Number %q: Key %q starts with %q, which is reserved for the library's own settings", n.Label, n.Key, dashygotui.ReservedKeyPrefix)
+	}
 	switch {
 	case n.Min >= n.Max:
 		return invalid[S]("stdaddons.Number %q: Min (%d) must be less than Max (%d)", n.Key, n.Min, n.Max)
@@ -129,7 +123,7 @@ func (n Number[S]) Addons() []dashygotui.Addon[S] {
 		help = fmt.Sprintf("A whole number from %d to %d.", n.Min, n.Max)
 	}
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Key: n.Key, Section: n.Section, Number: n.Number, Order: n.Order, Label: n.Label,
+		Label:  n.Label,
 		Hotkey: n.Hotkey, HotkeyDisplay: n.HotkeyDisplay, HotkeyHint: n.HotkeyHint,
 		Badge: func(c *dashygotui.Context[S]) string { return c.Badge(show(value(c))) },
 		Modal: func(c *dashygotui.Context[S]) dashygotui.Modal[S] {
@@ -169,14 +163,8 @@ func (n Number[S]) Addons() []dashygotui.Addon[S] {
 // Pick is a setting chosen from a fixed list, shown in a pop-up with the current
 // choice marked. The Store keeps the chosen item's Label.
 type Pick[S any] struct {
-	// Key names the setting in the Store and the option. Required and unique.
+	// Key names the setting in the Store. Required and unique.
 	Key string
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
-	// Order sorts the option within its section. Optional.
-	Order int
 	// Label is the row text. Required.
 	Label string
 	// Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option].
@@ -200,6 +188,9 @@ type Pick[S any] struct {
 func (p Pick[S]) Addons() []dashygotui.Addon[S] {
 	if strings.TrimSpace(p.Key) == "" {
 		return invalid[S]("stdaddons.Pick %q has no Key: the Key names the setting in the Store", p.Label)
+	}
+	if strings.HasPrefix(p.Key, dashygotui.ReservedKeyPrefix) {
+		return invalid[S]("stdaddons.Pick %q: Key %q starts with %q, which is reserved for the library's own settings", p.Label, p.Key, dashygotui.ReservedKeyPrefix)
 	}
 	if len(p.Items) == 0 {
 		return invalid[S]("stdaddons.Pick %q has no Items to pick from", p.Key)
@@ -234,7 +225,7 @@ func (p Pick[S]) Addons() []dashygotui.Addon[S] {
 		return p.Items[current(c)].Label
 	}
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Key: p.Key, Section: p.Section, Number: p.Number, Order: p.Order, Label: p.Label,
+		Label:  p.Label,
 		Hotkey: p.Hotkey, HotkeyDisplay: p.HotkeyDisplay, HotkeyHint: p.HotkeyHint,
 		Badge: func(c *dashygotui.Context[S]) string { return c.Badge(label(c)) },
 		Run: func(c *dashygotui.Context[S]) tea.Cmd {
@@ -267,14 +258,8 @@ func (p Pick[S]) Addons() []dashygotui.Addon[S] {
 // Text is a text setting, edited in a one-line pop-up. Secret masks the input and
 // hides the value, for tokens and passwords.
 type Text[S any] struct {
-	// Key names the setting in the Store and the option. Required and unique.
+	// Key names the setting in the Store. Required and unique.
 	Key string
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
-	// Order sorts the option within its section. Optional.
-	Order int
 	// Label is the row text. Required.
 	Label string
 	// Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option].
@@ -303,13 +288,16 @@ func (t Text[S]) Addons() []dashygotui.Addon[S] {
 	if strings.TrimSpace(t.Key) == "" {
 		return invalid[S]("stdaddons.Text %q has no Key: the Key names the setting in the Store", t.Label)
 	}
+	if strings.HasPrefix(t.Key, dashygotui.ReservedKeyPrefix) {
+		return invalid[S]("stdaddons.Text %q: Key %q starts with %q, which is reserved for the library's own settings", t.Label, t.Key, dashygotui.ReservedKeyPrefix)
+	}
 	value := func(c *dashygotui.Context[S]) string {
 		v := t.Default
 		_, _ = c.Store().Get(t.Key, &v) // a missing or unreadable value keeps the default
 		return v
 	}
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Key: t.Key, Section: t.Section, Number: t.Number, Order: t.Order, Label: t.Label,
+		Label:  t.Label,
 		Hotkey: t.Hotkey, HotkeyDisplay: t.HotkeyDisplay, HotkeyHint: t.HotkeyHint,
 		Badge: func(c *dashygotui.Context[S]) string {
 			v := value(c)

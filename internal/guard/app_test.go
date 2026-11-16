@@ -1,6 +1,7 @@
 package guard_test
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"strings"
@@ -31,16 +32,25 @@ func rules(fs []guard.Finding) []string {
 
 const addonDir = "app/dashboard/addons/"
 
-// withList completes files into an addons package: a doc.go and the generated
-// list, so a test sees only the findings about its own code.
+// withList completes files into an addons package with a map, addons.go, that
+// places every top-level var of the files, so a test sees only the findings
+// about its own code.
 func withList(t *testing.T, files ...guard.Source) []guard.Source {
 	t.Helper()
-	files = append(files, src(t, addonDir+"doc.go", "package addons"))
-	out, err := guard.AddonList(files, "example.com/app/dashboard.State")
-	if err != nil {
-		t.Fatal(err)
+	var names []string
+	for _, f := range files {
+		for _, d := range f.File.Decls {
+			if gd, ok := d.(*ast.GenDecl); ok && gd.Tok == token.VAR {
+				for _, spec := range gd.Specs {
+					for _, id := range spec.(*ast.ValueSpec).Names {
+						names = append(names, id.Name)
+					}
+				}
+			}
+		}
 	}
-	return append(files, src(t, addonDir+guard.GenFile, string(out)))
+	return append(files, src(t, addonDir+guard.MapFile,
+		"package addons\nfunc Map() any { return []any{"+strings.Join(names, ", ")+"} }"))
 }
 
 func TestAppRules(t *testing.T) {
@@ -50,143 +60,143 @@ func TestAppRules(t *testing.T) {
 		code string
 		want string // space-separated rule IDs, in order; "" for none
 	}{
-		{"clean", "opt_a.go", `package addons
+		{"clean", "a_opt.go", `package addons
 import "fmt"
 func f() { _ = fmt.Sprint("hi") }`, ""},
 
 		// A1
 		{"A1 bad file name", "helpers.go", `package addons`, "A1"},
-		{"A1 good file names", "view_x.go", `package addons`, ""},
+		{"A1 good file names", "x_view.go", `package addons`, ""},
 
 		// A3
-		{"A3 mutable var", "opt_a.go", `package addons
+		{"A3 mutable var", "a_opt.go", `package addons
 var counter int`, "A3"},
-		{"A3 map var", "opt_a.go", `package addons
+		{"A3 map var", "a_opt.go", `package addons
 var m = map[string]int{}`, "A3"},
-		{"A3 a sentinel error is not an addon", "opt_a.go", `package addons
+		{"A3 a sentinel error is not an addon", "a_opt.go", `package addons
 import "errors"
 var errX = errors.New("x")`, "A3"},
-		{"A3 an addon literal is fine", "opt_a.go", `package addons
+		{"A3 an addon literal is fine", "a_opt.go", `package addons
 var backup = dashboard.Option{Key: "backup"}`, ""},
-		{"A3 const is fine", "opt_a.go", `package addons
+		{"A3 const is fine", "a_opt.go", `package addons
 const k = 1`, ""},
 
 		// A4
-		{"A4 go statement", "opt_a.go", `package addons
+		{"A4 go statement", "a_opt.go", `package addons
 func f() { go func() {}() }`, "A4"},
-		{"A4 time.Sleep", "opt_a.go", `package addons
+		{"A4 time.Sleep", "a_opt.go", `package addons
 import "time"
 func f() { time.Sleep(1) }`, "A4"},
-		{"A4 os.Exit", "opt_a.go", `package addons
+		{"A4 os.Exit", "a_opt.go", `package addons
 import "os"
 func f() { os.Exit(1) }`, "A4"},
-		{"A4 fmt.Println", "opt_a.go", `package addons
+		{"A4 fmt.Println", "a_opt.go", `package addons
 import "fmt"
 func f() { fmt.Println("x") }`, "A4"},
-		{"A4 log.Fatal", "opt_a.go", `package addons
+		{"A4 log.Fatal", "a_opt.go", `package addons
 import "log"
 func f() { log.Fatal("x") }`, "A4"},
-		{"A4 panic", "opt_a.go", `package addons
+		{"A4 panic", "a_opt.go", `package addons
 func f() { panic("x") }`, "A4"},
-		{"A4 log.Printf is fine", "opt_a.go", `package addons
+		{"A4 log.Printf is fine", "a_opt.go", `package addons
 import "log"
 func f() { log.Printf("x") }`, ""},
-		{"A4 fmt.Sprintf is fine", "opt_a.go", `package addons
+		{"A4 fmt.Sprintf is fine", "a_opt.go", `package addons
 import "fmt"
 func f() { _ = fmt.Sprintf("x") }`, ""},
 
 		// A5
-		{"A5 NewStyle", "opt_a.go", `package addons
+		{"A5 NewStyle", "a_opt.go", `package addons
 import "charm.land/lipgloss/v2"
 func f() { _ = lipgloss.NewStyle() }`, "A5"},
-		{"A5 Color", "opt_a.go", `package addons
+		{"A5 Color", "a_opt.go", `package addons
 import lg "github.com/charmbracelet/lipgloss"
 func f() { _ = lg.Color("1") }`, "A5"},
-		{"A5 hex literal", "opt_a.go", `package addons
+		{"A5 hex literal", "a_opt.go", `package addons
 func g() any { return "#38BDF8" }`, "A5"},
-		{"A5 short hex literal", "opt_a.go", `package addons
+		{"A5 short hex literal", "a_opt.go", `package addons
 func g() any { return "#fff" }`, "A5"},
-		{"A5 a # that is not a colour", "opt_a.go", `package addons
+		{"A5 a # that is not a colour", "a_opt.go", `package addons
 func g() any { return "issue #42" }`, ""},
 
-		{"A5 dot-imported NewStyle", "opt_a.go", `package addons
+		{"A5 dot-imported NewStyle", "a_opt.go", `package addons
 import . "charm.land/lipgloss/v2"
 func f() { _ = NewStyle() }`, "A5"},
-		{"A5 a lipgloss.Style literal", "opt_a.go", `package addons
+		{"A5 a lipgloss.Style literal", "a_opt.go", `package addons
 import "charm.land/lipgloss/v2"
 func g() any { return lipgloss.Style{} }`, "A5"},
-		{"A5 a Style literal in a function", "opt_a.go", `package addons
+		{"A5 a Style literal in a function", "a_opt.go", `package addons
 import "charm.land/lipgloss/v2"
 func f() { _ = lipgloss.Style{} }`, "A5"},
-		{"A5 a declared Style identifier is not a dot-import", "opt_a.go", `package addons
+		{"A5 a declared Style identifier is not a dot-import", "a_opt.go", `package addons
 import . "charm.land/lipgloss/v2"
 type Style struct{}
 func f() { _ = Style{} }`, ""},
-		{"A5 passing a theme style type is fine", "opt_a.go", `package addons
+		{"A5 passing a theme style type is fine", "a_opt.go", `package addons
 import "charm.land/lipgloss/v2"
 func f(s lipgloss.Style) string { return s.Render("x") }`, ""},
 
 		// A4 (terminal)
-		{"A4 os.Stdout", "opt_a.go", `package addons
+		{"A4 os.Stdout", "a_opt.go", `package addons
 import ("fmt";"os")
 func f() { _, _ = fmt.Fprintln(os.Stdout, "x") }`, "A4"},
-		{"A4 os.Stderr aliased", "opt_a.go", `package addons
+		{"A4 os.Stderr aliased", "a_opt.go", `package addons
 import o "os"
 func g() any { return o.Stderr }`, "A4"},
-		{"A4 os.Args is fine", "opt_a.go", `package addons
+		{"A4 os.Args is fine", "a_opt.go", `package addons
 import "os"
 func f() { _ = os.Args }`, ""},
 
 		// A6
-		{"A6 ANSI escape", "opt_a.go", "package addons\nfunc g() any { return \"\\x1b[31mred\" }", "A6"},
-		{"A6 newline and tab are fine", "opt_a.go", "package addons\nfunc g() any { return \"a\\n\\tb\" }", ""},
-		{"A6 non-ASCII", "opt_a.go", `package addons
+		{"A6 ANSI escape", "a_opt.go", "package addons\nfunc g() any { return \"\\x1b[31mred\" }", "A6"},
+		{"A6 newline and tab are fine", "a_opt.go", "package addons\nfunc g() any { return \"a\\n\\tb\" }", ""},
+		{"A6 non-ASCII", "a_opt.go", `package addons
 func g() any { return "done ✓" }`, "A6"},
-		{"A6 ASCII is fine", "opt_a.go", `package addons
+		{"A6 ASCII is fine", "a_opt.go", `package addons
 func g() any { return "done..." }`, ""},
 
 		// A7
-		{"A7 tea.Quit", "opt_a.go", `package addons
+		{"A7 tea.Quit", "a_opt.go", `package addons
 import tea "charm.land/bubbletea/v2"
 func g() any { return tea.Quit }`, "A7"},
-		{"A7 tea.Println", "opt_a.go", `package addons
+		{"A7 tea.Println", "a_opt.go", `package addons
 import tea "charm.land/bubbletea/v2"
 func f() { _ = tea.Println("x") }`, "A7"},
-		{"A7 tea.ExecProcess", "opt_a.go", `package addons
+		{"A7 tea.ExecProcess", "a_opt.go", `package addons
 import tea "charm.land/bubbletea/v2"
 func f() { _ = tea.ExecProcess(nil, nil) }`, "A7"},
-		{"A7 tea.Cmd is fine", "opt_a.go", `package addons
+		{"A7 tea.Cmd is fine", "a_opt.go", `package addons
 import tea "charm.land/bubbletea/v2"
 func g(tea.Cmd) {}`, ""},
 
 		// A8
-		{"A8 embeds a modal", "modal_a.go", `package addons
+		{"A8 embeds a modal", "a_modal.go", `package addons
 import "github.com/CeeSmag/dashygotui/modal"
 type mine struct{ modal.Edit[int] }`, "A8"},
-		{"A8 embeds a pointer to a modal", "modal_a.go", `package addons
+		{"A8 embeds a pointer to a modal", "a_modal.go", `package addons
 import "github.com/CeeSmag/dashygotui/modal"
 type mine struct{ *modal.Confirm[int] }`, "A8"},
-		{"A8 defines a type from a modal", "modal_a.go", `package addons
+		{"A8 defines a type from a modal", "a_modal.go", `package addons
 import "github.com/CeeSmag/dashygotui/modal"
 type mine modal.Edit[int]`, "A8"},
-		{"A8 using a modal in a literal is fine", "modal_a.go", `package addons
+		{"A8 using a modal in a literal is fine", "a_modal.go", `package addons
 import "github.com/CeeSmag/dashygotui/modal"
 func g() any { return &modal.Edit[int]{} }`, ""},
-		{"A8 a modal as a named field is fine", "modal_a.go", `package addons
+		{"A8 a modal as a named field is fine", "a_modal.go", `package addons
 import "github.com/CeeSmag/dashygotui/modal"
 type mine struct{ edit modal.Edit[int] }`, ""},
 
 		// A9
-		{"A9 Run only opens a view", "opt_a.go", `package addons
+		{"A9 Run only opens a view", "a_opt.go", `package addons
 type O struct{ Run func(c int) int }
 func f() { _ = O{Run: func(c int) int { return openView(c, "x") }} }
 func openView(int, string) int { return 0 }`, ""}, // not a recognised OpenView call: no finding
-		{"A9 Run returns OpenView", "opt_a.go", `package addons
+		{"A9 Run returns OpenView", "a_opt.go", `package addons
 type C struct{}
 func (C) OpenView(string) error { return nil }
 type O struct{ Run func(c C) error }
 func f() { _ = O{Run: func(c C) error { return c.OpenView("x") }} }`, "A9"},
-		{"A9 Run opens a view then returns nil", "opt_a.go", `package addons
+		{"A9 Run opens a view then returns nil", "a_opt.go", `package addons
 type C struct{}
 func (C) OpenView(string) error { return nil }
 type O struct{ Run func(c C) any }
@@ -194,21 +204,21 @@ func f() { _ = O{Run: func(c C) any {
 	if err := c.OpenView("x"); err != nil { return nil }
 	return nil
 }} }`, "A9"},
-		{"A9 Run opens a pop-up", "opt_a.go", `package addons
+		{"A9 Run opens a pop-up", "a_opt.go", `package addons
 type C struct{}
 func (C) OpenModal(any) {}
 type O struct{ Run func(c C) any }
 func f() { _ = O{Run: func(c C) any { c.OpenModal(1); return nil }} }`, "A9"},
-		{"A9 Run returns only nil", "opt_a.go", `package addons
+		{"A9 Run returns only nil", "a_opt.go", `package addons
 type O struct{ Run func(c int) any }
 func f() { _ = O{Run: func(c int) any { println(); return nil }} }`, "A9"},
-		{"A9 Run returning a value is fine", "opt_a.go", `package addons
+		{"A9 Run returning a value is fine", "a_opt.go", `package addons
 type O struct{ Run func(c int) any }
 func f() { _ = O{Run: func(c int) any { return c }} }`, ""},
-		{"A9 Run returning nil on one path and a value on another is fine", "opt_a.go", `package addons
+		{"A9 Run returning nil on one path and a value on another is fine", "a_opt.go", `package addons
 type O struct{ Run func(c int) any }
 func f() { _ = O{Run: func(c int) any { if c > 0 { return nil }; return c }} }`, ""},
-		{"A9 nested func literal returns do not count", "opt_a.go", `package addons
+		{"A9 nested func literal returns do not count", "a_opt.go", `package addons
 type O struct{ Run func(c int) any }
 func f() { _ = O{Run: func(c int) any { f := func() any { return nil }; return f }} }`, ""},
 	}
@@ -232,7 +242,7 @@ func TestA9HintsMatchWhatTheRunDoes(t *testing.T) {
 	for body, want := range cases {
 		code := "package addons\ntype C struct{}\nfunc (C) OpenModal(any) {}\nfunc (C) OpenView(string) error { return nil }\n" +
 			"type O struct{ Run func(c C) any }\nfunc f() { _ = O{Run: func(c C) any { " + body + " }} }"
-		rep := guard.CheckApp(withList(t, src(t, addonDir+"opt_a.go", code)))
+		rep := guard.CheckApp(withList(t, src(t, addonDir+"a_opt.go", code)))
 		if len(rep.Findings) != 1 || !strings.Contains(rep.Findings[0].Hint, want) {
 			t.Errorf("%s: findings = %v, want a hint mentioning %s", body, rep.Findings, want)
 		}
@@ -293,21 +303,21 @@ func init() { go func() {}(); os.Exit(1) }`)})
 
 func TestA2Coupling(t *testing.T) {
 	rep := guard.CheckApp(withList(t,
-		src(t, addonDir+"opt_a.go", `package addons
+		src(t, addonDir+"a_opt.go", `package addons
 func helper() int { return 1 }`),
-		src(t, addonDir+"opt_b.go", `package addons
+		src(t, addonDir+"b_opt.go", `package addons
 func f() { _ = helper() }`),
 	))
 	if got := strings.Join(rules(rep.Findings), " "); got != "A2" {
 		t.Fatalf("rules = %q, want A2\n%v", got, rep.Findings)
 	}
-	if f := rep.Findings[0]; f.File != addonDir+"opt_b.go" || f.Line != 2 {
-		t.Errorf("finding at %s:%d, want opt_b.go:2", f.File, f.Line)
+	if f := rep.Findings[0]; f.File != addonDir+"b_opt.go" || f.Line != 2 {
+		t.Errorf("finding at %s:%d, want b_opt.go:2", f.File, f.Line)
 	}
 }
 
 func TestFindingsCarryFileAndLine(t *testing.T) {
-	rep := guard.CheckApp(withList(t, src(t, addonDir+"opt_a.go", `package addons
+	rep := guard.CheckApp(withList(t, src(t, addonDir+"a_opt.go", `package addons
 import "time"
 
 func f() {
@@ -317,7 +327,7 @@ func f() {
 		t.Fatalf("findings = %v", rep.Findings)
 	}
 	got := rep.Findings[0].String()
-	if !strings.HasPrefix(got, addonDir+"opt_a.go:5: A4: time.Sleep") || !strings.Contains(got, "instead:") {
+	if !strings.HasPrefix(got, addonDir+"a_opt.go:5: A4: time.Sleep") || !strings.Contains(got, "instead:") {
 		t.Errorf("String = %q", got)
 	}
 }
@@ -333,7 +343,7 @@ func f() {
 	time.Sleep(3) //dashygotui:allow A4
 	time.Sleep(4) //dashygotui:allow A5 wrong rule
 }`
-	rep := guard.CheckApp(withList(t, src(t, addonDir+"opt_a.go", code)))
+	rep := guard.CheckApp(withList(t, src(t, addonDir+"a_opt.go", code)))
 	if len(rep.Exceptions) != 2 {
 		t.Errorf("exceptions = %v, want the two excused lines", rep.Exceptions)
 	}
@@ -366,8 +376,8 @@ func g() {}`),
 
 func TestReportIsSorted(t *testing.T) {
 	rep := guard.CheckApp(withList(t,
-		src(t, addonDir+"opt_b.go", "package addons\nvar b int"),
-		src(t, addonDir+"opt_a.go", "package addons\nvar a int"),
+		src(t, addonDir+"b_opt.go", "package addons\nvar b int"),
+		src(t, addonDir+"a_opt.go", "package addons\nvar a int"),
 	))
 	if len(rep.Findings) != 2 || rep.Findings[0].File > rep.Findings[1].File {
 		t.Errorf("findings are not sorted: %v", rep.Findings)
@@ -375,7 +385,7 @@ func TestReportIsSorted(t *testing.T) {
 }
 
 func TestEveryRuleHasADescription(t *testing.T) {
-	for _, id := range []string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A11", "A12", "C1", "G1", "X1"} {
+	for _, id := range []string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A12", "A13", "C1", "G1", "X1"} {
 		if guard.Rules()[id] == "" {
 			t.Errorf("rule %s has no description", id)
 		}
@@ -391,16 +401,17 @@ func TestChangeFindingsOneFileRule(t *testing.T) {
 		want  []string // files reported
 	}{
 		{"nothing changed", nil, nil},
-		{"one new addon, nothing else", []guard.ChangedFile{add("app/dashboard/addons/opt_a.go")}, nil},
-		{"a new addon and its test", []guard.ChangedFile{add("app/dashboard/addons/opt_a.go"), add("app/dashboard/addons/opt_a_test.go")}, nil},
-		{"several new addons", []guard.ChangedFile{add("a/addons/opt_a.go"), add("a/addons/view_b.go")}, nil},
-		{"a new addon that edits the dashboard file", []guard.ChangedFile{add("app/dashboard/addons/opt_a.go"), mod("app/dashboard/dashboard.go")}, []string{"app/dashboard/dashboard.go"}},
-		{"a new addon that edits a sibling addon", []guard.ChangedFile{add("app/dashboard/addons/opt_a.go"), mod("app/dashboard/addons/opt_b.go")}, []string{"app/dashboard/addons/opt_b.go"}},
-		{"deleting a file while adding one", []guard.ChangedFile{add("a/addons/opt_a.go"), {Path: "a/main.go", Status: 'D'}}, []string{"a/main.go"}},
-		{"go.mod, go.sum, tests and docs are exempt", []guard.ChangedFile{add("a/addons/opt_a.go"), mod("go.mod"), mod("go.sum"), mod("a/dashboard/dashboard_test.go"), mod("README.md"), mod("a/testdata/x.json")}, nil},
-		{"editing alone, without adding, is not this rule", []guard.ChangedFile{mod("app/dashboard/dashboard.go"), mod("app/dashboard/addons/opt_b.go")}, nil},
+		{"one new addon, nothing else", []guard.ChangedFile{add("app/dashboard/addons/a_opt.go")}, nil},
+		{"a new addon and its test", []guard.ChangedFile{add("app/dashboard/addons/a_opt.go"), add("app/dashboard/addons/a_opt_test.go")}, nil},
+		{"several new addons", []guard.ChangedFile{add("a/addons/a_opt.go"), add("a/addons/b_view.go")}, nil},
+		{"a new addon that edits the dashboard file", []guard.ChangedFile{add("app/dashboard/addons/a_opt.go"), mod("app/dashboard/dashboard.go")}, []string{"app/dashboard/dashboard.go"}},
+		{"a new feature and its line in the map", []guard.ChangedFile{add("app/dashboard/addons/a_opt.go"), mod("app/dashboard/addons/addons.go")}, nil},
+		{"a new addon that edits a sibling addon", []guard.ChangedFile{add("app/dashboard/addons/a_opt.go"), mod("app/dashboard/addons/b_opt.go")}, []string{"app/dashboard/addons/b_opt.go"}},
+		{"deleting a file while adding one", []guard.ChangedFile{add("a/addons/a_opt.go"), {Path: "a/main.go", Status: 'D'}}, []string{"a/main.go"}},
+		{"go.mod, go.sum, tests and docs are exempt", []guard.ChangedFile{add("a/addons/a_opt.go"), mod("go.mod"), mod("go.sum"), mod("a/dashboard/dashboard_test.go"), mod("README.md"), mod("a/testdata/x.json")}, nil},
+		{"editing alone, without adding, is not this rule", []guard.ChangedFile{mod("app/dashboard/dashboard.go"), mod("app/dashboard/addons/b_opt.go")}, nil},
 		{"a new file outside addons is not an addon", []guard.ChangedFile{add("app/dashboard/helpers.go"), mod("app/dashboard/dashboard.go")}, nil},
-		{"results are sorted", []guard.ChangedFile{add("a/addons/opt_a.go"), mod("z.go"), mod("b.go")}, []string{"b.go", "z.go"}},
+		{"results are sorted", []guard.ChangedFile{add("a/addons/a_opt.go"), mod("z.go"), mod("b.go")}, []string{"b.go", "z.go"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

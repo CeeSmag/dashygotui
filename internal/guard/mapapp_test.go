@@ -152,3 +152,15 @@ func TestLoadKnowsEachFilesPackage(t *testing.T) {
 		t.Fatalf("sources = %+v", srcs)
 	}
 }
+
+func TestAFeaturePlacedTwiceIsA13(t *testing.T) {
+	t.Parallel()
+	files := mapApp(t)
+	files[1] = mapSrc(t, mapAddons+guard.MapFile, `package addons
+import "example.com/app/dashboard"
+func Map() dashboard.Map { return dashboard.Map{Items: []any{backupOpt, backupOpt}} }`)
+	rep := guard.CheckApp(files)
+	if got := strings.Join(rules(rep.Findings), " "); got != "A13" || !strings.Contains(rep.Findings[0].Msg, "more than once") {
+		t.Fatalf("findings = %v, want one A13 about placing it twice", rep.Findings)
+	}
+}

@@ -8,20 +8,19 @@ type Outline struct {
 	// Pages are the page IDs in tab order; a page with no ID is named by its
 	// Title.
 	Pages []string
-	// Views are the registered view IDs, sorted.
+	// Views are the IDs of the views and sub-pages, sorted.
 	Views []string
-	// Options are the options of the pages' sections, in page order.
+	// Options are the rows of the tab pages, in page order.
 	Options []OutlineOption
 }
 
-// OutlineOption is one option of an [Outline].
+// OutlineOption is one row of an [Outline].
 type OutlineOption struct {
-	// Key, Number, Label and Hotkey are those of the [Option].
-	Key    string
+	// Number is the row's number; Label and Hotkey are those of the [Option].
 	Number int
 	Label  string
 	Hotkey string
-	// Page is the ID of the page the option's section is on.
+	// Page is the ID of the page the row is on, or its Title when it has none.
 	Page string
 }
 
@@ -37,7 +36,7 @@ func (d *Dashboard[S]) Outline() Outline {
 		for _, panel := range p.panels {
 			for _, o := range panel.opts {
 				out.Options = append(out.Options, OutlineOption{
-					Key: o.Key, Number: o.Number, Label: o.Label, Hotkey: o.Hotkey, Page: name,
+					Number: o.number, Label: o.Label, Hotkey: o.Hotkey, Page: name,
 				})
 			}
 		}

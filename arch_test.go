@@ -251,18 +251,22 @@ func TestGuardAddonNames(t *testing.T) {
 		rel  string
 		want int
 	}{
-		{"examples/demo/dashboard/addons/opt_storage.go", 0},
-		{"examples/demo/dashboard/addons/widget_disk_io.go", 0},
-		{"examples/demo/dashboard/addons/view_logs.go", 0},
-		{"examples/demo/dashboard/addons/modal_confirm.go", 0},
-		{"examples/demo/dashboard/addons/shortcut_stop.go", 0},
-		{"examples/demo/dashboard/addons/hotkey_x.go", 1},
-		{"examples/demo/dashboard/addons/opt_storage_test.go", 0},
+		{"examples/demo/dashboard/addons/storage_opt.go", 0},
+		{"examples/demo/dashboard/addons/disk_io_widget.go", 0},
+		{"examples/demo/dashboard/addons/logs_view.go", 0},
+		{"examples/demo/dashboard/addons/diag_page.go", 0},
+		{"examples/demo/dashboard/addons/confirm_modal.go", 0},
+		{"examples/demo/dashboard/addons/stop_shortcut.go", 0},
+		{"examples/demo/dashboard/addons/export_hook.go", 0},
+		{"examples/demo/dashboard/addons/addons.go", 0},
+		{"examples/demo/dashboard/addons/x_hotkey.go", 1},
+		{"examples/demo/dashboard/addons/storage_opt_test.go", 0},
 		{"examples/demo/dashboard/addons/storage.go", 1},
 		{"examples/demo/dashboard/addons/helpers.go", 1},
-		{"examples/demo/dashboard/addons/doc.go", 0},
-		{"examples/demo/dashboard/addons/addons_gen.go", 0},
-		{"examples/demo/dashboard/addons/Opt_Storage.go", 1},
+		{"examples/demo/dashboard/addons/opt_storage.go", 1},
+		{"examples/demo/dashboard/addons/doc.go", 1},
+		{"examples/demo/dashboard/addons/addons_gen.go", 1},
+		{"examples/demo/dashboard/addons/Storage_Opt.go", 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.rel, func(t *testing.T) {

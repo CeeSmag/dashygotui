@@ -20,6 +20,16 @@ import (
 // places anything.
 const MapFile = "addons.go"
 
+// GenFile and DocFile are the generated addon list and its doc.go of the v0.4
+// layout, which the map replaced. Left in an addons package, they are A1.
+const (
+	GenFile = "addons_gen.go"
+	DocFile = "doc.go"
+)
+
+// libraryPath is the import path of the library.
+const libraryPath = "github.com/CeeSmag/dashygotui"
+
 // MapKinds are the kinds of feature file, the last part of its name.
 func MapKinds() []string {
 	return []string{"opt", "widget", "view", "page", "modal", "shortcut", "hook"}
@@ -31,17 +41,6 @@ var mapFileName = regexp.MustCompile(`^[a-z][a-z0-9_]*_(opt|widget|view|page|mod
 // package by its name, such as backup_opt.go.
 func IsFeatureFile(rel string) bool {
 	return mapFileName.MatchString(path.Base(rel)) && !strings.HasSuffix(rel, "_test.go")
-}
-
-// isMapPackage reports whether the files of an addons directory are laid out
-// around a map.
-func isMapPackage(files []Source) bool {
-	for _, s := range files {
-		if path.Base(s.Rel) == MapFile {
-			return true
-		}
-	}
-	return false
 }
 
 // mapFindings applies the package rules of a map-laid-out addons package: A1
@@ -103,11 +102,15 @@ func mapFindings(dir string, files, all []Source) []Finding {
 	}
 
 	// A13: every addon of a feature file is placed in the map.
-	if mapFile.File != nil {
-		used := map[string]bool{}
+	if mapFile.File == nil {
+		out = append(out, Finding{Rule: "A13", File: dir + "/" + MapFile, Line: 1,
+			Msg:  "the addons package has no map, " + MapFile + ", so nothing in it is placed",
+			Hint: "write " + MapFile + " with func Map() dashboard.Map (see dashygotui rules design)"})
+	} else {
+		used := map[string]int{}
 		ast.Inspect(mapFile.File, func(n ast.Node) bool {
 			if id, ok := n.(*ast.Ident); ok {
-				used[id.Name] = true
+				used[id.Name]++
 			}
 			return true
 		})
@@ -119,10 +122,16 @@ func mapFindings(dir string, files, all []Source) []Finding {
 				}
 				for _, spec := range gd.Specs {
 					for _, id := range spec.(*ast.ValueSpec).Names {
-						if id.Name != "_" && !used[id.Name] {
+						switch {
+						case id.Name == "_":
+						case used[id.Name] == 0:
 							out = append(out, Finding{Rule: "A13", File: s.Rel, Line: s.Line(id.Pos()),
 								Msg:  id.Name + " is not placed in the map, so it never appears",
 								Hint: "add it to a panel, Shortcuts, Hooks or Views in " + MapFile + ", or delete the file"})
+						case used[id.Name] > 1:
+							out = append(out, Finding{Rule: "A13", File: s.Rel, Line: s.Line(id.Pos()),
+								Msg:  id.Name + " is placed in the map more than once",
+								Hint: "place each feature once; a second way into a view is an option with Opens"})
 						}
 					}
 				}

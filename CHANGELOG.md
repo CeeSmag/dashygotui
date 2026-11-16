@@ -5,55 +5,97 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
-## [Unreleased]
+## [0.5.0] - 2026-11-16
 
-**The map.** An application can describe its whole dashboard in one place:
-`Config.Map` holds the pages, the panels on each page and the rows in each panel,
-and addons no longer say where they go. The decision and the phases toward v0.5.0
-are in `docs/DESIGN.md`. The v0.4 form (`Config.Pages`, `Sections`, `Addons`)
-still works beside it until v0.5.0.
+**The map.** A feature says only what it does, and one hand-written file, the map
+(`addons/addons.go`), says where everything goes: the pages, the panels on each
+page and the rows in each panel. Rows are numbered by their place in the map, there
+is nothing to generate, and a feature that is not placed does not appear. The
+decision is in `docs/DESIGN.md`. This release breaks the API; see **Removed** and
+**Migrating from 0.4**.
 
 ### Added
 
-- **`Map`** (`Pages`, `Shortcuts`, `Hooks`, `Views`) and **`Config.Map`**. Set it or
-  the v0.4 fields, not both.
+- **`Map`** (`Pages`, `Shortcuts`, `Hooks`, `Views`) and **`Config.Map`**.
 - **`Panel`**: one widget, or a list of rows (`Items`). Rows are numbered by
   position across the tab pages; `Panel.Number` sets where a panel's count starts.
 - **`Page.Panels`** and **`Page.Entry`**. A `Page` placed as a row of a panel is a
   sub-page: the row opens it full-screen with its own panels, its own numbering
-  from 1, its own hotkeys and its `Session`, and Back returns.
-- A `View` placed as a row is opened by that row (`Entry` says how the row looks);
-  a ready-made addon such as `stdaddons.LogView` is placed the same way.
+  from 1, its own hotkeys, its `Session` and its badge in the header, and Back
+  returns. `Context.OpenView` and `Config.StartView` open a sub-page by its `ID`.
+- A `View` placed as a row is opened by that row (`Entry` says how the row looks).
+  A ready-made addon such as `stdaddons.LogView` is placed the same way; one may
+  bring a view, a shortcut or a hook along, registered without a row.
 - **`Widget.Tick`**: a widget that samples on every tick is one value, without a
   separate `Hook`.
-- **`dashygotui check` knows the map layout.** An addons directory with an
-  `addons.go` is checked as one: feature files are named `<name>_<kind>.go` (A1); a
-  feature uses no sibling file, no other application package and nothing of the
-  `dashboard` package but its types (A2); every addon is placed in the map (new rule
-  A13); adding a feature may edit `addons.go` (C1).
+- Mistakes are reported with their place in the map, such as
+  `Control > Quick Actions > row 3: option "Trash" needs exactly one of Run, Do,
+  Opens and Modal, has 0`.
+- **`dashygotui check`**: rule **A13**, every feature is placed in the map exactly
+  once (and an addons package has a map).
 - **`dashygotui new`** writes `<name>_<kind>.go` for the kinds `opt`, `widget`,
   `view`, `page`, `modal`, `shortcut` and `hook`, and prints the line that places it
-  in `addons.go`. The templates are written for the map, and there are two new ones
-  (`page`, `hook`).
-- A `stdaddons` setting (`Toggle`, `Number`, `Pick`, `Text`) without a `Key` is a
-  startup error. In a map nothing else asks for one, and settings without one would
-  share a single Store entry.
-- Mistakes in a map are reported with their place in it, such as
-  `Control > Quick Actions > row 3: option "Old" sets Section, Number or Order`.
+  in `addons.go`. Two new templates: `page` and `hook`.
+- A `stdaddons` setting (`Toggle`, `Number`, `Pick`, `Text`) without a `Key`, or
+  with one in the library's reserved prefix, is a startup error.
 
 ### Changed
 
-- **The examples are on the map.** Each has an `addons/addons.go` that places every
-  feature, and feature files named `<name>_<kind>.go` that say only what they do. A
-  ready-made addon such as the theme picker is placed in the map directly and needs
-  no file. A menu-style view became a sub-page (Diagnostics), widgets sample with
-  `Tick`, and what a feature needs of the application is a method of `State`. The
-  showcase keeps its option numbers, except that the navigation rows are now
-  numbered in the order they are listed.
-- **`dashygotui init`** writes instructions for the map, and its agent hook only
-  runs the check (nothing is generated any more).
-- **`make deletion-test`** now deletes each feature file and requires that only the
+- **A1**: feature files are named `<name>_<kind>.go`; the map is `addons.go`.
+- **A2**: a feature uses nothing of a sibling feature file, no other application
+  package, and of the `dashboard` package only its types. What the application
+  knows and does is a method of `State`.
+- **C1**: adding a feature may edit the map.
+- **`View`** is a full-screen `Body`. A view that was a status panel above a menu
+  becomes a sub-page. `View.ID` is optional for a view placed as a row.
+- **`Entry`** says only how the row that opens a view or a sub-page looks.
+- **`AddonError.Site`** is the place in the map.
+- **`Outline`**: a page with no ID is named by its title, sub-pages are listed with
+  the views, and `OutlineOption` has no `Key`.
+- **`dashygotui init`** writes instructions for the map; its agent hook runs only
+  the check.
+- **`make deletion-test`** deletes each feature file and requires that only the
   map's lines that placed it break.
+- **The examples are on the map.** A ready-made addon such as the theme picker is
+  placed in the map directly and needs no file; Diagnostics is a sub-page; widgets
+  sample with `Tick`. The showcase keeps its option numbers, except that the
+  navigation rows are numbered in the order they are listed.
+
+### Removed
+
+- `Config.Pages`, `Config.Sections`, `Config.Addons` and `SectionSpec`: the map
+  replaces them.
+- `Option.Key`, `Option.Section`, `Option.Number`, `Option.Order`;
+  `Widget.Key`, `Widget.Page`, `Widget.Order`; `Entry.Section`, `Entry.Number`,
+  `Entry.Order`: the map places and numbers.
+- `View.Status`, `View.Options`, `View.Items`, `View.OptionsTitle`,
+  `View.OptionsSubtitle`, `View.Subtitle`: use a sub-page.
+- `At`: errors name the place in the map.
+- `Section`, `Number` and `Order` on the `stdaddons` values.
+- The `dashygotui gen` command, `addons_gen.go`, the addons package's `doc.go`, and
+  rule A11: the map is the list.
+
+### Migrating from 0.4
+
+1. Write `addons/addons.go` with `func Map() dashboard.Map`: move the pages from
+   `Config.Pages` into `Map.Pages` and turn each `SectionSpec` into a `Panel` of
+   its page, with the options that named it as its `Items`, in the order you want
+   them on screen. A widget becomes `{Widget: x}` among its page's panels. Use
+   `Panel.Number` where a section's numbers started somewhere else than where the
+   previous one stopped.
+2. Delete `Key`, `Section`, `Number` and `Order` from options and widgets, `Page`
+   from widgets, and `Section`, `Number` and `Order` from entries and `stdaddons`
+   values. A `stdaddons` setting keeps its `Key`: it is where the setting is saved.
+3. Shortcuts go in `Map.Shortcuts` and hooks in `Map.Hooks`; a widget's sampling
+   hook can become its `Tick`. A view that no row opens goes in `Map.Views`.
+4. A view with `Status` and `Items` becomes a `Page` placed as a row: a widget
+   panel for the status and a panel of rows for the items.
+5. Rename the files `opt_x.go` to `x_opt.go` (and likewise for every kind), and
+   delete `addons_gen.go`, `doc.go` and the `go:generate` line.
+6. Give `Config` the map (`Map: addons.Map()`) instead of `Addons: addons.All()`.
+7. Run `dashygotui check`. A feature that uses a function or variable of the
+   `dashboard` package (A2) needs it as a method of `State`; one the map does not
+   place is A13.
 
 ## [0.4.2] - 2026-11-16
 

@@ -67,12 +67,10 @@ func mustFail(t *testing.T, f func()) (msg string) {
 
 func config(opts ...func(*dashygotui.Config[state])) dashygotui.Config[state] {
 	r := collect.New[state]()
-	r.Option(dashygotui.Option[state]{Key: "inc", Section: "s", Number: 1, Label: "Increment", Run: func(*ctx) tea.Cmd { return nil }})
+	r.Row("actions", dashygotui.Option[state]{Label: "Increment", Run: func(*ctx) tea.Cmd { return nil }})
 	c := dashygotui.Config[state]{
-		Title:    "Probe",
-		Addons:   []dashygotui.Addon[state]{r},
-		Pages:    []dashygotui.Page[state]{{ID: "p", Title: "Page"}},
-		Sections: []dashygotui.SectionSpec[state]{{ID: "s", Page: "p", Title: "Section"}},
+		Title: "Probe",
+		Map:   dashygotui.Map[state]{Pages: []dashygotui.Page[state]{{ID: "p", Title: "Page", Panels: []dashygotui.Panel[state]{{Title: "Section", Items: []dashygotui.Addon[state]{r.All("actions")}}}}}},
 	}
 	for _, o := range opts {
 		o(&c)
@@ -243,7 +241,7 @@ func TestRequireHelpersFailTheTest(t *testing.T) {
 func TestExecWaitsForFinishExec(t *testing.T) {
 	var results []dashygotui.TaskResult
 	editor := func(c *dashygotui.Config[state]) {
-		c.Addons = append(c.Addons,
+		collect.From(*c).Add(
 			dashygotui.Shortcut[state]{Key: "l", Run: func(c *ctx) tea.Cmd {
 				// Never run: the driver only records it.
 				return c.Exec(&exec.Cmd{Path: "vi", Args: []string{"vi", "notes.txt"}}, "edit")

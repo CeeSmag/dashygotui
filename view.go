@@ -32,14 +32,6 @@ func (m *model[S]) viewKey(msg tea.KeyPressMsg) tea.Cmd {
 				}
 			}
 		}
-	} else if v.hasOptions() && v.Body == nil {
-		name := strings.ToLower(msg.String())
-		for _, o := range m.viewOptions(v) {
-			if o.Hotkey != "" && o.Hotkey == name && o.actions() > 0 {
-				m.digits = ""
-				return o.run(m.ctx)
-			}
-		}
 	}
 	k := m.d.keys
 	if v.Scroll && m.scrollViewKey(v, msg) {
@@ -60,19 +52,18 @@ func (m *model[S]) viewKey(msg tea.KeyPressMsg) tea.Cmd {
 }
 
 // viewScreen draws a full-screen view: header, body, footer. The body is the
-// view's own Body, or a status panel above a menu.
+// view's own Body, or the panels of a sub-page.
 func (m *model[S]) viewScreen(cols, rows int) []string {
 	v := m.d.views[m.view]
 	th := m.th
 	body := max(rows-2, 1) // header and footer
-	size := Size{Cols: cols, Rows: body}
 
 	var lines []string
 	scrollable := false
 	switch {
 	case v.sub != nil:
 		lines = m.renderPage(*v.sub, cols, body)
-	case v.Body != nil:
+	default:
 		inner := m.bodySize(v, cols, rows)
 		var rowsOut []string
 		pos := ""
@@ -90,31 +81,6 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 		lines = rowsOut
 		if v.Panel != nil {
 			lines = m.viewPanel(v, cols, body, rowsOut, pos)
-		}
-	default:
-		badge := ""
-		if v.Badge != nil {
-			badge = v.Badge(m.ctx)
-		}
-		var opts []Option[S]
-		if v.hasOptions() {
-			opts = m.viewOptions(v)
-		}
-		switch {
-		case v.Status != nil && len(opts) > 0:
-			status := v.Status(m.ctx, size)
-			statusH := min(len(status)+2, max(body-5, 3))
-			menuH := max(body-statusH, 3)
-			lines = panel.VStack(
-				panel.Panel(th, v.Title, badge, v.Subtitle, cols, statusH, status),
-				panel.Panel(th, cmp.Or(v.OptionsTitle, "Options"), m.optionsBadge(len(opts)), v.OptionsSubtitle, cols, menuH,
-					m.menuBody(opts, 0, cols-4, menuH-2, len(opts)+2 <= menuH)),
-			)
-		case v.Status != nil:
-			lines = panel.Panel(th, v.Title, badge, v.Subtitle, cols, body, v.Status(m.ctx, size))
-		case len(opts) > 0:
-			lines = panel.Panel(th, v.Title, badge, v.Subtitle, cols, body,
-				m.menuBody(opts, 0, cols-4, body-2, len(opts)+2 <= body))
 		}
 	}
 
@@ -137,9 +103,6 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 	}
 	segs = append(segs, panel.Segment{Text: th.Muted.Render(m.clock()), Prio: 40})
 	var hints []panel.Hint
-	if v.hasOptions() && v.Body == nil {
-		hints = append(hints, m.hint(th.G.UpDown, "Move", th.Key, 60), m.hint(th.G.Enter, "Open", th.Key, 55))
-	}
 	if v.sub != nil {
 		hints = append(hints, m.menuHints(m.menus())...)
 	}
@@ -193,26 +156,6 @@ func (m *model[S]) viewPanel(v View[S], cols, body int, rows []string, pos strin
 		sub = strings.TrimPrefix(sub, m.th.G.Sep+" ") // no subtitle: just the position
 	}
 	return panel.Panel(m.th, cmp.Or(p.Title, v.Title), badge, sub, cols, body, rows)
-}
-
-// viewOptions is the view's menu rows, numbered by position where a row has no
-// number of its own.
-func (m *model[S]) viewOptions(v View[S]) []Option[S] {
-	opts := v.Items
-	if v.Options != nil {
-		opts = v.Options(m.ctx)
-	}
-	out := append([]Option[S](nil), opts...)
-	for i := range out {
-		if out[i].Number == 0 {
-			out[i].Number = i + 1
-		}
-	}
-	return out
-}
-
-func (m *model[S]) optionsBadge(n int) string {
-	return m.ctx.Count(n, map[bool]string{true: "option", false: "options"}[n == 1])
 }
 
 // scrollContent runs a scrolling view's Body. It is given the full width; when

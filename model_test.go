@@ -39,13 +39,13 @@ func newFixture(t *testing.T) *fixture {
 	record := func(name string) func(*ctx) tea.Cmd {
 		return func(*ctx) tea.Cmd { f.log = append(f.log, name); return nil }
 	}
-	f.reg.Option(option{Key: "backup", Section: "actions", Number: 1, Label: "Run Backup", Run: record("backup"),
+	f.reg.Row("actions", option{Label: "Run Backup", Run: record("backup"),
 		Badge: func(c *ctx) string { return c.Badge("idle") }})
-	f.reg.Option(option{Key: "restart", Section: "actions", Number: 2, Label: "Restart", Run: record("restart")})
-	f.reg.Option(option{Key: "storage", Section: "settings", Number: 12, Label: "Storage", Run: record("storage"),
+	f.reg.Row("actions", option{Label: "Restart", Run: record("restart")})
+	f.reg.Row("settings", option{Label: "Storage", Run: record("storage"),
 		Badge: func(c *ctx) string { return c.OnOff(true) }})
-	f.reg.Option(option{Key: "palette", Section: "appearance", Number: 20, Label: "Colour Palette", Run: record("palette")})
-	f.reg.Widget(widget{Key: "stats", Page: "monitor", Title: "Stats", Subtitle: "live",
+	f.reg.Row("appearance", option{Label: "Colour Palette", Run: record("palette")})
+	withWidget(&f.cfg, widget{Title: "Stats", Subtitle: "live",
 		Render: func(c *ctx, _ dashygotui.Size) []string {
 			return []string{fmt.Sprintf("count=%d ready=%v", c.State().Count, c.Ready())}
 		}})
@@ -102,7 +102,7 @@ func TestPollErrorKeepsTheLastState(t *testing.T) {
 		return state{Count: f.polls}, nil
 	}
 	var seen error
-	f.reg.Widget(widget{Key: "err", Page: "monitor", Title: "Err", Render: func(c *ctx, _ dashygotui.Size) []string {
+	withWidget(&f.cfg, widget{Title: "Err", Render: func(c *ctx, _ dashygotui.Size) []string {
 		seen = c.Err()
 		return nil
 	}})
@@ -285,12 +285,12 @@ func TestQuit(t *testing.T) {
 func TestContextQuitCarriesAReason(t *testing.T) {
 	f := newFixture(t)
 	var got dashygotui.ExitInfo
-	f.reg.Option(option{Key: "uninstall", Section: "actions", Number: 99, Label: "Uninstall", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Uninstall", Run: func(c *ctx) tea.Cmd {
 		got = dashygotui.ExitInfo{Reason: "uninstall", Message: "bye"}
 		return c.Quit(got.Reason, got.Message)
 	}})
 	d := f.driver(120, 40)
-	d.Type("9", "9")
+	d.Type("3") // after the fixture's [1] and [2]
 	d.Press("enter")
 	if !d.Quit() {
 		t.Error("Quit should end the dashboard")
@@ -318,7 +318,7 @@ func (m *stubModal) Render(c *ctx, size dashygotui.Size) []string {
 func TestModalTakesKeysAndForceQuitStillWorks(t *testing.T) {
 	f := newFixture(t)
 	mod := &stubModal{}
-	f.reg.Option(option{Key: "ask", Section: "actions", Number: 3, Label: "Ask", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Ask", Run: func(c *ctx) tea.Cmd {
 		c.OpenModal(mod)
 		return nil
 	}})
@@ -354,7 +354,7 @@ func TestScrollableModalScrolls(t *testing.T) {
 	f := newFixture(t)
 	mod := &scrollModal{}
 	var offset func() int
-	f.reg.Option(option{Key: "ask", Section: "actions", Number: 3, Label: "Ask", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Ask", Run: func(c *ctx) tea.Cmd {
 		c.OpenModal(mod)
 		offset = c.ModalScroll
 		return nil
@@ -384,26 +384,17 @@ func TestScrollableModalScrolls(t *testing.T) {
 
 func TestViewOpensAndBackRestoresTheCursor(t *testing.T) {
 	f := newFixture(t)
-	f.reg.View(dashygotui.View[state]{
-		ID: "diag", Title: "Diagnostics", Mode: "DIAG", Subtitle: "health",
-		Status: func(*ctx, dashygotui.Size) []string { return []string{"all systems nominal"} },
-		Options: func(*ctx) []option {
-			return []option{{Key: "x", Number: 1, Label: "Run Self-Test", Run: func(*ctx) tea.Cmd {
-				f.log = append(f.log, "selftest")
-				return nil
-			}}}
-		},
-	})
-	f.reg.Option(option{Key: "diag", Section: "actions", Number: 3, Label: "Diagnostics", Run: func(c *ctx) tea.Cmd {
-		if err := c.OpenView("diag"); err != nil {
-			t.Error(err)
-		}
-		return nil
+	f.reg.Row("actions", dashygotui.Page[state]{ID: "diag", Title: "Diagnostics", Panels: []panelT{
+		{Widget: widget{Title: "Health", Subtitle: "health", Render: func(*ctx, dashygotui.Size) []string { return []string{"all systems nominal"} }}},
+		{Title: "Tools", Items: []dashygotui.Addon[state]{option{Label: "Run Self-Test", Run: func(*ctx) tea.Cmd {
+			f.log = append(f.log, "selftest")
+			return nil
+		}}}},
 	}})
 	d := f.driver(120, 40)
 	d.Press("tab", "down", "down") // cursor on [3]
 	d.Press("enter")
-	d.RequireContains("Diagnostics", "all systems nominal", "Run Self-Test", "DIAG", "[Esc/b] Back")
+	d.RequireContains("Diagnostics", "all systems nominal", "Run Self-Test", "DIAGNOSTICS", "[Esc/b] Back")
 	d.RequireAbsent("Quick Actions")
 
 	d.Press("enter") // the view's own menu
@@ -462,10 +453,10 @@ func TestOpenViewUnknown(t *testing.T) {
 
 func TestRunTaskReportsInTheFooter(t *testing.T) {
 	f := newFixture(t)
-	f.reg.Option(option{Key: "job", Section: "actions", Number: 3, Label: "Job", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Job", Run: func(c *ctx) tea.Cmd {
 		return c.RunTask("job", "working…", func(context.Context) (string, error) { return "all done", nil })
 	}})
-	f.reg.Option(option{Key: "bad", Section: "actions", Number: 4, Label: "Bad", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Bad", Run: func(c *ctx) tea.Cmd {
 		return c.RunTask("bad", "", func(context.Context) (string, error) { return "upload", errors.New("disk full") })
 	}})
 	d := f.driver(160, 40)
@@ -483,7 +474,7 @@ func TestRunTaskReportsInTheFooter(t *testing.T) {
 
 func TestSuccessfulTaskRefreshes(t *testing.T) {
 	f := newFixture(t)
-	f.reg.Option(option{Key: "job", Section: "actions", Number: 3, Label: "Job", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Job", Run: func(c *ctx) tea.Cmd {
 		return c.RunTask("job", "", func(context.Context) (string, error) { return "ok", nil })
 	}})
 	d := f.driver(160, 40)
@@ -505,7 +496,7 @@ func TestResultHookCanClaimATask(t *testing.T) {
 		got = res
 		return true, nil
 	})
-	f.reg.Option(option{Key: "job", Section: "actions", Number: 3, Label: "Job", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Job", Run: func(c *ctx) tea.Cmd {
 		return c.RunTask("special", "", func(context.Context) (string, error) { return "claimed", nil })
 	}})
 	d := f.driver(160, 40)
@@ -531,7 +522,7 @@ func TestMessageHookHandlesAddonMessages(t *testing.T) {
 		}
 		return nil
 	})
-	f.reg.Option(option{Key: "emit", Section: "actions", Number: 3, Label: "Emit", Run: func(*ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Emit", Run: func(*ctx) tea.Cmd {
 		return func() tea.Msg { return customMsg{n: 7} }
 	}})
 	d := f.driver(160, 40)
@@ -587,12 +578,10 @@ func TestHeaderAndClock(t *testing.T) {
 
 func TestPageBadgeAndTitles(t *testing.T) {
 	f := newFixture(t)
-	f.cfg.Pages = []dashygotui.Page[state]{
-		{ID: "monitor", Title: "Monitor Everything", ShortTitle: "Monitor", TinyTitle: "Mon",
-			Badge: func(c *ctx) string { return "(live)" }},
-		{ID: "setup", Title: "First-Time Setup", ShortTitle: "Setup", TinyTitle: "Set"},
-		{ID: "theme", Title: "Theme"},
-	}
+	pg := f.cfg.Map.Pages
+	pg[0].Title, pg[0].ShortTitle, pg[0].TinyTitle = "Monitor Everything", "Monitor", "Mon"
+	pg[0].Badge = func(c *ctx) string { return "(live)" }
+	pg[1].Title, pg[1].ShortTitle, pg[1].TinyTitle = "First-Time Setup", "Setup", "Set"
 	// The active tab shows its badge, and the title shrinks with the terminal
 	// whether or not there is a badge.
 	wide := f.driver(120, 40)
@@ -610,7 +599,7 @@ func TestSettingsAreAppliedAndPersisted(t *testing.T) {
 	st := store.NewMemory()
 	f.cfg.Store = st
 	var palettes []string
-	f.reg.Option(option{Key: "look", Section: "actions", Number: 3, Label: "Look", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Look", Run: func(c *ctx) tea.Cmd {
 		c.SetSpacing(dashygotui.Spacing{TerminalPage: 99, PageSection: 1, Section: 4, SectionOption: 2})
 		if !c.SetPalette("nord") {
 			t.Error("nord should exist")
@@ -737,7 +726,7 @@ func TestConfiguredKeysOverrideTheDefaults(t *testing.T) {
 
 func TestPageWithoutPanelsRenders(t *testing.T) {
 	f := newFixture(t)
-	f.cfg.Pages = append(f.cfg.Pages, dashygotui.Page[state]{ID: "empty", Title: "Empty"})
+	f.cfg.Map.Pages = append(f.cfg.Map.Pages, dashygotui.Page[state]{ID: "empty", Title: "Empty"})
 	d := f.driver(120, 40)
 	d.Press("shift+tab")
 	d.RequireContains("Empty")
@@ -745,8 +734,8 @@ func TestPageWithoutPanelsRenders(t *testing.T) {
 
 func TestCustomSectionBadgeAndNoun(t *testing.T) {
 	f := newFixture(t)
-	f.cfg.Sections[0].Noun = "action"
-	f.cfg.Sections[1].Badge = func(c *ctx) string { return "[custom]" }
+	f.cfg.Map.Pages[1].Panels[0].Noun = "action"
+	f.cfg.Map.Pages[1].Panels[1].Badge = func(c *ctx) string { return "[custom]" }
 	d := f.driver(120, 40)
 	d.Press("tab")
 	d.RequireContains("[2 actions]", "[custom]")
@@ -754,7 +743,7 @@ func TestCustomSectionBadgeAndNoun(t *testing.T) {
 
 func TestWidgetMinHeightAndBadge(t *testing.T) {
 	f := newFixture(t)
-	f.reg.Widget(widget{Key: "tall", Page: "monitor", Order: 5, Title: "Tall", MinHeight: 6,
+	withWidget(&f.cfg, widget{Title: "Tall", MinHeight: 6,
 		Badge: func(c *ctx) string { return "BADGE" },
 		Render: func(c *ctx, size dashygotui.Size) []string {
 			return []string{fmt.Sprintf("inner %dx%d", size.Cols, size.Rows)}
@@ -763,51 +752,32 @@ func TestWidgetMinHeightAndBadge(t *testing.T) {
 	d.RequireContains("Tall", "BADGE", "inner ")
 }
 
-func TestOptionsAreOrderedByOrderThenNumber(t *testing.T) {
+func TestRowsAreNumberedInMapOrder(t *testing.T) {
 	r := collect.New[state]()
 	c := baseConfig(r)
-	r.Option(option{Key: "c", Section: "actions", Number: 3, Label: "C", Run: noop})
-	r.Option(option{Key: "a", Section: "actions", Number: 9, Order: 1, Label: "A", Run: noop})
-	r.Option(option{Key: "b", Section: "actions", Number: 2, Label: "B", Run: noop})
+	r.Row("actions", option{Label: "C", Run: noop})
+	r.Row("actions", option{Label: "A", Run: noop})
+	r.Row("actions", option{Label: "B", Run: noop})
 	d := dashtest.New(t, c, 120, 40)
 	d.Press("tab")
 	var order []string
 	for _, line := range d.Lines() {
-		for _, l := range []string{"[9] A", "[2] B", "[3] C"} {
+		for _, l := range []string{"[1] C", "[2] A", "[3] B"} {
 			if strings.Contains(line, l) {
 				order = append(order, l)
 			}
 		}
 	}
-	if got := strings.Join(order, " | "); got != "[9] A | [2] B | [3] C" {
-		t.Errorf("order = %s, want Order first, then Number", got)
-	}
-}
-
-func TestRegistrationOrderDoesNotAffectLayout(t *testing.T) {
-	build := func(reverse bool) string {
-		r := collect.New[state]()
-		opts := []option{validOption("a", 1), validOption("b", 2), validOption("c", 3)}
-		if reverse {
-			opts[0], opts[2] = opts[2], opts[0]
-		}
-		for _, o := range opts {
-			r.Option(o)
-		}
-		d := dashtest.New(t, baseConfig(r), 120, 40)
-		d.Press("tab")
-		return d.Screen()
-	}
-	if build(false) != build(true) {
-		t.Error("init() order must not change the screen")
+	if got := strings.Join(order, " | "); got != "[1] C | [2] A | [3] B" {
+		t.Errorf("order = %s, want the map's order", got)
 	}
 }
 
 func TestWidthsOfEveryFrame(t *testing.T) {
 	f := newFixture(t)
 	f.reg.View(dashygotui.View[state]{ID: "v", Title: "View", Body: func(*ctx, dashygotui.Size) []string { return []string{"body"} }})
-	f.reg.Option(option{Key: "go", Section: "actions", Number: 3, Label: "Go", Run: func(c *ctx) tea.Cmd { _ = c.OpenView("v"); return nil }})
-	f.reg.Option(option{Key: "pop", Section: "actions", Number: 4, Label: "Pop", Run: func(c *ctx) tea.Cmd { c.OpenModal(&stubModal{}); return nil }})
+	f.reg.Row("actions", option{Label: "Go", Run: func(c *ctx) tea.Cmd { _ = c.OpenView("v"); return nil }})
+	f.reg.Row("actions", option{Label: "Pop", Run: func(c *ctx) tea.Cmd { c.OpenModal(&stubModal{}); return nil }})
 
 	sizes := [][2]int{{0, 0}, {1, 1}, {5, 3}, {39, 9}, {40, 10}, {41, 11}, {60, 12}, {79, 20}, {80, 24}, {100, 30}, {101, 40}, {200, 60}}
 	for _, sz := range sizes {
@@ -877,7 +847,7 @@ func TestCountersAreMonotonic(t *testing.T) {
 		tokens = append(tokens, res.Token)
 		return true, nil
 	})
-	f.reg.Option(option{Key: "job", Section: "actions", Number: 3, Label: "Job", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Job", Run: func(c *ctx) tea.Cmd {
 		return c.RunTask("j", "", func(context.Context) (string, error) { return "", nil })
 	}})
 	d := f.driver(120, 40)
@@ -895,10 +865,10 @@ func TestAHandledResultStillClearsThePendingMessage(t *testing.T) {
 	f.reg.OnResult(func(c *ctx, res dashygotui.TaskResult) (bool, tea.Cmd) {
 		return res.Tag == "quiet", nil // handled, and says nothing itself
 	})
-	f.reg.Option(option{Key: "quiet", Section: "actions", Number: 3, Label: "Quiet", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Quiet", Run: func(c *ctx) tea.Cmd {
 		return c.RunTask("quiet", "Working on it...", func(context.Context) (string, error) { return "done", nil })
 	}})
-	f.reg.Option(option{Key: "loud", Section: "actions", Number: 4, Label: "Loud", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Loud", Run: func(c *ctx) tea.Cmd {
 		return c.RunTask("loud", "Also working...", func(context.Context) (string, error) { return "finished", nil })
 	}})
 	d := f.driver(160, 40)
@@ -915,7 +885,7 @@ func TestAHandledResultStillClearsThePendingMessage(t *testing.T) {
 
 func TestAnUnrelatedFlashSurvivesATaskFinishing(t *testing.T) {
 	f := newFixture(t)
-	f.reg.Option(option{Key: "job", Section: "actions", Number: 3, Label: "Job", Run: func(c *ctx) tea.Cmd {
+	f.reg.Row("actions", option{Label: "Job", Run: func(c *ctx) tea.Cmd {
 		task := c.RunTask("job", "Working...", func(context.Context) (string, error) { return "", nil })
 		c.Flash("something else") // replaces the pending message before the task ends
 		return task

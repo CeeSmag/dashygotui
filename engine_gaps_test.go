@@ -78,9 +78,9 @@ func TestEveryToneIsDistinct(t *testing.T) {
 
 func TestOptionHotkeyDisplay(t *testing.T) {
 	f := newFixture(t)
-	f.reg.Option(option{Key: "logs", Section: "actions", Number: 9, Label: "Open Logs", Hotkey: "l", HotkeyDisplay: "Ctrl+L",
+	f.reg.Row("actions", option{Label: "Open Logs", Hotkey: "l", HotkeyDisplay: "Ctrl+L",
 		HotkeyTone: dashygotui.ToneInfo, Run: func(*ctx) tea.Cmd { f.log = append(f.log, "logs"); return nil }})
-	f.reg.Option(option{Key: "plain", Section: "actions", Number: 10, Label: "Open Plain", Hotkey: "p",
+	f.reg.Row("actions", option{Label: "Open Plain", Hotkey: "p",
 		Run: func(*ctx) tea.Cmd { return nil }})
 	d := f.driver(120, 40)
 	d.Press("tab")
@@ -97,9 +97,9 @@ func TestOptionHotkeyDisplay(t *testing.T) {
 
 func TestPageFallbackWhen(t *testing.T) {
 	f := newFixture(t)
-	f.cfg.Pages[0].Fallback = func(*ctx, dashygotui.Size) []string { return []string{"summary"} }
+	f.cfg.Map.Pages[0].Fallback = func(*ctx, dashygotui.Size) []string { return []string{"summary"} }
 	// A rule an application asked for: (narrow and short) or very short.
-	f.cfg.Pages[0].FallbackWhen = func(s dashygotui.Size) bool {
+	f.cfg.Map.Pages[0].FallbackWhen = func(s dashygotui.Size) bool {
 		return (s.Cols < 80 && s.Rows < 22) || s.Rows < 8
 	}
 	d := f.driver(120, 40)
@@ -117,8 +117,8 @@ func TestPageFallbackWhen(t *testing.T) {
 func TestPageFallbackWhenSeesTheBodySize(t *testing.T) {
 	f := newFixture(t)
 	var got dashygotui.Size
-	f.cfg.Pages[0].Fallback = func(*ctx, dashygotui.Size) []string { return []string{"summary"} }
-	f.cfg.Pages[0].FallbackWhen = func(s dashygotui.Size) bool { got = s; return false }
+	f.cfg.Map.Pages[0].Fallback = func(*ctx, dashygotui.Size) []string { return []string{"summary"} }
+	f.cfg.Map.Pages[0].FallbackWhen = func(s dashygotui.Size) bool { got = s; return false }
 	d := f.driver(120, 40)
 	d.Screen()
 	if got.Cols != 120 || got.Rows != 37 { // the terminal less the header, tab bar and footer
@@ -133,17 +133,17 @@ func TestPageFallbackRuleValidation(t *testing.T) {
 		want string
 	}{
 		"both rules": {func(c *cfg) {
-			c.Pages[0].Fallback = fb
-			c.Pages[0].FallbackBelow = dashygotui.Size{Cols: 9}
-			c.Pages[0].FallbackWhen = func(dashygotui.Size) bool { return true }
+			c.Map.Pages[0].Fallback = fb
+			c.Map.Pages[0].FallbackBelow = dashygotui.Size{Cols: 9}
+			c.Map.Pages[0].FallbackWhen = func(dashygotui.Size) bool { return true }
 		}, "use one"},
-		"when, no draw": {func(c *cfg) { c.Pages[0].FallbackWhen = func(dashygotui.Size) bool { return true } }, "no Fallback"},
-		"draw, no rule": {func(c *cfg) { c.Pages[0].Fallback = fb }, "FallbackWhen"},
+		"when, no draw": {func(c *cfg) { c.Map.Pages[0].FallbackWhen = func(dashygotui.Size) bool { return true } }, "no Fallback"},
+		"draw, no rule": {func(c *cfg) { c.Map.Pages[0].Fallback = fb }, "FallbackWhen"},
 		"when is a rule": {func(c *cfg) {
-			c.Pages[0].Fallback = fb
-			c.Pages[0].FallbackWhen = func(dashygotui.Size) bool { return true }
+			c.Map.Pages[0].Fallback = fb
+			c.Map.Pages[0].FallbackWhen = func(dashygotui.Size) bool { return true }
 		}, ""},
-		"below is a rule": {func(c *cfg) { c.Pages[0].Fallback = fb; c.Pages[0].FallbackBelow = dashygotui.Size{Rows: 9} }, ""},
+		"below is a rule": {func(c *cfg) { c.Map.Pages[0].Fallback = fb; c.Map.Pages[0].FallbackBelow = dashygotui.Size{Rows: 9} }, ""},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -160,28 +160,22 @@ func TestPageFallbackRuleValidation(t *testing.T) {
 	}
 }
 
-func TestViewOptionsPanelChrome(t *testing.T) {
+func TestViewHeaderAndHints(t *testing.T) {
 	f := newFixture(t)
 	f.reg.View(dashygotui.View[state]{
 		ID: "diag", Title: "Diagnostics", Mode: "DIAG",
-		Status:          func(*ctx, dashygotui.Size) []string { return []string{"all good"} },
-		OptionsTitle:    "Actions",
-		OptionsSubtitle: "pick one",
+		Body: func(*ctx, dashygotui.Size) []string { return []string{"all good"} },
 		Header: func(c *ctx) []panel.Segment {
 			return []panel.Segment{{Text: "Mode: ON", Prio: 95}}
 		},
 		Hints: func(*ctx) []dashygotui.Hint {
 			return []dashygotui.Hint{{Key: "F5", Label: "Probe", Tone: dashygotui.ToneWarn, Prio: 90}}
 		},
-		Options: func(*ctx) []option {
-			return []option{{Number: 1, Label: "Probe now", Run: func(*ctx) tea.Cmd { return nil }}}
-		},
 	})
 	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "v", Run: func(c *ctx) tea.Cmd { _ = c.OpenView("diag"); return nil }})
 	d := f.driver(120, 30)
 	d.Press("v")
-	d.RequireContains("Diagnostics", "Mode: ON", "Actions", "pick one", "[F5] Probe", "[Esc/b] Back", "all good")
-	d.RequireAbsent("Options")
+	d.RequireContains("Diagnostics", "Mode: ON", "DIAG", "[F5] Probe", "[Esc/b] Back", "all good")
 	head := d.Lines()[0]
 	if strings.Index(head, "Diagnostics") > strings.Index(head, "Mode: ON") {
 		t.Errorf("header segments from the view go after its title: %q", head)

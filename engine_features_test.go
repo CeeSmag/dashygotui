@@ -257,10 +257,9 @@ func TestScrollingViewSurvivesEverySize(t *testing.T) {
 
 func TestScrollNeedsABody(t *testing.T) {
 	r := collect.New[state]()
-	r.View(dashygotui.View[state]{ID: "v", Title: "V", Scroll: true,
-		Status: func(*ctx, dashygotui.Size) []string { return nil }})
-	if msg := errText(t, withRegistry(r)); !strings.Contains(msg, "Scroll") {
-		t.Errorf("error = %q, want it to name Scroll", msg)
+	r.View(dashygotui.View[state]{ID: "v", Title: "V", Scroll: true})
+	if msg := errText(t, withRegistry(r)); !strings.Contains(msg, "has no Body") {
+		t.Errorf("error = %q, want it to say the view has no Body", msg)
 	}
 }
 
@@ -345,10 +344,10 @@ func TestViewHookCommandsRun(t *testing.T) {
 }
 
 func fallbackConfig(f *fixture) {
-	f.cfg.Pages[0].Fallback = func(c *ctx, size dashygotui.Size) []string {
+	f.cfg.Map.Pages[0].Fallback = func(c *ctx, size dashygotui.Size) []string {
 		return []string{fmt.Sprintf("summary %dx%d count=%d", size.Cols, size.Rows, c.State().Count)}
 	}
-	f.cfg.Pages[0].FallbackBelow = dashygotui.Size{Cols: 70, Rows: 16}
+	f.cfg.Map.Pages[0].FallbackBelow = dashygotui.Size{Cols: 70, Rows: 16}
 }
 
 func TestPageFallbackReplacesTheLayoutWhenSmall(t *testing.T) {
@@ -373,8 +372,8 @@ func TestPageFallbackReplacesTheLayoutWhenSmall(t *testing.T) {
 func TestPageFallbackIsReadOnly(t *testing.T) {
 	f := newFixture(t)
 	fallbackConfig(f)
-	f.cfg.Pages[1].Fallback = f.cfg.Pages[0].Fallback
-	f.cfg.Pages[1].FallbackBelow = dashygotui.Size{Rows: 16}
+	f.cfg.Map.Pages[1].Fallback = f.cfg.Map.Pages[0].Fallback
+	f.cfg.Map.Pages[1].FallbackBelow = dashygotui.Size{Rows: 16}
 	d := f.driver(120, 12)
 	d.Press("tab") // the setup page, which also falls back at this size
 	d.RequireContains("summary")
@@ -394,8 +393,8 @@ func TestPageFallbackIsReadOnly(t *testing.T) {
 
 func TestPageFallbackRespectsEachDimension(t *testing.T) {
 	f := newFixture(t)
-	f.cfg.Pages[0].Fallback = func(*ctx, dashygotui.Size) []string { return []string{"summary"} }
-	f.cfg.Pages[0].FallbackBelow = dashygotui.Size{Rows: 20} // only the height matters
+	f.cfg.Map.Pages[0].Fallback = func(*ctx, dashygotui.Size) []string { return []string{"summary"} }
+	f.cfg.Map.Pages[0].FallbackBelow = dashygotui.Size{Rows: 20} // only the height matters
 	d := f.driver(40, 40)
 	d.RequireAbsent("summary")
 	d.Resize(40, 15)
@@ -405,12 +404,12 @@ func TestPageFallbackRespectsEachDimension(t *testing.T) {
 func TestPageFallbackNeedsASize(t *testing.T) {
 	r := collect.New[state]()
 	c := baseConfig(r)
-	c.Pages[0].Fallback = func(*ctx, dashygotui.Size) []string { return nil }
+	c.Map.Pages[0].Fallback = func(*ctx, dashygotui.Size) []string { return nil }
 	if msg := errText(t, c); !strings.Contains(msg, "FallbackBelow") {
 		t.Errorf("error = %q", msg)
 	}
 	c = baseConfig(collect.New[state]())
-	c.Pages[0].FallbackBelow = dashygotui.Size{Cols: 10}
+	c.Map.Pages[0].FallbackBelow = dashygotui.Size{Cols: 10}
 	if msg := errText(t, c); !strings.Contains(msg, "no Fallback") {
 		t.Errorf("error = %q", msg)
 	}
@@ -419,7 +418,7 @@ func TestPageFallbackNeedsASize(t *testing.T) {
 func TestPageFallbackFitsEverySize(t *testing.T) {
 	f := newFixture(t)
 	fallbackConfig(f)
-	f.cfg.Pages[0].FallbackBelow = dashygotui.Size{Cols: 300, Rows: 300} // always
+	f.cfg.Map.Pages[0].FallbackBelow = dashygotui.Size{Cols: 300, Rows: 300} // always
 	d := f.driver(80, 24)
 	for _, sz := range [][2]int{{1, 1}, {20, 6}, {39, 9}, {40, 10}, {80, 24}, {200, 80}} {
 		d.Resize(sz[0], sz[1])

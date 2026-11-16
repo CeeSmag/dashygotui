@@ -22,10 +22,9 @@ func settingsApp(t *testing.T, st dashygotui.Store, addons ...dashygotui.Addon[s
 	r := collect.New[state]()
 	r.Add(addons...)
 	return dashtest.New(t, dashygotui.Config[state]{
-		Title: "T", Addons: []dashygotui.Addon[state]{r}, Store: st,
-		Pages:    []dashygotui.Page[state]{{ID: "p", Title: "Page"}},
-		Sections: []dashygotui.SectionSpec[state]{{ID: "s", Page: "p", Title: "Settings"}},
-		Poll:     func(context.Context) (state, error) { return state{}, nil },
+		Title: "T", Store: st,
+		Map:  dashygotui.Map[state]{Pages: []dashygotui.Page[state]{{ID: "p", Title: "Page", Panels: []dashygotui.Panel[state]{{Title: "Settings", Items: []dashygotui.Addon[state]{r.All("s")}}}}}},
+		Poll: func(context.Context) (state, error) { return state{}, nil },
 	}, 140, 40)
 }
 
@@ -33,7 +32,7 @@ func TestToggle(t *testing.T) {
 	st := store.NewMemory()
 	var changed []bool
 	d := settingsApp(t, st, stdaddons.Toggle[state]{
-		Key: "notify", Section: "s", Number: 1, Label: "Notifications", Default: true,
+		Key: "notify", Label: "Notifications", Default: true,
 		OnChange: func(_ *ctx, on bool) tea.Cmd { changed = append(changed, on); return nil },
 	})
 	d.RequireContains("[1] Notifications", "ON")
@@ -53,7 +52,7 @@ func TestToggle(t *testing.T) {
 func TestToggleRemembersAcrossRuns(t *testing.T) {
 	st := store.NewMemory()
 	mk := func() *dashtest.Driver {
-		return settingsApp(t, st, stdaddons.Toggle[state]{Key: "k", Section: "s", Number: 1, Label: "Flag"})
+		return settingsApp(t, st, stdaddons.Toggle[state]{Key: "k", Label: "Flag"})
 	}
 	d := mk()
 	d.RequireContains("OFF") // the zero Default is off
@@ -62,7 +61,7 @@ func TestToggleRemembersAcrossRuns(t *testing.T) {
 }
 
 func TestToggleReportsAStoreFailure(t *testing.T) {
-	d := settingsApp(t, failingStore{}, stdaddons.Toggle[state]{Key: "k", Section: "s", Number: 1, Label: "Flag"})
+	d := settingsApp(t, failingStore{}, stdaddons.Toggle[state]{Key: "k", Label: "Flag"})
 	d.Press("enter")
 	d.RequireContains("saving Flag", "disk is full")
 }
@@ -77,10 +76,10 @@ func TestNumber(t *testing.T) {
 	st := store.NewMemory()
 	var got []int
 	d := settingsApp(t, st, stdaddons.Number[state]{
-		Key: "limit", Section: "s", Number: 10, Label: "Storage Limit", Unit: "GB", Min: 1, Max: 1000, Default: 50,
+		Key: "limit", Label: "Storage Limit", Unit: "GB", Min: 1, Max: 1000, Default: 50,
 		OnChange: func(_ *ctx, n int) tea.Cmd { got = append(got, n); return nil },
 	})
-	d.RequireContains("[10] Storage Limit", "[50 GB]")
+	d.RequireContains("[1] Storage Limit", "[50 GB]")
 	d.Press("enter")
 	d.RequireContains("Storage Limit", "A whole number from 1 to 1000.", "Current: 50 GB")
 
@@ -109,7 +108,7 @@ func TestNumber(t *testing.T) {
 }
 
 func TestNumberShowsAStoreFailureInThePopup(t *testing.T) {
-	d := settingsApp(t, failingStore{}, stdaddons.Number[state]{Key: "k", Section: "s", Number: 1, Label: "Limit", Min: 1, Max: 9, Default: 5})
+	d := settingsApp(t, failingStore{}, stdaddons.Number[state]{Key: "k", Label: "Limit", Min: 1, Max: 9, Default: 5})
 	d.Press("enter")
 	d.Type("7")
 	d.Press("enter")
@@ -120,11 +119,11 @@ func TestPick(t *testing.T) {
 	st := store.NewMemory()
 	var got []string
 	d := settingsApp(t, st, stdaddons.Pick[state]{
-		Key: "region", Section: "s", Number: 13, Label: "Region", Help: "Where it runs.",
+		Key: "region", Label: "Region", Help: "Where it runs.",
 		Items:    []modal.Item{{Label: "us-east", Detail: "Virginia"}, {Label: "eu-west", Detail: "Ireland"}},
 		OnChange: func(_ *ctx, l string) tea.Cmd { got = append(got, l); return nil },
 	})
-	d.RequireContains("[13] Region", "[us-east]") // the first item is the default
+	d.RequireContains("[1] Region", "[us-east]") // the first item is the default
 	d.Press("enter")
 	d.RequireContains("Where it runs.", "[current]", "Virginia", "Ireland", "Enter Save")
 	d.Press("down", "enter")
@@ -142,7 +141,7 @@ func TestPick(t *testing.T) {
 
 func TestPickWithADefault(t *testing.T) {
 	d := settingsApp(t, store.NewMemory(), stdaddons.Pick[state]{
-		Key: "level", Section: "s", Number: 1, Label: "Level", Default: "warn",
+		Key: "level", Label: "Level", Default: "warn",
 		Items: []modal.Item{{Label: "debug"}, {Label: "warn"}},
 	})
 	d.RequireContains("[warn]")
@@ -156,13 +155,13 @@ func TestSettingsWithBadSpecsAreStartupErrors(t *testing.T) {
 		addon dashygotui.Addon[state]
 		want  string
 	}{
-		"Number min not below max": {stdaddons.Number[state]{Key: "n", Section: "s", Number: 1, Label: "N", Min: 5, Max: 5}, "Min (5) must be less than Max (5)"},
-		"Number default outside":   {stdaddons.Number[state]{Key: "n", Section: "s", Number: 1, Label: "N", Min: 1, Max: 9, Default: 20}, "Default (20) is outside"},
-		"Pick without items":       {stdaddons.Pick[state]{Key: "p", Section: "s", Number: 1, Label: "P"}, "no Items to pick from"},
-		"Pick duplicate labels":    {stdaddons.Pick[state]{Key: "p", Section: "s", Number: 1, Label: "P", Items: []modal.Item{{Label: "a"}, {Label: "a"}}}, `two items labelled "a"`},
-		"Pick empty label":         {stdaddons.Pick[state]{Key: "p", Section: "s", Number: 1, Label: "P", Items: []modal.Item{{Label: ""}}}, "an item with no Label"},
-		"Pick unknown default":     {stdaddons.Pick[state]{Key: "p", Section: "s", Number: 1, Label: "P", Items: items, Default: "z"}, `Default "z" is not one of its items`},
-		"reserved store key":       {stdaddons.Toggle[state]{Key: "dashygotui.palette", Section: "s", Number: 1, Label: "T"}, "reserved for the library"},
+		"Number min not below max": {stdaddons.Number[state]{Key: "n", Label: "N", Min: 5, Max: 5}, "Min (5) must be less than Max (5)"},
+		"Number default outside":   {stdaddons.Number[state]{Key: "n", Label: "N", Min: 1, Max: 9, Default: 20}, "Default (20) is outside"},
+		"Pick without items":       {stdaddons.Pick[state]{Key: "p", Label: "P"}, "no Items to pick from"},
+		"Pick duplicate labels":    {stdaddons.Pick[state]{Key: "p", Label: "P", Items: []modal.Item{{Label: "a"}, {Label: "a"}}}, `two items labelled "a"`},
+		"Pick empty label":         {stdaddons.Pick[state]{Key: "p", Label: "P", Items: []modal.Item{{Label: ""}}}, "an item with no Label"},
+		"Pick unknown default":     {stdaddons.Pick[state]{Key: "p", Label: "P", Items: items, Default: "z"}, `Default "z" is not one of its items`},
+		"reserved store key":       {stdaddons.Toggle[state]{Key: "dashygotui.palette", Label: "T"}, "reserved for the library"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -172,8 +171,8 @@ func TestSettingsWithBadSpecsAreStartupErrors(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("Validate = %v, want it to mention %q", err, tc.want)
 			}
-			if !strings.Contains(err.Error(), "settings_test.go:") {
-				t.Errorf("the error should name the registering line: %v", err)
+			if !strings.Contains(err.Error(), "Collect > Rows > row 1") {
+				t.Errorf("the error should name the place in the map: %v", err)
 			}
 		})
 	}
@@ -183,7 +182,7 @@ func TestText(t *testing.T) {
 	st := store.NewMemory()
 	var got []string
 	d := settingsApp(t, st, stdaddons.Text[state]{
-		Key: "host", Section: "s", Number: 15, Label: "Hostname", Default: "example.local", AllowEmpty: true,
+		Key: "host", Label: "Hostname", Default: "example.local", AllowEmpty: true,
 		Validate: func(v string) error {
 			if strings.ContainsAny(v, " /") {
 				return errors.New("no spaces or slashes")
@@ -214,7 +213,7 @@ func TestText(t *testing.T) {
 
 func TestSecretTextIsNeverShown(t *testing.T) {
 	st := store.NewMemory()
-	d := settingsApp(t, st, stdaddons.Text[state]{Key: "token", Section: "s", Number: 1, Label: "API Token", Secret: true})
+	d := settingsApp(t, st, stdaddons.Text[state]{Key: "token", Label: "API Token", Secret: true})
 	d.RequireContains("[not set]")
 	d.Press("enter")
 	d.Type("hunter2")
@@ -222,17 +221,6 @@ func TestSecretTextIsNeverShown(t *testing.T) {
 	d.Press("enter")
 	d.RequireContains("[set]")
 	d.RequireAbsent("hunter2")
-}
-
-func TestSettingsNumberCollisionsAreReported(t *testing.T) {
-	r := collect.New[state]()
-	r.Add(
-		stdaddons.Toggle[state]{Key: "a", Section: "s", Number: 1, Label: "A"},
-		stdaddons.Number[state]{Key: "b", Section: "s", Number: 1, Label: "B", Min: 1, Max: 2, Default: 1},
-	)
-	if err := collect.Errors(r); err == nil || !strings.Contains(err.Error(), "reuses number 1") {
-		t.Errorf("Validate = %v", err)
-	}
 }
 
 // A setting is saved under its Key. In a map nothing else asks for one, so a

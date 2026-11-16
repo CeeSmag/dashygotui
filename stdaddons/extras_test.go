@@ -20,19 +20,17 @@ import (
 // theme picker.
 func extras(buf *logs.Buffer, st dashygotui.Store, term string) dashygotui.Config[state] {
 	r := collect.New[state]()
-	r.Add(stdaddons.ThemePicker[state]{Section: "look", Number: 20, Hotkey: "m"})
-	r.Add(stdaddons.DisplayPicker[state]{Section: "look", Number: 23})
-	r.Add(stdaddons.BackgroundPicker[state]{Section: "look", Number: 25})
-	r.Add(stdaddons.TransparencyToggle[state]{Section: "look", Number: 26, Hotkey: "y"})
-	r.Add(stdaddons.LogView[state]{Buffer: buf, Section: "look", Number: 24, Hotkey: "g"})
+	r.Add(stdaddons.ThemePicker[state]{Hotkey: "m"})
+	r.Add(stdaddons.DisplayPicker[state]{})                   // [23]
+	r.Add(stdaddons.LogView[state]{Buffer: buf, Hotkey: "g"}) // [24]
+	r.Add(stdaddons.BackgroundPicker[state]{})                // [25]
+	r.Add(stdaddons.TransparencyToggle[state]{Hotkey: "y"})   // [26]
 	return dashygotui.Config[state]{
-		Title:    "T",
-		Addons:   []dashygotui.Addon[state]{r},
-		Store:    st,
-		Getenv:   func(k string) string { return map[string]string{"TERM": term}[k] },
-		Pages:    []dashygotui.Page[state]{{ID: "p", Title: "Page"}},
-		Sections: []dashygotui.SectionSpec[state]{{ID: "look", Page: "p", Title: "Look"}},
-		Poll:     func(context.Context) (state, error) { return state{}, nil },
+		Title:  "T",
+		Store:  st,
+		Getenv: func(k string) string { return map[string]string{"TERM": term}[k] },
+		Map:    dashygotui.Map[state]{Pages: []dashygotui.Page[state]{{ID: "p", Title: "Page", Panels: []dashygotui.Panel[state]{{Title: "Look", Number: 22, Items: []dashygotui.Addon[state]{r.All("look")}}}}}},
+		Poll:   func(context.Context) (state, error) { return state{}, nil },
 	}
 }
 

@@ -1,32 +1,51 @@
 # Cookbook: I want to..., so use...
 
-The shortest correct form for each common need. If an addon is longer than these,
-look here first. `S` is your state type; in the examples `dashboard` is the
-application's package with aliases `Ctx`, `Option`, `View`, `Entry`, `Shortcut`,
-`Hook`, `Addon`. Each addon is a top-level `var` in its own file; after adding,
-renaming or deleting a file, run `go generate ./...` to rewrite `addons_gen.go`.
+The shortest correct form for each common need. If a feature file is longer than
+these, look here first. `S` is your state type; in the examples `dashboard` is the
+application's package with aliases `Map`, `Page`, `Panel`, `Ctx`, `Option`, `View`,
+`Entry`, `Shortcut`, `Hook`, `Addon`. Each feature is a top-level `var` in its own
+file, `<name>_<kind>.go`, and the map (`addons/addons.go`) places it.
 
-## Open a view from a menu row
+## Place a feature
+
+In the map, `addons/addons.go`:
 
 ```go
-var logsOption = dashboard.Option{Key: "logs", Section: "tools", Number: 5, Label: "Logs", Opens: "logs"}
+{Title: "Tools", Items: []dashboard.Addon{backupOpt, logsView, diagPage}}, // rows [1] [2] [3]
+{Widget: networkWidget},                                                  // a panel
+```
+
+Shortcuts go in `Map.Shortcuts`, hooks in `Map.Hooks`, and a view with no row of
+its own in `Map.Views`. Rows are numbered by position; `Number: 10` on a panel
+starts its count at 10.
+
+## Open a view from a row
+
+Place the view itself as the row: `Items: []dashboard.Addon{logsView}`. Its
+`Entry` says how the row looks (`Hotkey`, `HotkeyHint`, `Note`). To open the same
+view from a second place, an option with `Opens`:
+
+```go
+var logsAgainOpt = dashboard.Option{Label: "Logs", Opens: "logs"}
 ```
 
 Not `Run: func(c) tea.Cmd { return OpenView(...) }`. `Opens` is checked at startup.
 
-## Declare a view and the way into it together
+## A page of panels opened from a row: a sub-page
+
+A `Page` placed as a row, in the map:
 
 ```go
-var diagView = dashboard.View{
-	ID: "diag", Title: "Diagnostics",
-	Entry: &dashboard.Entry{Section: "tools", Number: 16, Hotkey: "d", HotkeyHint: "Diagnostics"},
-	Status: func(c *dashboard.Ctx, _ dashygotui.Size) []string { return diagLines(c) },
-	Items: []dashboard.Option{
-		{Label: "Run Check", Note: "tests everything", Do: diagRunCheck},
-		{Label: "Live Log", Opens: "log"},
-	},
-}
+dashboard.Page{Title: "Diagnostics", Session: diagSession, Entry: &dashboard.Entry{Hotkey: "d"},
+	Panels: []dashboard.Panel{
+		{Widget: diagHealthWidget},
+		{Title: "Tools", Items: []dashboard.Addon{diagCheckOpt, diagLogsOpt}}, // [1] [2]
+	}}
 ```
+
+It numbers its own rows from 1, its rows' hotkeys work only inside it, and Back
+returns. What it does apart from its panels (`Session`, `Badge`) lives in
+`diag_page.go`.
 
 `Entry` creates the option, hotkey and footer hint. `Items` rows are numbered by
 position. `Mode` defaults to the title in capitals.
@@ -46,10 +65,10 @@ One line each, remembered in the `Store`, with a badge, a pop-up, validation and
 confirmation:
 
 ```go
-var notifySetting = stdaddons.Toggle[State]{Key: "notify", Section: "settings", Number: 11, Label: "Notifications", Default: true}
-var limitSetting = stdaddons.Number[State]{Key: "limit", Section: "settings", Number: 10, Label: "Storage Limit", Unit: "GB", Min: 1, Max: 1000, Default: 50}
-var regionSetting = stdaddons.Pick[State]{Key: "region", Section: "settings", Number: 13, Label: "Region", Items: []modal.Item{{Label: "eu"}, {Label: "us"}}}
-var nameSetting = stdaddons.Text[State]{Key: "name", Section: "settings", Number: 18, Label: "Display Name"}
+var notifySetting = stdaddons.Toggle[State]{Key: "notify", Label: "Notifications", Default: true}
+var limitSetting = stdaddons.Number[State]{Key: "limit", Label: "Storage Limit", Unit: "GB", Min: 1, Max: 1000, Default: 50}
+var regionSetting = stdaddons.Pick[State]{Key: "region", Label: "Region", Items: []modal.Item{{Label: "eu"}, {Label: "us"}}}
+var nameSetting = stdaddons.Text[State]{Key: "name", Label: "Display Name"}
 ```
 
 Each takes an `OnChange` to apply the new value (restart a service, say). To keep
@@ -72,13 +91,14 @@ panel with the scroll position in its border. `Body` is given the size to fill.
 
 ## Show a number that changes: a graph
 
-`chart.Stream` / `chart.DualStream`: `Push` on each tick (a `Hook` with `Tick`),
-`Render` on each frame.
+`chart.Stream` / `chart.DualStream`: `Push` on each tick (the widget's own `Tick`),
+`Render` on each frame. The widget stays one value.
 
 ## React to every tick, a message of your own, or a task's result
 
-`var sampler = dashboard.Hook{Tick: ..., Msg: ..., Result: ...}`: set the ones you
-need. Every `Msg` sees every message the dashboard does not handle itself.
+`var sampler = dashboard.Hook{Tick: ..., Msg: ..., Result: ...}`, placed in
+`Map.Hooks`: set the ones you need. Every `Msg` sees every message the dashboard
+does not handle itself. A widget that only samples needs no hook: `Widget.Tick`.
 
 ## Start in a view
 
@@ -98,12 +118,19 @@ the process.
 ## Several alike rows from one file
 
 A small type of the file's own with an `Addons()` method, one value per row:
-`var gotoCharts = jump{number: 60, page: "charts"}` (see the showcase's `opt_goto.go`).
+`var gotoCharts = jump{label: "Jump to Charts", page: "charts"}` (see the
+showcase's `goto_opt.go`).
 
-## Test with only some addons
+## Test with only some features
 
-`cfg.Addons = []dashboard.Addon{backupOption, restartOption}` (in the addons
-package's own tests), or `addons.All()` for the whole dashboard.
+`cfg.Map = dashboard.Map{Pages: []dashboard.Page{{Title: "T", Panels: []dashboard.Panel{{Title: "Rows", Items: []dashboard.Addon{backupOpt, restartOpt}}}}}}`
+(in the addons package's own tests), or `addons.Map()` for the whole dashboard.
+
+## Use what the application knows
+
+A feature uses, from the `dashboard` package, only types. What it needs of the
+application is a field or a method of `State`: `c.State().Logger("net")`,
+`c.State().Setup(3)`. Never a function or variable of the `dashboard` package.
 
 `State` is replaced by every poll, so it is the wrong place for UI state.
 

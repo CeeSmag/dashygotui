@@ -168,7 +168,7 @@ func TestPollErrorIsShownUntilAPollSucceeds(t *testing.T) {
 func TestRefreshDuringAPollPollsAgain(t *testing.T) {
 	t.Parallel()
 	r := collect.New[state]()
-	r.Option(option{Key: "apply", Section: "actions", Number: 1, Label: "Apply", Hotkey: "a",
+	r.Row("actions", option{Label: "Apply", Hotkey: "a",
 		Run: func(c *ctx) tea.Cmd { return c.Refresh() }})
 	polls := 0
 	c := baseConfig(r)
@@ -193,8 +193,8 @@ func TestASecondTaskKeepsItsMessageWhenTheFirstEnds(t *testing.T) {
 			return c.RunTask(tag, pending, func(context.Context) (string, error) { return "", nil })
 		}
 	}
-	r.Option(option{Key: "first", Section: "actions", Number: 1, Label: "First", Hotkey: "f", Run: task("first", "Scanning trash...")})
-	r.Option(option{Key: "second", Section: "actions", Number: 2, Label: "Second", Hotkey: "g", Run: task("second", "Restarting...")})
+	r.Row("actions", option{Label: "First", Hotkey: "f", Run: task("first", "Scanning trash...")})
+	r.Row("actions", option{Label: "Second", Hotkey: "g", Run: task("second", "Restarting...")})
 	m, start := newRaw(t, baseConfig(r))
 	m.exec(start)
 
@@ -220,7 +220,7 @@ func TestASecondTaskKeepsItsMessageWhenTheFirstEnds(t *testing.T) {
 func TestATaskMessageOutlastsTheFlashDuration(t *testing.T) {
 	t.Parallel()
 	r := collect.New[state]()
-	r.Option(option{Key: "slow", Section: "actions", Number: 1, Label: "Slow", Hotkey: "s",
+	r.Row("actions", option{Label: "Slow", Hotkey: "s",
 		Run: func(c *ctx) tea.Cmd {
 			return c.RunTask("slow", "Copying...", func(context.Context) (string, error) { return "", nil })
 		}})
@@ -257,7 +257,7 @@ func TestPollFailureDoesNotHideAnAddonMessage(t *testing.T) {
 	t.Parallel()
 	r := collect.New[state]()
 	fail := false
-	r.Option(option{Key: "break", Section: "actions", Number: 1, Label: "Break", Hotkey: "x",
+	r.Row("actions", option{Label: "Break", Hotkey: "x",
 		Run: func(c *ctx) tea.Cmd { fail = true; c.Flash("Outage started"); return c.Refresh() }})
 	c := baseConfig(r)
 	c.Poll = func(context.Context) (state, error) {

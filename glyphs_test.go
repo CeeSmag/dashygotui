@@ -150,9 +150,12 @@ func TestAChosenPaletteSurvivesTheTTYDefault(t *testing.T) {
 func TestTTYModeDrawsOnlyConsoleSafeGlyphs(t *testing.T) {
 	f := newFixture(t)
 	f.cfg.Glyphs = dashygotui.GlyphsTTY
-	f.reg.View(dashygotui.View[state]{ID: "v", Title: "View", Subtitle: "sub", Mode: "VIEW",
-		Status:  func(*ctx, dashygotui.Size) []string { return []string{"status row"} },
-		Options: func(*ctx) []option { return []option{{Number: 1, Label: "Do It", Hotkey: "d", Run: noop}} }})
+	f.reg.View(dashygotui.View[state]{ID: "v", Title: "View", Mode: "VIEW", Framed: true,
+		Body: func(*ctx, dashygotui.Size) []string { return []string{"body row"} }})
+	f.reg.Add(dashygotui.Page[state]{ID: "sub", Title: "Sub-page", Panels: []panelT{
+		{Widget: widget{Title: "Status", Subtitle: "sub", Render: func(*ctx, dashygotui.Size) []string { return []string{"status row"} }}},
+		{Title: "Menu", Items: []dashygotui.Addon[state]{option{Label: "Do It", Hotkey: "d", Run: noop}}},
+	}})
 	open := func(m dashygotui.Modal[state]) func(c *ctx) tea.Cmd {
 		return func(c *ctx) tea.Cmd { c.OpenModal(m); return nil }
 	}
@@ -162,10 +165,11 @@ func TestTTYModeDrawsOnlyConsoleSafeGlyphs(t *testing.T) {
 		long[i] = "a long line of notice text number " + fmt.Sprint(i)
 	}
 	scenarios := map[string]func(d *dashtest.Driver){
-		"monitor": func(*dashtest.Driver) {},
-		"control": func(d *dashtest.Driver) { d.Press("tab") },
-		"theme":   func(d *dashtest.Driver) { d.Press("tab", "tab") },
-		"view":    func(d *dashtest.Driver) { d.Press("w") },
+		"monitor":  func(*dashtest.Driver) {},
+		"control":  func(d *dashtest.Driver) { d.Press("tab") },
+		"theme":    func(d *dashtest.Driver) { d.Press("tab", "tab") },
+		"view":     func(d *dashtest.Driver) { d.Press("w") },
+		"sub-page": func(d *dashtest.Driver) { d.Press("tab"); d.Type("3"); d.Press("enter") },
 		"flash ok": func(d *dashtest.Driver) {
 			d.Press("tab", "f")
 		},

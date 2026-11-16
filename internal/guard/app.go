@@ -124,8 +124,8 @@ type Report struct {
 // dashygotui rules command.
 func Rules() map[string]string {
 	return map[string]string{
-		"A1":  "a feature file is named <name>_<kind>.go (opt, widget, view, page, modal, shortcut, hook) and the map is addons.go; in the v0.4 layout, opt_*.go, widget_*.go, view_*.go, modal_*.go or shortcut_*.go",
-		"A2":  "an addon uses nothing of a sibling addon file; with a map, a feature uses nothing of the application but the dashboard package's types",
+		"A1":  "a feature file is named <name>_<kind>.go (opt, widget, view, page, modal, shortcut, hook), and the map is addons.go",
+		"A2":  "a feature uses nothing of another feature file, no other application package, and of the dashboard package only its types",
 		"A3":  "each package-level var of an addon file is one unexported addon literal, never assigned to",
 		"A4":  "an addon starts no goroutines, sleeps, exits, prints, or panics",
 		"A5":  "an addon draws with theme styles, never raw lipgloss styles or colour literals",
@@ -133,20 +133,20 @@ func Rules() map[string]string {
 		"A7":  "an addon ends, prints and runs programs through the Context, never through tea",
 		"A8":  "an addon does not wrap or embed a library modal",
 		"A9":  "an addon uses Opens and Do instead of a Run that only opens a view or returns nil",
-		"A11": "every addons package has an addons_gen.go, and it matches what dashygotui gen writes now; run go generate ./...",
 		"A12": "an addons package has no init()",
-		"A13": "every addon of a feature file is placed in the map, addons.go",
-		"C1":  "a change that adds an addon edits no other Go file (dashygotui check -changed)",
+		"A13": "every addon of a feature file is placed in the map, addons.go, exactly once",
+		"C1":  "a change that adds a feature edits no other Go file than the map (dashygotui check -changed)",
 		"G1":  "a //dashygotui:gap marker says where the gap is recorded",
 		"X1":  "a //dashygotui:allow comment names a rule and gives a reason",
 	}
 }
 
 // CheckApp applies the application rules to the sources of an application. The
-// addon rules apply to files in a directory named addons: A1 to A4, A6, A9, A11
-// and A12 only there. A5 (raw styles), A7 and A8 apply to every file that imports the library
-// as well, because a workaround is as likely to live in the dashboard package as
-// in an addon. The gap markers are collected from every file.
+// addon rules apply to files in a directory named addons: A1 to A4, A6, A9, A12
+// and A13 only there. A5 (raw styles), A7 and A8 apply to every file that
+// imports the library as well, because a workaround is as likely to live in the
+// dashboard package as in an addon. The gap markers are collected from every
+// file.
 func CheckApp(srcs []Source) Report {
 	var rep Report
 	byDir := map[string][]Source{}
@@ -166,31 +166,11 @@ func CheckApp(srcs []Source) Report {
 	sort.Strings(dirs)
 	for _, d := range dirs {
 		files := byDir[d]
-		if isMapPackage(files) {
-			for _, s := range files {
-				rep.add(s, sourceFindings(s, true))
-			}
-			rep.add(Source{}, mapFindings(d, files, srcs), files...)
-			rep.add(Source{}, valueFindings(d, files, true), files...)
-			continue
-		}
-		var addons []Source // the files that are addons, not doc.go and the generated list
 		for _, s := range files {
-			if isSupportFile(s.Rel) {
-				continue
-			}
-			addons = append(addons, s)
 			rep.add(s, sourceFindings(s, true))
-			if len(AddonNameViolations(s.Rel)) > 0 {
-				rep.add(s, []Finding{{Rule: "A1", File: s.Rel, Line: 1,
-					Msg:  "addon file names start with opt_, widget_, view_, modal_ or shortcut_",
-					Hint: "rename the file, for example opt_" + strings.TrimSuffix(baseName(s.Rel), ".go") + ".go"}})
-			}
 		}
-		if len(addons) > 0 { // every addon may have been deleted, leaving doc.go and the list
-			rep.add(Source{}, couplingFindings(addons), addons...)
-		}
-		rep.add(Source{}, valueFindings(d, files, false), files...)
+		rep.add(Source{}, mapFindings(d, files, srcs), files...)
+		rep.add(Source{}, valueFindings(files), files...)
 	}
 	rep.sort()
 	return rep
@@ -330,11 +310,8 @@ func gapMarkers(s Source) []Finding {
 
 // --- coupling (A2) ---
 
-func couplingFindings(files []Source) []Finding {
-	return couplingFindingsHint(files, "move shared code to the dashboard package")
-}
-
-// couplingFindingsHint is couplingFindings with the advice to give.
+// couplingFindingsHint reports A2 for every use of a sibling file's declaration,
+// with the advice to give.
 func couplingFindingsHint(files []Source, hint string) []Finding {
 	m := map[string]*ast.File{}
 	by := map[string]Source{}
@@ -391,7 +368,7 @@ func importsLibrary(f *ast.File) bool {
 // sourceFindings applies the rules to one file. addon is true for a file in an
 // addons directory, which every rule applies to; elsewhere only the app-wide
 // rules (A5 styles, A7, A8) apply. The rules about an addons package as a whole
-// (A3, A11, A12) are valueFindings'.
+// (A1, A2, A13) are mapFindings', and (A3, A12) valueFindings'.
 func sourceFindings(s Source, addon bool) []Finding {
 	var out []Finding
 	at := func(rule string, n ast.Node, msg, hint string) {
@@ -528,13 +505,6 @@ func firstControl(s string) (rune, bool) {
 		}
 	}
 	return 0, false
-}
-
-func baseName(rel string) string {
-	if i := strings.LastIndex(rel, "/"); i >= 0 {
-		return rel[i+1:]
-	}
-	return rel
 }
 
 func isOneOf(s string, in ...string) bool {
@@ -697,8 +667,6 @@ func exemptFromOneFile(p string) bool {
 		return true
 	case !strings.HasSuffix(p, ".go"):
 		return true // documentation and other files are not registries
-	case InAddons(p) && isSupportFile(p):
-		return true // doc.go and the generated list change with the addons; nobody edits them
 	case InAddons(p) && path.Base(p) == MapFile:
 		return true // the map places the new addon: its line is part of adding it
 	}

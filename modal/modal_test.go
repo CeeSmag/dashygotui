@@ -33,9 +33,8 @@ func harness(mod dashygotui.Modal[state]) dashygotui.Config[state] {
 	r := collect.New[state]()
 	r.Shortcut(dashygotui.Shortcut[state]{Key: "o", Run: func(c *ctx) tea.Cmd { c.OpenModal(mod); return nil }})
 	return dashygotui.Config[state]{
-		Title:  "T",
-		Addons: []dashygotui.Addon[state]{r},
-		Pages:  []dashygotui.Page[state]{{ID: "p", Title: "Page"}},
+		Title: "T",
+		Map:   dashygotui.Map[state]{Pages: []dashygotui.Page[state]{{ID: "p", Title: "Page", Panels: []dashygotui.Panel[state]{{Title: "Rows", Items: []dashygotui.Addon[state]{r.All("rows")}}}}}},
 		Poll: func(context.Context) (state, error) {
 			return state{}, nil
 		},

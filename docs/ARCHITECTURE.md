@@ -2,30 +2,30 @@
 
 ## The idea
 
-A dashboard is a **foundation** plus **addons**. The foundation declares pages
-and sections; each addon is one file of values. Getting "add a file and it
-appears" without `init()` or global state drives most of the design.
+A dashboard is a **frame**, **features** and a **map**. The frame (the
+`dashboard` package) holds the state, the poll and the short type names. Each
+feature is one file of values that says what it does. The map, `addons/addons.go`,
+says where everything goes. Nothing is registered: there is no `init()` and no
+global state.
 
 ```
-main.go ──imports──▶ dashboard         pages, sections, Run
-        └─imports──▶ dashboard/addons  opt_*.go widget_*.go view_*.go modal_*.go
-                                       doc.go (//go:generate), addons_gen.go (All)
+main.go ──imports──▶ dashboard         State (and its methods), Poll, Run
+        └─imports──▶ dashboard/addons  addons.go (Map), *_opt.go *_widget.go *_view.go
+                                       *_page.go *_modal.go *_shortcut.go *_hook.go
 addons ──imports──▶ dashboard ──imports──▶ dashygotui
 dashboard never imports addons
 ```
 
-Go cannot list a package's variables at run time, so `dashygotui gen` (run by
-`go generate`) writes `addons_gen.go`: a function `All` that returns every
-top-level `var` of the addon files, each wrapped in `At("file.go:line", ...)`.
-`main` passes `addons.All()` to the dashboard, which takes the list in
-`Config.Addons`. Adding a file and regenerating is the whole change; `dashygotui
-check` (rule A11) fails while the list is stale.
+`main` passes `addons.Map()` to the dashboard, which takes it in `Config.Map`. The
+map refers to the feature values by name, so a feature that is not placed does
+not appear (`dashygotui check` reports it, rule A13), and a placed feature that
+is deleted is a compile error at its line in the map.
 
 ## Packages
 
 | Package | Role |
 | --- | --- |
-| `dashygotui` (root) | `Config`, `Dashboard`, `Addon`, `At`, `Hook`, `Context`, `Local` (per-dashboard addon state), the Bubble Tea model, keys, `Run` |
+| `dashygotui` (root) | `Config`, `Map`, `Page`, `Panel`, `Dashboard`, `Addon`, `Hook`, `Context`, `Local` (per-dashboard state of a feature), the Bubble Tea model, keys, `Run` |
 | `text` | ANSI- and wide-character-aware width, truncation, padding, wrapping |
 | `theme` | `Palette`, the symbol sets (`Glyphs`) and the immutable `Theme` built from them |
 | `panel` | bordered panels, stacking, joining, overlay, header and footer fitting |
@@ -35,7 +35,7 @@ check` (rule A11) fails while the list is stale.
 | `stdaddons` | opt-in addons: theme picker, spacing sliders, refresh rate, display mode, background, log view, and the one-line settings `Toggle`, `Number`, `Pick`, `Text` |
 | `store` | `Store` implementations: JSON file, in-memory |
 | `dashtest` | terminal-free test driver with a fake clock and timers, and `Audit` |
-| `cmd/dashygotui` | the companion command: `rules`, `check`, `new`, `gen`, `init` (standard library only) |
+| `cmd/dashygotui` | the companion command: `rules`, `check`, `new`, `init` (standard library only) |
 | `docs`, `templates` | the design documents and addon templates, embedded for the command |
 | `internal/guard` | the source-level rules, shared by the library's guard tests and the command |
 | `layout` | page arrangement, spacing and edge insets; pure and non-generic (re-exported by the root as `Layout` and `Spacing`) |
@@ -47,24 +47,24 @@ about Bubble Tea or application state and are tested without them.
 
 `Dashboard[S]` is parameterised by the application's state type `S`, so addons
 receive a typed `*Context[S]` and never type-assert. An addon is a value of a
-generic type (`Option[S]`, `Hook[S]`, ...), and a dashboard is built from a list of
+generic type (`Option[S]`, `Hook[S]`, ...), and a dashboard is built from a map of
 them, so neither the library nor the application needs a package-level registry:
-the list is passed in, the way Go code passes its dependencies. A test passes the
-addons it needs; two dashboards in one program pass two lists. An addon's own state
+the map is passed in, the way Go code passes its dependencies. A test builds the
+map it needs; two dashboards in one program pass two maps. A feature's own state
 lives in `Local`, per dashboard, so nothing leaks between them.
 
 ## Lifecycle
 
-1. **`go generate`**: `dashygotui gen` lists the addon values in `addons_gen.go`.
-2. **`New(cfg)`**: expands `Config.Addons` (an addon may stand for several) and
-   validates everything together: mistakes in addons (each named by the place `At`
-   recorded), unknown pages and sections, duplicate IDs, reserved shortcut keys.
-   All problems are reported at once, wrapped in `ErrInvalidConfig`; nothing
-   panics. Panels are collected and sorted by `Order`. `New` reads the list once.
-3. **`Run(ctx)`**: starts Bubble Tea. Settings load from the `Store`.
+1. **`New(cfg)`** compiles the map: it walks the pages, their panels and their
+   rows in order, expands ready-made addons (one may stand for several rows, or
+   bring a view, a shortcut or a hook along), numbers the rows by position, turns
+   each sub-page into a view that draws a page, and validates everything
+   together: rows with no action, duplicate hotkeys and IDs, reserved keys,
+   unknown views. Each problem names its place in the map; all are reported at
+   once, wrapped in `ErrInvalidConfig`; nothing panics. `New` reads the map once.
+2. **`Run(ctx)`**: starts Bubble Tea. Settings load from the `Store`.
 
-The order of the list is irrelevant: it follows file names, so panels and options
-are ordered by explicit `Order`, then `Number`/`Key`.
+The order of the map is the order on screen.
 
 ## Data flow
 
@@ -203,17 +203,16 @@ for the library and for the applications built on it (the charter is in
 - **The command travels with the module.** `cmd/dashygotui` embeds the design
   documents and the addon templates (`docs.FS`, `templates.FS`), so `go run
   ...@<version> rules` always prints rules that match the API an application
-  compiles against. `init` writes the instruction files, `new` scaffolds an addon,
-  `gen` writes the addon list,
-  `check` lints.
+  compiles against. `init` writes the instruction files, `new` scaffolds a feature
+  and says where it goes in the map, `check` lints.
 - **The library governs itself.** `api/dashygotui.txt` is a snapshot of the exported
   API (a change needs `CHANGELOG.md`: `make api-check`); `docs/REFERENCE.md` is
   generated from the field doc comments and must match; a scan rejects application
   vocabulary in the library; `examples/buildwatch` is an unrelated second
   application that must pass the same checks.
 - **The consumer simulation** (`scripts/consumer-test.sh`) builds a throw-away
-  application on the working tree, scaffolds every addon kind, requires a clean
-  `check`, and requires `check` to fail on a bad addon for each rule.
+  application on the working tree, scaffolds and places every feature kind, requires
+  a clean `check`, and requires `check` to fail on a bad feature for each rule.
 
 `dashtest.Audit` covers rendering for an application: every page and view at ten
 sizes, exact frames, and only console-safe characters in TTY mode.

@@ -13,23 +13,14 @@ import (
 //
 // Declare it as an addon.
 type DisplayPicker[S any] struct {
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
 	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
 	Hotkey string
-	// Order sorts the option within its section. Optional.
-	Order int
 }
 
 // Addons implements [dashygotui.Addon].
 func (a DisplayPicker[S]) Addons() []dashygotui.Addon[S] {
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Key:     "stdaddons.display",
-		Section: a.Section,
-		Number:  a.Number,
-		Label:   "Display Mode",
+		Label: "Display Mode",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			label := "Unicode"
 			if ctx.TTY() {
@@ -42,7 +33,6 @@ func (a DisplayPicker[S]) Addons() []dashygotui.Addon[S] {
 		},
 		Do:     openDisplayPicker[S],
 		Hotkey: a.Hotkey,
-		Order:  a.Order,
 	}}
 }
 

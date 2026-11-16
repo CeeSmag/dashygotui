@@ -1,79 +1,114 @@
-# Writing addons
+# Writing features
 
-An addon is **one file** in the application's `addons/` directory. It declares
-its addons as unexported top-level values. `go generate ./...` then rewrites the
-generated `addons_gen.go`, whose `All()` lists every value, and `main` passes that
-list to the dashboard. No other file is edited by hand: not the dashboard file,
-not a list, not a README.
+A feature is **one file** in the application's `addons/` directory, named
+`<name>_<kind>.go`. It declares its addons as unexported top-level values and says
+only what they do. The **map**, `addons/addons.go`, places them: it is the only file
+that says where anything goes. Adding a feature is its file and its line in the
+map; no other file is edited.
 
-Start from a template in [`templates/`](../templates/), change the import path
-of your `dashboard` package, and pick a number or an order. The
-[`examples/showcase`](../examples/showcase/) app shows every kind and every
-feature ([`examples/README.md`](../examples/README.md) maps each to its file);
-[`examples/demo`](../examples/demo/) is the small quickstart.
+`dashygotui new <kind> <name>` writes a starter from [`templates/`](../templates/)
+and prints the line to add to the map. The [`examples/showcase`](../examples/showcase/)
+app shows every kind and every feature ([`examples/README.md`](../examples/README.md)
+maps each to its file); [`examples/demo`](../examples/demo/) is the small
+quickstart.
 
-| You want | File | Declare | Template |
+| You want | File | Declare | Place it in the map |
 | --- | --- | --- | --- |
-| a numbered menu row | `opt_<name>.go` | an `Option` | `opt.go.example` |
-| a saved setting | `opt_<name>.go` | a `stdaddons.Toggle`, `Number`, `Pick` or `Text` | |
-| a read-only panel on a page | `widget_<name>.go` | a `Widget` | `widget.go.example` |
-| a full-screen page (and the option that opens it) | `view_<name>.go` | a `View` with an `Entry` | `view.go.example` |
-| a custom pop-up | `modal_<name>.go` | an `Option` with a `Modal` | `modal.go.example` |
-| a key that is not a menu row | `shortcut_<name>.go` | a `Shortcut` | `shortcut.go.example` |
+| a numbered row | `<name>_opt.go` | an `Option` | in a panel's `Items` |
+| a saved setting | `<name>_opt.go` | a `stdaddons.Toggle`, `Number`, `Pick` or `Text` | in a panel's `Items` |
+| a read-only panel | `<name>_widget.go` | a `Widget` | as a panel: `{Widget: x}` |
+| a full-screen view | `<name>_view.go` | a `View` | in a panel's `Items` (the row opens it), or `Map.Views` |
+| a sub-page: panels opened from a row | `<name>_page.go` | what it does: `Session`, `Badge` | a `Page` in a panel's `Items`, with its `Panels` |
+| a custom pop-up | `<name>_modal.go` | an `Option` with a `Modal` | in a panel's `Items` |
+| a key that is not a row | `<name>_shortcut.go` | a `Shortcut` | `Map.Shortcuts` |
+| a reaction to ticks, messages, results | `<name>_hook.go` | a `Hook` | `Map.Hooks` |
 
 Declare each as `var <name> = <literal>` at the top of the file, one addon per
-`var`, with an unexported name (`backupOption`, `systemWidget`). The generated list
-wraps each in `At("opt_backup.go:4", ...)`, so a startup error points at your
-file and line. Before writing anything, check `COOKBOOK.md`: most addons are a few
-lines.
+`var`, with an unexported name (`backupOpt`, `systemWidget`). Before writing
+anything, check `COOKBOOK.md`: most features are a few lines.
 
 Helpers a file needs (a function, a constant, a type) are package-level too, so
-they share one namespace with every other addon file: name them after the file
+they share one namespace with every other feature file: name them after the file
 (`networkHistory`, not `history`) to keep two files from clashing. A clash is a
 compile error, never a silent one.
 
-## What the foundation file declares
+**A feature is self-contained.** It uses the library and, from the `dashboard`
+package, only types: `State` with its fields and methods, and the short type names
+(`Ctx`, `Option`...). What the application knows and does (its backend, its
+loggers, a computed figure) is a field or method of `State`. Nothing of a sibling
+feature file, ever.
 
-Addons fill slots; they do not create them. The dashboard file declares:
+## The map
 
-- **Pages**: `Config.Pages` (tab order is list order).
-- **Sections**: `Config.Sections`, each on a page. A section is a bordered panel
-  of numbered options.
+```go
+// addons/addons.go
+package addons
 
-Options target a section by ID (`Section: "settings"`). Widgets target a page by
-ID (`Page: "monitor"`). An unknown ID is a startup error.
+func Map() dashboard.Map {
+	return dashboard.Map{
+		Shortcuts: []dashboard.Shortcut{stopShortcut},
+		Hooks:     []dashboard.Hook{exportDone},
+		Pages: []dashboard.Page{
+			{Title: "Monitor", Layout: dashygotui.LayoutAuto, Panels: []dashboard.Panel{
+				{Widget: systemWidget},
+				{Widget: networkWidget},
+			}},
+			{Title: "Control", Panels: []dashboard.Panel{
+				{Title: "Quick Actions", Subtitle: "things to do", Items: []dashboard.Addon{
+					backupOpt,  // [1]
+					restartOpt, // [2]
+					logsView,   // [3] a row that opens the view
+				}},
+				{Title: "Settings", Number: 10, Items: []dashboard.Addon{storageOpt, notifyOpt}}, // [10] [11]
+			}},
+		},
+	}
+}
+```
+
+- **Pages** are the tabs, in order. A page's **panels** are arranged by its
+  `Layout`, in order; a panel is one widget or a list of rows.
+- **Rows are numbered by position**, across the tab pages in map order. A panel's
+  `Number` sets where its count starts; typing `1` then `0` jumps to `[10]`. Two
+  rows with one number is a startup error.
+- A **`View`** placed as a row is opened by that row; its `Entry` says how the row
+  looks (`Label`, `Hotkey`, `HotkeyHint`, `Note`, `Badge`).
+- A **`Page`** placed as a row is a **sub-page**: the row opens it full-screen with
+  panels of its own, numbered from 1, its rows' hotkeys working only inside it, and
+  Back returns. Its `Session` and `Badge` work as a tab's do; its `Entry` is its row.
+- A ready-made addon from `stdaddons` is placed directly, with no file.
+- Each feature is placed once. A second way into a view is an option with `Opens`.
+- Panel `Title`, `Subtitle`, `Badge` and `Noun` dress a list of rows; on a widget
+  panel they replace the widget's own.
+
+Every mistake names its place: `Control > Quick Actions > row 3: option "Trash"
+needs exactly one of Run, Do, Opens and Modal, has 0`.
 
 ## Options
 
 ```go
-var storageOption = dashboard.Option{
-	Key:     "storage",   // unique, stable; prefix for Store keys
-	Section: "settings",
-	Number:  10,          // typed to jump here; unique across the dashboard
-	Order:   0,           // optional: sort within the section (default: Number)
-	Label:   "Storage Limit",
-	Badge:   func(c *dashboard.Ctx) string { return c.Badge("50 GB") },
-	Modal:   func(c *dashboard.Ctx) dashboard.Modal { return &modal.Edit[State]{...} },
+var storageOpt = dashboard.Option{
+	Label:  "Storage Limit",
+	Hotkey: "s", // optional: runs it from any page; shown as "(s)"
+	Badge:  func(c *dashboard.Ctx) string { return c.Badge("50 GB") },
+	Modal:  func(c *dashboard.Ctx) dashboard.Modal { return &modal.Edit[State]{...} },
 }
 ```
 
 (A setting like this one is a single `stdaddons.Number`; see "Ready-made settings".)
 
-- **Numbers are yours to assign** and are checked: a clash is an error naming
-  both files. Typing `1` then `0` jumps to `[10]`.
-- **Order** comes only from `Order`, then `Number`, then `Key`. Never from the
-  order of `All()`, which follows file names and must not be relied on.
 - `Badge` runs on every frame; keep it cheap. Helpers: `c.OnOff(bool)`,
   `c.Badge(text)`, `c.Count(n, "files")`.
 - **`Hotkey`** is an optional key that runs the option from any page without
   selecting it: `Hotkey: "l"` to open the logs. The row shows `Logs (l)`. A
   hotkey may not be a navigation key, a digit, or the same as a shortcut or
-  another option's hotkey; a clash is a startup error naming both files.
+  another row's hotkey; a clash is a startup error naming both places. A row of a
+  sub-page has its hotkey only inside the sub-page.
 
 ## What an option does
 
-An option, a shortcut and a view's menu row all say what happens when they are
-used by setting **exactly one** of:
+An option and a shortcut say what happens when they are used by setting
+**exactly one** of:
 
 | Field | Use it for |
 | --- | --- |
@@ -88,7 +123,7 @@ lists the hotkey in the footer, with `HotkeyDisplay` and `HotkeyTone` styling it
 Anything that implements `Addon` (an `Addons()` method returning some) is an
 addon too: the ready-made settings in `stdaddons` are written that way, and a file
 that declares several alike rows can define a small type of its own that returns
-them (see `opt_goto.go` in the showcase).
+them (see `goto_opt.go` in the showcase).
 
 ## Ready-made settings
 
@@ -98,42 +133,47 @@ a confirmation; `OnChange` runs after a change is saved:
 
 ```go
 var storageLimitSetting = stdaddons.Number[dashboard.State]{
-	Key: "storage.limit_gb", Section: "settings", Number: 10, Label: "Storage Limit",
+	Key: "storage.limit_gb", Label: "Storage Limit",
 	Unit: "GB", Min: 1, Max: 1000, Default: 50,
 }
 ```
 
 A setting that makes no sense (an empty number range, a `Pick` with no items or
 duplicate labels, a `Key` starting with `dashygotui.`, which the library keeps for its
-own settings) is a startup error naming the line, like any other mistake.
+own settings, or no `Key` at all) is a startup error naming its place in the map,
+like any other mistake.
 
 ## Widgets
 
 ```go
 var cpuWidget = dashboard.Widget{
-	Key: "cpu", Page: "monitor", Order: 10, Title: "CPU", MinHeight: 6,
+	Title: "CPU", MinHeight: 6,
 	Render: func(c *dashboard.Ctx, size dashygotui.Size) []string { ... },
 }
 ```
 
 `Render` returns the **body rows** for the inner size and runs on every frame,
-so read from `c.State()`. Panels on a page (sections and widgets together) are
-arranged by the page's `Layout` and sorted by `Order`.
+so read from `c.State()`. The map places it as a panel, `{Widget: cpuWidget}`,
+among the page's other panels in the order written.
 
 A widget that **samples over time** keeps its history with `dashygotui.Local` (state
-that belongs to the dashboard; see "State that outlives a poll"), fed by a `Hook`
-whose `Tick` runs on every refresh, declared in the same file:
+that belongs to the dashboard; see "State that outlives a poll"), fed by its own
+`Tick`, which runs on every refresh:
 
 ```go
-var networkSampler = dashboard.Hook{Tick: func(c *dashboard.Ctx, now time.Time) tea.Cmd {
-	h := networkHistory(c) // dashygotui.Local, see below
-	h.add(c.State().NetIn, c.State().NetOut)
-	return nil
-}}
+var networkWidget = dashboard.Widget{
+	Title: "Network",
+	Tick: func(c *dashboard.Ctx, now time.Time) tea.Cmd {
+		h := networkHistory(c) // dashygotui.Local, see below
+		h.add(c.State().NetIn, c.State().NetOut)
+		return nil
+	},
+	Render: func(c *dashboard.Ctx, size dashygotui.Size) []string { ... },
+}
 ```
 
-See `examples/demo/dashboard/addons/widget_network.go`. The only package-level
-variables in an addon file are its addon values, and nothing assigns to them: a
+See `examples/demo/dashboard/addons/network_widget.go`. The only package-level
+variables in a feature file are its addon values, and nothing assigns to them: a
 variable that changes would be shared by every dashboard in the process.
 
 ## The Context
@@ -202,7 +242,7 @@ with the terminal back to normal. The library has no exit-handler registry.
 
 ## Persisted settings
 
-Use `c.Store()` with a key starting with your option's `Key`:
+Use `c.Store()` with a key of the feature's own, named after it:
 
 ```go
 var on bool
@@ -215,8 +255,10 @@ rate).
 
 ## Views
 
-A view is a full-screen page opened with `c.OpenView(id)` and left with Back. Its
-body is a `Status` panel above `Options`, or your own `Body`.
+A view is a full-screen body: a log, a long text, a table with keys of its own. The
+map places it as a row (the row opens it) or in `Map.Views` (opened by a shortcut,
+`Opens`, `c.OpenView(id)` or `StartView`); Back leaves it. For a page of panels
+opened from a row, use a sub-page instead (a `Page` placed as a row).
 
 - **`Scroll: true`** makes the dashboard scroll a `Body` that returns more rows
   than fit: arrows, PgUp/PgDn, Home and End, a scroll bar down the right-hand
@@ -233,11 +275,9 @@ body is a `Status` panel above `Options`, or your own `Body`.
   when it appears and stop it when it goes. They do not run when the dashboard
   quits; stop long work with the context you gave `Run`.
 - **`Keys`** sees every key first.
-- **`Entry`** makes the view reachable: it adds the option that opens it, with
-  the hotkey and footer hint it asks for, so a view and its way in are one
-  declaration. `Label` defaults to the view's title.
-- **`Items`** is `Options` for a list that never changes. Rows with no `Number` are
-  numbered by position, so a view's menu needs no numbers at all.
+- **`Entry`** is how the row that opens the view looks, when the view is placed as
+  a row: its hotkey and footer hint, a note or badge. `Label` defaults to the
+  view's title.
 - **`Follow`** is a log: `Scroll`, `Tail` and a panel. **`Framed`** draws any `Body` in
   a panel with the view's title. Both need `Body`.
 - **`Tag`** adds a short muted note to the header (`"Mode: ON"`).
@@ -247,12 +287,9 @@ body is a `Status` panel above `Options`, or your own `Body`.
 - **`Appended`** is for a `Tail` view whose body is a bounded history that drops its
   oldest rows: it returns how many rows were ever appended, so a view scrolled back
   holds its place even when the list is full (its length no longer changes).
-- **`Panel`** draws a `Body` in a bordered panel, like the status and options
-  panels, instead of edge to edge: `Panel: &dashygotui.ViewPanel[S]{Title:
+- **`Panel`** draws a `Body` in a bordered panel instead of edge to edge: `Panel: &dashygotui.ViewPanel[S]{Title:
   "Live Logs", Subtitle: "newest first"}`. `Body` is then given the panel's inner
   size, and a scrolling body shows `rows 12-40 of 310` in the bottom border.
-- **`OptionsTitle`, `OptionsSubtitle`** name the options panel of a view that has
-  both `Status` and `Options` ("Options" by default).
 - **`Header`** returns extra header segments (`panel.Segment`) shown after the
   view's title and before the clock, such as `Mode: ON`. On a narrow terminal the
   lowest `Prio` goes first; the app title and view title stay.
@@ -287,7 +324,7 @@ it needs.
 
 [`chart.Stream`](../chart/stream.go) and `chart.DualStream` are graphs that keep
 their own history and adaptive scale, so a widget needs no series, resampling or
-scaler code. `Push` a sample on each tick (from a `Hook`'s `Tick`) and `Render` on
+scaler code. `Push` a sample on each tick (from the widget's `Tick`) and `Render` on
 every frame:
 
 ```go
@@ -423,10 +460,10 @@ restore := dashboard.Logs.Divert(log.Default())
 defer restore()
 ```
 
-In `addons/opt_logs.go`:
+In the map, as a row:
 
 ```go
-var logsOption = stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Section: "actions", Number: 4, Hotkey: "g"}
+stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Hotkey: "g"}
 ```
 
 Entries can carry a **category**, and the view then shows tabs along the top.
@@ -436,8 +473,8 @@ File a logger's output under one with `buf.In("net")`, which gives an
 ```go
 var NetLog = slog.New(Logs.In("net").Handler(nil)) // in dashboard.go
 
-var logsOption = stdaddons.LogView[dashboard.State]{ // in addons/opt_logs.go
-	Buffer: dashboard.Logs, Section: "actions", Number: 4, Hotkey: "g",
+stdaddons.LogView[dashboard.State]{ // a row in the map
+	Buffer: dashboard.Logs, Hotkey: "g",
 	Categories:  []string{"net", "disk"}, // tabs always shown, in this order
 	CategoryKey: "c",                     // c: next tab, C: previous (wraps)
 }
@@ -498,11 +535,11 @@ can change it any time (saved, and it wins over the config):
 | `BackgroundPaint` | does that, and also paints every cell, for terminals that ignore the request | opaque |
 | `BackgroundOff` (`BackgroundTransparent`) | never touches the terminal's colours | always transparent |
 
-Add the pickers as one-line addons:
+Place the pickers in the map as rows:
 
 ```go
-var backgroundOption = stdaddons.BackgroundPicker[dashboard.State]{Section: "appearance", Number: 24}     // choose a mode, with live preview
-var transparencyOption = stdaddons.TransparencyToggle[dashboard.State]{Section: "appearance", Number: 25} // a one-key transparent on/off
+stdaddons.BackgroundPicker[dashboard.State]{},   // choose a mode, with live preview
+stdaddons.TransparencyToggle[dashboard.State]{}, // a one-key transparent on/off
 ```
 
 `TransparencyToggle` flips between Off and the mode that was in use before, and
@@ -532,27 +569,29 @@ full height, and fall back to ASCII in TTY mode.
 | `DualWave` | two streams mirrored on an axis | download over upload |
 | `Braille` | a filled Braille area | a compact traffic graph |
 
-Feed them from a history kept with `dashygotui.Local` and filled by a `Hook`'s `Tick`
-(see `widget_waves.go` and `widget_network.go` in the demo). `chart.WaveScaler` keeps the scale steady with
+Feed them from a history kept with `dashygotui.Local` and filled by the widget's
+`Tick` (see `waves_widget.go` and `network_widget.go` in the demo). `chart.WaveScaler` keeps the scale steady with
 hysteresis; `chart.Resample` maps timestamped samples onto columns.
 
 ## Ready-made addons
 
 [`stdaddons`](../stdaddons/) provides a theme picker, the four spacing sliders, a
 refresh-rate picker, a display-mode picker, the background and transparency
-switches, the log view, and the settings above. Each is one declaration, with
-optional `Hotkey` and `Order` fields:
+switches, the log view, and the settings above. Each is placed in the map as a row,
+directly, with an optional `Hotkey`:
 
 ```go
-var themeOption = stdaddons.ThemePicker[dashboard.State]{Section: "appearance", Number: 20, Hotkey: "m"}
+stdaddons.ThemePicker[dashboard.State]{Hotkey: "m"},
 ```
 
 ## Rules an addon must follow
 
 They are in [APP-RULES.md](APP-RULES.md), numbered, with the check that enforces each
-(`dashygotui check`). In short: one file and no edits elsewhere (`make deletion-test`),
-the file-name prefix, no use of a sibling addon, no package-level or `init`-captured
-mutable state (use `Local`), no goroutines (use `RunTask`), theme glyphs and plain ASCII.
+(`dashygotui check`). In short: one file and its line in the map, no edits
+elsewhere; the `<name>_<kind>.go` name; nothing of a sibling feature or of the
+application but the `dashboard` package's types; every feature placed once; no
+package-level or `init`-captured mutable state (use `Local`); no goroutines (use
+`RunTask`); theme glyphs and plain ASCII.
 
 ## Testing an addon
 

@@ -18,7 +18,6 @@ import (
 type (
 	mapT   = dashygotui.Map[state]
 	pageT  = dashygotui.Page[state]
-	panelT = dashygotui.Panel[state]
 	addonT = dashygotui.Addon[state]
 )
 
@@ -168,11 +167,6 @@ func TestMapErrorsNameThePlace(t *testing.T) {
 	}{
 		{"no pages", cfg{Map: mapT{Hooks: []dashygotui.Hook[state]{{Tick: func(*ctx, time.Time) tea.Cmd { return nil }}}}},
 			"the Map has no Pages"},
-		{"map and pages", cfg{Pages: []pageT{{ID: "p", Title: "P"}}, Map: mapT{Pages: []pageT{{Title: "M"}}}},
-			"Config.Map replaces Config.Pages"},
-		{"placed option", cfg{Map: mapT{Pages: []pageT{{Title: "Main", Panels: []panelT{{Title: "Tools", Items: []addonT{
-			ok(), option{Label: "Old", Section: "tools", Number: 4, Do: func(*ctx) {}}}}}}}}},
-			`Main > Tools > row 2: option "Old" sets Section, Number or Order`},
 		{"no action", cfg{Map: mapT{Pages: []pageT{{Title: "Main", Panels: []panelT{{Title: "Tools", Items: []addonT{
 			option{Label: "Idle"}}}}}}}},
 			`Main > Tools > row 1: option "Idle" needs exactly one of Run, Do, Opens and Modal`},
@@ -197,13 +191,8 @@ func TestMapErrorsNameThePlace(t *testing.T) {
 		{"sub-page opens nothing", cfg{Map: mapT{Pages: []pageT{{Title: "Main", Panels: []panelT{{Title: "Tools", Items: []addonT{
 			pageT{Title: "Sub", Panels: []panelT{{Title: "In", Items: []addonT{option{Label: "Go", Opens: "nowhere"}}}}}}}}}}}},
 			`Main > Tools > Sub > In > row 1: row "Go" opens unknown view "nowhere"`},
-		{"placed twice", cfg{Map: mapT{Pages: []pageT{{Title: "Main", Panels: []panelT{{Title: "Tools", Items: []addonT{
-			stdaddons.ThemePicker[state]{}, stdaddons.ThemePicker[state]{}}}}}}}},
-			`Main > Tools > row 2: option "stdaddons.theme" is placed twice (first at Main > Tools > row 1)`},
 		{"tab with entry", cfg{Map: mapT{Pages: []pageT{{Title: "Main", Entry: &dashygotui.Entry[state]{}}}}},
 			"Main: a tab has no row"},
-		{"page in addons", cfg{Pages: []pageT{{ID: "p", Title: "P"}}, Addons: []addonT{pageT{Title: "Sub"}}},
-			`page "Sub" is an addon only in a Map`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -9,12 +9,12 @@ import (
 // it cannot build a dashboard from.
 var ErrInvalidConfig = errors.New("invalid dashboard configuration")
 
-// AddonError describes a mistake in one addon, such as a number another addon
-// already uses. [New] reports every one it finds, joined and wrapped in
+// AddonError describes a mistake in one place of the map, such as a row with
+// nothing to do. [New] reports every one it finds, joined and wrapped in
 // [ErrInvalidConfig], before the UI starts.
 type AddonError struct {
-	// Site is where the addon is declared, as [At] recorded it ("opt_trash.go:14"),
-	// or its index in [Config.Addons] ("Config.Addons[3]").
+	// Site is the place in the map, such as "Control > Quick Actions > row 3",
+	// or "Map.Shortcuts[1]".
 	Site string
 	// Msg says what is wrong.
 	Msg string

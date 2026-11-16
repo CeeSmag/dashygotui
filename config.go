@@ -1,7 +1,6 @@
 package dashygotui
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -19,28 +18,16 @@ import (
 	"github.com/CeeSmag/dashygotui/theme"
 )
 
-// Config describes a dashboard. Pages are required; the rest have sensible
+// Config describes a dashboard. Map is required; the rest have sensible
 // defaults.
 type Config[S any] struct {
 	// Title names the application in the header and the terminal window title.
 	Title string
 
-	// Addons are the dashboard's options, widgets, views, shortcuts and hooks.
-	// An application passes the list that dashygotui gen writes (addons.All());
-	// a test passes the few it needs. Each is checked when [New] runs. An empty
-	// list is a dashboard with pages and sections only.
-	Addons []Addon[S]
-
 	// Map is what the dashboard contains and where: its pages, their panels and
-	// rows, and the dashboard's shortcuts and hooks. It replaces Pages,
-	// Sections and Addons; set one or the other.
+	// rows, and the dashboard's shortcuts and hooks. An application writes it in
+	// addons/addons.go. Required: it needs at least one page.
 	Map Map[S]
-
-	// Pages are the dashboard tabs, in tab order. At least one is required.
-	Pages []Page[S]
-	// Sections are the option containers on the pages. Options and widgets
-	// refer to pages and sections declared here by ID.
-	Sections []SectionSpec[S]
 
 	// Poll fetches the application state. It is called at Interval, in the
 	// background, and once at start. When nil the state stays the zero value
@@ -139,10 +126,8 @@ type Dashboard[S any] struct {
 	out  Sender     // the running program, for Notify
 }
 
-// panelDef is one panel of a page: a section with its options, or a widget.
+// panelDef is one panel of a page: a list of rows, or a widget.
 type panelDef[S any] struct {
-	id     string
-	order  int
 	sec    *section[S]
 	opts   []Option[S]
 	widget *Widget[S]
@@ -154,37 +139,22 @@ type section[S any] struct {
 	badge                 func(*Context[S]) string
 }
 
-// pageDef is a page with its panels already collected and sorted.
+// pageDef is a page with its panels, as the map placed them.
 type pageDef[S any] struct {
 	page   Page[S]
 	panels []panelDef[S]
 }
 
-// New validates cfg and its addons and returns a dashboard. Every problem is
+// New validates cfg and its map and returns a dashboard. Every problem is
 // reported at once, wrapped in [ErrInvalidConfig], and nothing starts until
 // [Dashboard.Run].
 func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 	keys := cfg.Keys.withDefaults()
-	var (
-		errs  []error
-		all   *registry[S]
-		pages []pageDef[S]
-	)
-	if cfg.Map.used() {
-		if len(cfg.Pages)+len(cfg.Sections)+len(cfg.Addons) > 0 {
-			errs = append(errs, errors.New("Config.Map replaces Config.Pages, Sections and Addons: set one or the other"))
-		}
-		mp := compileMap(cfg.Map)
-		all, pages = mp.reg, mp.pages
-	} else {
-		all = collect(cfg.Addons)
-		var pageErrs []error
-		pages, pageErrs = buildPages(cfg, all.contents())
-		errs = append(errs, pageErrs...)
-	}
-	reg := all.contents()
-	if err := all.err(); err != nil {
-		errs = append([]error{err}, errs...)
+	mp := compileMap(cfg.Map)
+	reg, pages := mp.reg.contents(), mp.pages
+	var errs []error
+	if err := mp.reg.err(); err != nil {
+		errs = append(errs, err)
 	}
 	for _, s := range reg.shortcuts {
 		if keys.reserved(s.Key, s.Scope == ScopePages) {
@@ -197,7 +167,7 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 			continue
 		}
 		if keys.reserved(o.Hotkey, true) {
-			errs = append(errs, fmt.Errorf("option %q hotkey %q is reserved for navigation or a digit", o.Key, o.Hotkey))
+			errs = append(errs, fmt.Errorf("option %q hotkey %q is reserved for navigation or a digit", o.Label, o.Hotkey))
 			continue
 		}
 		hotkeys[o.Hotkey] = o
@@ -207,7 +177,7 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 	}
 	for _, o := range reg.options {
 		if o.Opens != "" && !viewKnown(o.Opens) {
-			errs = append(errs, fmt.Errorf("option %q opens unknown view %q", o.Key, o.Opens))
+			errs = append(errs, fmt.Errorf("option %q opens unknown view %q", o.Label, o.Opens))
 		}
 	}
 	for _, s := range reg.shortcuts {
@@ -215,15 +185,8 @@ func New[S any](cfg Config[S]) (*Dashboard[S], error) {
 			errs = append(errs, fmt.Errorf("shortcut %q opens unknown view %q", s.Key, s.Opens))
 		}
 	}
-	for _, v := range reg.views {
-		for _, it := range v.Items {
-			if it.Opens != "" && !viewKnown(it.Opens) {
-				errs = append(errs, fmt.Errorf("view %q item %q opens unknown view %q", v.ID, it.Label, it.Opens))
-			}
-		}
-	}
 	for _, id := range cfg.StartView {
-		if !slices.ContainsFunc(reg.views, func(v View[S]) bool { return v.ID == id }) {
+		if !viewKnown(id) {
 			errs = append(errs, fmt.Errorf("StartView names unknown view %q", id))
 		}
 	}
@@ -279,93 +242,6 @@ func mergePalettes(base, extra []theme.Palette) []theme.Palette {
 		out = append(out, p)
 	}
 	return out
-}
-
-// buildPages checks the declared pages and sections against each other and the
-// registry, and assembles the sorted panels of every page.
-func buildPages[S any](cfg Config[S], reg registered[S]) ([]pageDef[S], []error) {
-	var errs []error
-	if len(cfg.Pages) == 0 {
-		errs = append(errs, errors.New("no Pages declared"))
-	}
-
-	pageIdx := map[string]int{}
-	pages := make([]pageDef[S], len(cfg.Pages))
-	for i, p := range cfg.Pages {
-		switch {
-		case strings.TrimSpace(p.ID) == "":
-			errs = append(errs, fmt.Errorf("page #%d has no ID", i+1))
-		case p.Title == "":
-			errs = append(errs, fmt.Errorf("page %q has no Title", p.ID))
-		}
-		if _, dup := pageIdx[p.ID]; dup {
-			errs = append(errs, fmt.Errorf("duplicate page ID %q", p.ID))
-		}
-		below := p.FallbackBelow.Cols > 0 || p.FallbackBelow.Rows > 0
-		switch {
-		case p.Fallback != nil && !below && p.FallbackWhen == nil:
-			errs = append(errs, fmt.Errorf("page %q has a Fallback but no FallbackBelow size or FallbackWhen", p.ID))
-		case p.Fallback == nil && (below || p.FallbackWhen != nil):
-			errs = append(errs, fmt.Errorf("page %q sets FallbackBelow or FallbackWhen but has no Fallback", p.ID))
-		case below && p.FallbackWhen != nil:
-			errs = append(errs, fmt.Errorf("page %q sets both FallbackBelow and FallbackWhen; use one", p.ID))
-		}
-		pageIdx[p.ID] = i
-		pages[i] = pageDef[S]{page: p}
-	}
-
-	secOpts := map[string][]Option[S]{}
-	for _, o := range reg.options {
-		secOpts[o.Section] = append(secOpts[o.Section], o)
-	}
-
-	secIDs := map[string]bool{}
-	for i := range cfg.Sections {
-		s := cfg.Sections[i]
-		switch {
-		case strings.TrimSpace(s.ID) == "":
-			errs = append(errs, fmt.Errorf("section #%d has no ID", i+1))
-			continue
-		case secIDs[s.ID]:
-			errs = append(errs, fmt.Errorf("duplicate section ID %q", s.ID))
-			continue
-		}
-		secIDs[s.ID] = true
-		if s.Title == "" {
-			errs = append(errs, fmt.Errorf("section %q has no Title", s.ID))
-		}
-		pi, ok := pageIdx[s.Page]
-		if !ok {
-			errs = append(errs, fmt.Errorf("section %q is on unknown page %q", s.ID, s.Page))
-			continue
-		}
-		opts := append([]Option[S](nil), secOpts[s.ID]...)
-		slices.SortStableFunc(opts, func(a, b Option[S]) int {
-			return cmp.Or(cmp.Compare(a.order(), b.order()), cmp.Compare(a.Number, b.Number), cmp.Compare(a.Key, b.Key))
-		})
-		pages[pi].panels = append(pages[pi].panels, panelDef[S]{id: s.ID, order: s.Order, opts: opts,
-			sec: &section[S]{title: s.Title, subtitle: s.Subtitle, noun: s.Noun, badge: s.Badge}})
-	}
-	for _, o := range reg.options {
-		if !secIDs[o.Section] {
-			errs = append(errs, fmt.Errorf("option %q targets unknown section %q", o.Key, o.Section))
-		}
-	}
-	for i := range reg.widgets {
-		w := reg.widgets[i]
-		pi, ok := pageIdx[w.Page]
-		if !ok {
-			errs = append(errs, fmt.Errorf("widget %q targets unknown page %q", w.Key, w.Page))
-			continue
-		}
-		pages[pi].panels = append(pages[pi].panels, panelDef[S]{id: w.Key, order: w.Order, widget: &w})
-	}
-	for i := range pages {
-		slices.SortStableFunc(pages[i].panels, func(a, b panelDef[S]) int {
-			return cmp.Or(cmp.Compare(a.order, b.order), cmp.Compare(a.id, b.id))
-		})
-	}
-	return pages, errs
 }
 
 // layoutMinHeight is the default MinHeight of a widget.

@@ -14,7 +14,7 @@ import (
 
 func TestOptionHotkeyRunsFromAnyPage(t *testing.T) {
 	f := newFixture(t)
-	f.reg.Option(option{Key: "dir", Section: "actions", Number: 5, Label: "Open Storage Dir", Hotkey: "e",
+	f.reg.Row("actions", option{Label: "Open Storage Dir", Hotkey: "e",
 		Run: func(*ctx) tea.Cmd { f.log = append(f.log, "dir"); return nil }})
 	d := f.driver(120, 40)
 
@@ -33,8 +33,8 @@ func TestOptionHotkeyRunsFromAnyPage(t *testing.T) {
 func TestHotkeyDoesNotOpenWhileAModalIsUp(t *testing.T) {
 	f := newFixture(t)
 	mod := &stubModal{}
-	f.reg.Option(option{Key: "ask", Section: "actions", Number: 3, Label: "Ask", Run: func(c *ctx) tea.Cmd { c.OpenModal(mod); return nil }})
-	f.reg.Option(option{Key: "dir", Section: "actions", Number: 5, Label: "Dir", Hotkey: "e",
+	f.reg.Row("actions", option{Label: "Ask", Run: func(c *ctx) tea.Cmd { c.OpenModal(mod); return nil }})
+	f.reg.Row("actions", option{Label: "Dir", Hotkey: "e",
 		Run: func(*ctx) tea.Cmd { f.log = append(f.log, "dir"); return nil }})
 	d := f.driver(120, 40)
 	d.Type("3")
@@ -55,31 +55,31 @@ func TestHotkeysAreValidated(t *testing.T) {
 		want     string
 	}{
 		{"duplicate hotkey", func(r *reg) {
-			r.Option(option{Key: "a", Section: "actions", Number: 1, Label: "A", Hotkey: "e", Run: run})
-			r.Option(option{Key: "b", Section: "actions", Number: 2, Label: "B", Hotkey: "e", Run: run})
-		}, `option "b" reuses hotkey "e"`},
+			r.Row("actions", option{Label: "A", Hotkey: "e", Run: run})
+			r.Row("actions", option{Label: "B", Hotkey: "e", Run: run})
+		}, `option "B" reuses hotkey "e"`},
 		{"hotkey then shortcut", func(r *reg) {
-			r.Option(option{Key: "a", Section: "actions", Number: 1, Label: "A", Hotkey: "e", Run: run})
+			r.Row("actions", option{Label: "A", Hotkey: "e", Run: run})
 			r.Shortcut(dashygotui.Shortcut[state]{Key: "e", Run: run})
-		}, `shortcut "e" is already an option hotkey`},
+		}, `shortcut "e" is already a row's hotkey`},
 		{"shortcut then hotkey", func(r *reg) {
 			r.Shortcut(dashygotui.Shortcut[state]{Key: "e", Run: run})
-			r.Option(option{Key: "a", Section: "actions", Number: 1, Label: "A", Hotkey: "e", Run: run})
-		}, `hotkey "e" is already a shortcut`},
+			r.Row("actions", option{Label: "A", Hotkey: "e", Run: run})
+		}, `"e" is already a`},
 		{"navigation key", func(r *reg) {
-			r.Option(option{Key: "a", Section: "actions", Number: 1, Label: "A", Hotkey: "tab", Run: run})
+			r.Row("actions", option{Label: "A", Hotkey: "tab", Run: run})
 		}, `hotkey "tab" is reserved`},
 		{"vim key", func(r *reg) {
-			r.Option(option{Key: "a", Section: "actions", Number: 1, Label: "A", Hotkey: "k", Run: run})
+			r.Row("actions", option{Label: "A", Hotkey: "k", Run: run})
 		}, `hotkey "k" is reserved`},
 		{"quit key", func(r *reg) {
-			r.Option(option{Key: "a", Section: "actions", Number: 1, Label: "A", Hotkey: "q", Run: run})
+			r.Row("actions", option{Label: "A", Hotkey: "q", Run: run})
 		}, `hotkey "q" is reserved`},
 		{"digit", func(r *reg) {
-			r.Option(option{Key: "a", Section: "actions", Number: 1, Label: "A", Hotkey: "5", Run: run})
+			r.Row("actions", option{Label: "A", Hotkey: "5", Run: run})
 		}, `hotkey "5" is reserved`},
 		{"force-quit key", func(r *reg) {
-			r.Option(option{Key: "a", Section: "actions", Number: 1, Label: "A", Hotkey: "ctrl+q", Run: run})
+			r.Row("actions", option{Label: "A", Hotkey: "ctrl+q", Run: run})
 		}, `hotkey "ctrl+q" is reserved`},
 		{"pages shortcut on a force key", func(r *reg) {
 			r.Shortcut(dashygotui.Shortcut[state]{Key: "ctrl+q", Run: run})
@@ -109,10 +109,9 @@ func TestEverywhereShortcutMayTakeAForceKey(t *testing.T) {
 
 func TestViewLocalHotkeys(t *testing.T) {
 	f := newFixture(t)
-	f.reg.View(dashygotui.View[state]{ID: "v", Title: "V",
-		Options: func(*ctx) []option {
-			return []option{{Number: 1, Label: "Do It", Hotkey: "d", Run: func(*ctx) tea.Cmd { f.log = append(f.log, "view"); return nil }}}
-		}})
+	f.reg.Add(dashygotui.Page[state]{ID: "v", Title: "V", Panels: []panelT{{Title: "Menu", Items: []dashygotui.Addon[state]{
+		option{Label: "Do It", Hotkey: "d", Run: func(*ctx) tea.Cmd { f.log = append(f.log, "view"); return nil }},
+	}}}})
 	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "v", Run: func(c *ctx) tea.Cmd { _ = c.OpenView("v"); return nil }})
 	d := f.driver(120, 40)
 

@@ -54,22 +54,26 @@ func audit(t *testing.T, cfg dashygotui.Config[auditState], opts ...dashtest.Aud
 func goodConfig() dashygotui.Config[auditState] {
 	r := collect.New[auditState]()
 	r.Add(
-		dashygotui.Option[auditState]{Key: "about", Section: "s", Number: 1, Label: "About",
+		dashygotui.Option[auditState]{Label: "About",
 			Modal: func(*actx) dashygotui.Modal[auditState] {
 				return &modal.Notice[auditState]{Title: "About", Lines: []string{"plain ascii text"}}
 			}},
 		dashygotui.View[auditState]{ID: "v", Title: "A View",
 			Body:  func(*actx, dashygotui.Size) []string { return []string{"hello"} },
-			Entry: &dashygotui.Entry[auditState]{Section: "s", Number: 2}},
-		dashygotui.Widget[auditState]{Key: "w", Page: "p", Title: "Widget",
-			Render: func(*actx, dashygotui.Size) []string { return []string{"ok"} }},
+			Entry: &dashygotui.Entry[auditState]{}},
 	)
 	return dashygotui.Config[auditState]{
-		Title: "T", Addons: []dashygotui.Addon[auditState]{r},
-		Pages:    []dashygotui.Page[auditState]{{ID: "p", Title: "Page"}},
-		Sections: []dashygotui.SectionSpec[auditState]{{ID: "s", Page: "p", Title: "Section"}},
-		Poll:     func(context.Context) (auditState, error) { return auditState{}, nil },
+		Title: "T", Map: dashygotui.Map[auditState]{Pages: []dashygotui.Page[auditState]{{ID: "p", Title: "Page", Panels: []dashygotui.Panel[auditState]{
+			{Widget: dashygotui.Widget[auditState]{Title: "Widget", Render: func(*actx, dashygotui.Size) []string { return []string{"ok"} }}},
+			{Title: "Section", Items: []dashygotui.Addon[auditState]{r.All("s")}},
+		}}}},
+		Poll: func(context.Context) (auditState, error) { return auditState{}, nil },
 	}
+}
+
+// addWidget adds w as a panel of the configuration's page.
+func addWidget(c *dashygotui.Config[auditState], w dashygotui.Widget[auditState]) {
+	c.Map.Pages[0].Panels = append(c.Map.Pages[0].Panels, dashygotui.Panel[auditState]{Widget: w})
 }
 
 func TestAuditPassesAWellBehavedDashboard(t *testing.T) {
@@ -80,17 +84,16 @@ func TestAuditPassesAWellBehavedDashboard(t *testing.T) {
 
 func TestAuditFailsOnABrokenRegistration(t *testing.T) {
 	cfg := goodConfig()
-	collect.From(cfg).Add(dashygotui.Option[auditState]{Key: "dup", Section: "s", Number: 1, Label: "Clash",
-		Do: func(*actx) {}}) // [1] is About
+	collect.From(cfg).Add(dashygotui.Option[auditState]{Label: "Idle"}) // does nothing: a startup error
 	errs := audit(t, cfg)
-	if len(errs) == 0 || !strings.Contains(errs[0], "building the dashboard") || !strings.Contains(errs[0], "reuses number 1") {
+	if len(errs) == 0 || !strings.Contains(errs[0], "building the dashboard") || !strings.Contains(errs[0], `option "Idle" needs exactly one`) {
 		t.Errorf("errors = %v", errs)
 	}
 }
 
 func TestAuditCatchesAPanicWithItsLocation(t *testing.T) {
 	cfg := goodConfig()
-	collect.From(cfg).Add(dashygotui.Widget[auditState]{Key: "boom", Page: "p", Title: "Boom",
+	addWidget(&cfg, dashygotui.Widget[auditState]{Title: "Boom",
 		Render: func(*actx, dashygotui.Size) []string { panic("kaboom") }})
 	errs := audit(t, cfg)
 	found := false
@@ -106,7 +109,7 @@ func TestAuditCatchesAPanicWithItsLocation(t *testing.T) {
 
 func TestAuditCatchesGlyphsTheConsoleCannotShow(t *testing.T) {
 	cfg := goodConfig()
-	collect.From(cfg).Add(dashygotui.Widget[auditState]{Key: "glyph", Page: "p", Title: "Glyph",
+	addWidget(&cfg, dashygotui.Widget[auditState]{Title: "Glyph",
 		Render: func(*actx, dashygotui.Size) []string { return []string{"done ✓"} }})
 	errs := audit(t, cfg)
 	found := false
@@ -128,7 +131,7 @@ func TestAuditCatchesGlyphsTheConsoleCannotShow(t *testing.T) {
 func TestAuditWalksOptionsOnlyWhenAsked(t *testing.T) {
 	cfg := goodConfig()
 	opened := 0
-	collect.From(cfg).Add(dashygotui.Option[auditState]{Key: "probe", Section: "s", Number: 9, Label: "Probe",
+	collect.From(cfg).Add(dashygotui.Option[auditState]{Label: "Probe",
 		Do: func(*actx) { opened++ }})
 	if audit(t, cfg); opened != 0 {
 		t.Fatalf("Audit ran an option without WalkOptions (%d times)", opened)
@@ -148,7 +151,7 @@ func TestOutline(t *testing.T) {
 	if len(out.Pages) != 1 || out.Pages[0] != "p" || len(out.Views) != 1 || out.Views[0] != "v" {
 		t.Errorf("outline = %+v", out)
 	}
-	if len(out.Options) != 2 || out.Options[0].Number != 1 || out.Options[1].Key != "view.v" || out.Options[0].Page != "p" {
+	if len(out.Options) != 2 || out.Options[0].Number != 1 || out.Options[1].Label != "A View" || out.Options[0].Page != "p" {
 		t.Errorf("options = %+v", out.Options)
 	}
 }

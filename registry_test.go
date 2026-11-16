@@ -19,45 +19,49 @@ type (
 	option = dashygotui.Option[state]
 	widget = dashygotui.Widget[state]
 	cfg    = dashygotui.Config[state]
+	panelT = dashygotui.Panel[state]
 )
 
 func noop(*ctx) tea.Cmd { return nil }
 
-// addonsOf is the Config.Addons of a test's collected addons.
-func addonsOf(r *reg) []dashygotui.Addon[state] {
-	if r == nil {
-		return nil
-	}
-	return []dashygotui.Addon[state]{r}
-}
-
-// validate builds a dashboard from r on the base pages and sections and returns
-// the error, which reports every mistake in r's addons.
+// validate builds a dashboard from r on the base pages and returns the error,
+// which reports every mistake in r.
 func validate(r *reg) error {
 	_, err := dashygotui.New(baseConfig(r))
 	return err
 }
 
-// baseConfig is a small valid dashboard: three pages, three sections.
+// baseConfig is a small valid dashboard of three pages. The second has two
+// panels of r's rows, "actions" numbered from 1 and "settings" from 12; the
+// third has "appearance", from 20. r's views, shortcuts and hooks come with
+// "actions". r is read when the dashboard is built, so a test may add to it
+// after calling baseConfig.
 func baseConfig(r *reg) cfg {
+	if r == nil {
+		r = collect.New[state]()
+	}
 	return cfg{
-		Title:  "TestApp",
-		Addons: addonsOf(r),
-		Pages: []dashygotui.Page[state]{
+		Title: "TestApp",
+		Map: dashygotui.Map[state]{Pages: []pageT{
 			{ID: "monitor", Title: "Monitor"},
-			{ID: "setup", Title: "Setup"},
-			{ID: "theme", Title: "Theme"},
-		},
-		Sections: []dashygotui.SectionSpec[state]{
-			{ID: "actions", Page: "setup", Title: "Quick Actions", Order: 10},
-			{ID: "settings", Page: "setup", Title: "Settings", Order: 20},
-			{ID: "appearance", Page: "theme", Title: "Appearance"},
-		},
+			{ID: "setup", Title: "Setup", Panels: []panelT{
+				{Title: "Quick Actions", Items: []dashygotui.Addon[state]{r.All("actions")}},
+				{Title: "Settings", Number: 12, Items: []dashygotui.Addon[state]{r.Rows("settings")}},
+			}},
+			{ID: "theme", Title: "Theme", Panels: []panelT{
+				{Title: "Appearance", Number: 20, Items: []dashygotui.Addon[state]{r.Rows("appearance")}},
+			}},
+		}},
 	}
 }
 
-func validOption(key string, number int) option {
-	return option{Key: key, Section: "actions", Number: number, Label: "Label " + key, Run: noop}
+// withWidget adds w as a panel of the configuration's first page.
+func withWidget(c *cfg, w widget) {
+	c.Map.Pages[0].Panels = append(c.Map.Pages[0].Panels, panelT{Widget: w})
+}
+
+func validOption(label string) option {
+	return option{Label: "Label " + label, Run: noop}
 }
 
 // errText builds the dashboard and returns the text of its error, or "".
@@ -75,98 +79,58 @@ func errText(t *testing.T, c cfg) string {
 
 func TestNewAcceptsAValidConfig(t *testing.T) {
 	r := collect.New[state]()
-	r.Option(validOption("a", 1))
-	r.Widget(widget{Key: "w", Page: "monitor", Title: "W", Render: func(*ctx, dashygotui.Size) []string { return nil }})
-	if msg := errText(t, baseConfig(r)); msg != "" {
+	r.Row("actions", validOption("a"))
+	c := baseConfig(r)
+	withWidget(&c, widget{Title: "W", Render: func(*ctx, dashygotui.Size) []string { return nil }})
+	if msg := errText(t, c); msg != "" {
 		t.Fatalf("unexpected error: %s", msg)
 	}
 }
 
-func TestRegistryRejectsMistakesAndNamesTheSite(t *testing.T) {
+func TestNewRejectsMistakesAndNamesThePlace(t *testing.T) {
 	tests := []struct {
 		name     string
 		register func(r *reg)
 		want     []string
 	}{
 		{
-			name: "duplicate number names both sites",
-			register: func(r *reg) {
-				r.Option(validOption("first", 7))
-				r.Option(validOption("second", 7))
-			},
-			want: []string{"reuses number 7", "registry_test.go:"},
-		},
-		{
-			name: "duplicate key",
-			register: func(r *reg) {
-				r.Option(validOption("same", 1))
-				r.Option(validOption("same", 2))
-			},
-			want: []string{`duplicate option key "same"`},
-		},
-		{
-			name:     "missing key",
-			register: func(r *reg) { r.Option(option{Section: "actions", Number: 1, Label: "L", Run: noop}) },
-			want:     []string{"option has no Key"},
-		},
-		{
-			name:     "missing section",
-			register: func(r *reg) { r.Option(option{Key: "k", Number: 1, Label: "L", Run: noop}) },
-			want:     []string{`option "k" has no Section`},
-		},
-		{
 			name:     "missing label",
-			register: func(r *reg) { r.Option(option{Key: "k", Section: "actions", Number: 1, Run: noop}) },
-			want:     []string{`option "k" has no Label`},
+			register: func(r *reg) { r.Row("actions", option{Run: noop}) },
+			want:     []string{"Setup > Quick Actions > row 1: option has no Label"},
 		},
 		{
 			name:     "missing run",
-			register: func(r *reg) { r.Option(option{Key: "k", Section: "actions", Number: 1, Label: "L"}) },
-			want:     []string{`option "k" needs exactly one of Run, Do, Opens and Modal, has 0`},
-		},
-		{
-			name:     "non-positive number",
-			register: func(r *reg) { r.Option(validOption("k", 0)) },
-			want:     []string{"numbers must be positive"},
+			register: func(r *reg) { r.Row("actions", option{Label: "L"}) },
+			want:     []string{`option "L" needs exactly one of Run, Do, Opens and Modal, has 0`},
 		},
 		{
 			name: "several mistakes are all reported",
 			register: func(r *reg) {
-				r.Option(validOption("a", 1))
-				r.Option(validOption("a", 1))
+				r.Row("actions", option{Run: noop})
+				r.Row("settings", option{Label: "L"})
 			},
-			want: []string{"duplicate option key", "reuses number"},
+			want: []string{"has no Label", "needs exactly one"},
 		},
 		{
-			name:     "unknown section",
-			register: func(r *reg) { r.Option(option{Key: "k", Section: "nope", Number: 1, Label: "L", Run: noop}) },
-			want:     []string{`option "k" targets unknown section "nope"`},
-		},
-		{
-			name: "widget on unknown page",
+			name: "duplicate hotkey",
 			register: func(r *reg) {
-				r.Widget(widget{Key: "w", Page: "nope", Title: "W", Render: func(*ctx, dashygotui.Size) []string { return nil }})
+				r.Row("actions", option{Label: "A", Hotkey: "x", Run: noop})
+				r.Row("settings", option{Label: "B", Hotkey: "x", Run: noop})
 			},
-			want: []string{`widget "w" targets unknown page "nope"`},
+			want: []string{`option "B" reuses hotkey "x"`},
 		},
 		{
-			name:     "widget without render",
-			register: func(r *reg) { r.Widget(widget{Key: "w", Page: "monitor", Title: "W"}) },
-			want:     []string{`widget "w" has no Render`},
-		},
-		{
-			name: "duplicate widget key",
+			name: "hotkey that is a shortcut",
 			register: func(r *reg) {
-				render := func(*ctx, dashygotui.Size) []string { return nil }
-				r.Widget(widget{Key: "w", Page: "monitor", Title: "W", Render: render})
-				r.Widget(widget{Key: "w", Page: "monitor", Title: "W2", Render: render})
+				r.Shortcut(dashygotui.Shortcut[state]{Key: "x", Run: noop})
+				r.Row("settings", option{Label: "B", Hotkey: "x", Run: noop})
 			},
-			want: []string{`duplicate widget key "w"`},
+			want: []string{`"x"`, "shortcut"},
 		},
 		{
 			name:     "view that draws nothing",
 			register: func(r *reg) { r.View(dashygotui.View[state]{ID: "v", Title: "V"}) },
-			want:     []string{`view "v" draws nothing`},
+			want:     []string{`view "v" has no Body to draw`},
 		},
 		{
 			name: "duplicate view",
@@ -218,73 +182,55 @@ func TestRegistryRejectsMistakesAndNamesTheSite(t *testing.T) {
 	}
 }
 
-func TestRegistryValidateReportsRegistrationErrors(t *testing.T) {
+func TestMistakesUnwrapToAnAddonError(t *testing.T) {
 	r := collect.New[state]()
 	if err := validate(r); err != nil {
-		t.Fatalf("an empty registry is valid: %v", err)
+		t.Fatalf("an empty map is valid: %v", err)
 	}
-	r.Option(validOption("a", 1))
-	r.Option(validOption("b", 1))
+	r.Row("settings", option{Label: "L"})
 	err := validate(r)
-	if err == nil {
-		t.Fatal("duplicate number not reported")
-	}
 	var re *dashygotui.AddonError
 	if !errors.As(err, &re) {
-		t.Fatalf("error %T does not unwrap to *RegistrationError", err)
+		t.Fatalf("error %v does not unwrap to *AddonError", err)
 	}
-	if !strings.HasPrefix(re.Site, "registry_test.go:") {
-		t.Errorf("site = %q, want the test file", re.Site)
+	if re.Site != "Setup > Settings > row 1" {
+		t.Errorf("site = %q, want the place in the map", re.Site)
 	}
 }
 
-func TestNewReadsTheAddonsOnce(t *testing.T) {
+func TestNewReadsTheMapOnce(t *testing.T) {
 	r := collect.New[state]()
-	r.Option(validOption("a", 1))
+	r.Row("actions", validOption("a"))
 	d, err := dashygotui.New(baseConfig(r))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	r.Option(validOption("late", 2)) // the list is the caller's: changing it later changes no dashboard
+	r.Row("actions", validOption("late")) // the list is the caller's: changing it later changes no dashboard
 	if n := len(d.Outline().Options); n != 1 {
 		t.Fatalf("the dashboard has %d options, want the 1 it was built with", n)
 	}
 }
 
-func TestNewRejectsBrokenConfigs(t *testing.T) {
+func TestNewRejectsBrokenMaps(t *testing.T) {
 	r := collect.New[state]()
 	tests := []struct {
 		name   string
 		mutate func(c *cfg)
 		want   string
 	}{
-		{"no pages", func(c *cfg) { c.Pages = nil }, "no Pages declared"},
-		{"duplicate page", func(c *cfg) { c.Pages[1].ID = "monitor" }, `duplicate page ID "monitor"`},
-		{"page without title", func(c *cfg) { c.Pages[0].Title = "" }, `page "monitor" has no Title`},
-		{"duplicate section", func(c *cfg) { c.Sections[1].ID = "actions" }, `duplicate section ID "actions"`},
-		{"section on unknown page", func(c *cfg) { c.Sections[0].Page = "nope" }, `section "actions" is on unknown page "nope"`},
-		{"section without title", func(c *cfg) { c.Sections[0].Title = "" }, `section "actions" has no Title`},
+		{"no pages", func(c *cfg) { c.Map.Pages = nil }, "the Map has no Pages"},
+		{"duplicate page", func(c *cfg) { c.Map.Pages[1].ID = "monitor" }, `duplicate page ID "monitor"`},
+		{"page without title", func(c *cfg) { c.Map.Pages[0].Title = "" }, "page has no Title"},
+		{"panel without title", func(c *cfg) { c.Map.Pages[1].Panels[0].Title = "" }, "panel has neither a Widget nor a Title"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := baseConfig(r)
-			c.Pages = append([]dashygotui.Page[state](nil), c.Pages...)
-			c.Sections = append([]dashygotui.SectionSpec[state](nil), c.Sections...)
 			tt.mutate(&c)
 			got := errText(t, c)
 			if !strings.Contains(got, tt.want) {
 				t.Errorf("error = %q, want it to mention %q", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestRegistrySiteSurvivesGenerics(t *testing.T) {
-	r := collect.New[state]()
-	r.Option(validOption("a", 1))
-	r.Option(validOption("b", 1)) // the line the error must point at
-	err := validate(r)
-	if err == nil || !strings.Contains(err.Error(), "registry_test.go:") {
-		t.Fatalf("site missing from %v", err)
 	}
 }

@@ -3,14 +3,16 @@
 // display-mode (Unicode or TTY) picker, a scrollable log view, and one-line
 // settings (Toggle, Number, Pick, Text).
 //
-// They are opt-in. An application adds one by declaring it as a value in a
-// one-file addon, with the section to appear in and the option number:
+// They are opt-in. An application places one in its map (addons/addons.go) like
+// any row, directly, with no file of its own:
 //
-//	// dashboard/addons/opt_theme.go
-//	var theme = stdaddons.ThemePicker[dashboard.State]{Section: "appearance", Number: 20}
+//	{Title: "Appearance", Items: []dashboard.Addon{
+//		stdaddons.ThemePicker[dashboard.State]{},
+//		stdaddons.SpacingMenu[dashboard.State]{},
+//	}}
 //
-// Each expands into ordinary [dashygotui.Option] values, so it takes part in
-// number collision checks like any other.
+// Each expands into ordinary [dashygotui.Option] values (and a view, for the
+// log view), numbered by their place like any other row.
 package stdaddons
 
 import (
@@ -28,23 +30,14 @@ import (
 // highlight previews each palette live; Enter keeps one and saves the choice
 // and Esc restores the previous palette.
 type ThemePicker[S any] struct {
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
 	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
 	Hotkey string
-	// Order sorts the option within its section. Optional.
-	Order int
 }
 
 // Addons implements [dashygotui.Addon].
 func (a ThemePicker[S]) Addons() []dashygotui.Addon[S] {
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Key:     "stdaddons.theme",
-		Section: a.Section,
-		Number:  a.Number,
-		Label:   "Color Theme",
+		Label: "Color Theme",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			if p, ok := theme.Lookup(ctx.Palettes(), ctx.PaletteID()); ok {
 				return ctx.Badge(p.Name)
@@ -53,7 +46,6 @@ func (a ThemePicker[S]) Addons() []dashygotui.Addon[S] {
 		},
 		Do:     openThemePicker[S],
 		Hotkey: a.Hotkey,
-		Order:  a.Order,
 	}}
 }
 
@@ -88,27 +80,17 @@ func openThemePicker[S any](ctx *dashygotui.Context[S]) {
 //
 // Declare it as an addon.
 type RefreshRatePicker[S any] struct {
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
 	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
 	Hotkey string
-	// Order sorts the option within its section. Optional.
-	Order int
 }
 
 // Addons implements [dashygotui.Addon].
 func (a RefreshRatePicker[S]) Addons() []dashygotui.Addon[S] {
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Key:     "stdaddons.refresh",
-		Section: a.Section,
-		Number:  a.Number,
-		Label:   "Refresh Rate",
-		Badge:   func(ctx *dashygotui.Context[S]) string { return ctx.Badge(rateLabel(ctx.RefreshInterval())) },
-		Do:      openRatePicker[S],
-		Hotkey:  a.Hotkey,
-		Order:   a.Order,
+		Label:  "Refresh Rate",
+		Badge:  func(ctx *dashygotui.Context[S]) string { return ctx.Badge(rateLabel(ctx.RefreshInterval())) },
+		Do:     openRatePicker[S],
+		Hotkey: a.Hotkey,
 	}}
 }
 
@@ -179,23 +161,14 @@ func gaps(both string) []gap {
 //
 // Declare it as an addon.
 type SpacingMenu[S any] struct {
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
 	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
 	Hotkey string
-	// Order sorts the option within its section. Optional.
-	Order int
 }
 
 // Addons implements [dashygotui.Addon].
 func (a SpacingMenu[S]) Addons() []dashygotui.Addon[S] {
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Key:     "stdaddons.spacing",
-		Section: a.Section,
-		Number:  a.Number,
-		Label:   "Section Gap",
+		Label: "Section Gap",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			sp := ctx.Spacing()
 			d := ctx.Theme().G.Dot
@@ -203,7 +176,6 @@ func (a SpacingMenu[S]) Addons() []dashygotui.Addon[S] {
 		},
 		Run:    openSpacingMenu[S],
 		Hotkey: a.Hotkey,
-		Order:  a.Order,
 	}}
 }
 

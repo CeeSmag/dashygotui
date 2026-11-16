@@ -169,16 +169,10 @@ func (m *model[S]) stepRate(delta int) {
 func (m *model[S]) menus() [][]Option[S] {
 	if m.view != "" {
 		v := m.d.views[m.view]
-		if v.sub != nil {
-			if m.subFallback(v) {
-				return nil
-			}
-			return defMenus(*v.sub)
-		}
-		if v.Body != nil || !v.hasOptions() {
+		if v.sub == nil || m.subFallback(v) {
 			return nil
 		}
-		return [][]Option[S]{m.viewOptions(v)}
+		return defMenus(*v.sub)
 	}
 	return m.pageMenus(m.page)
 }
@@ -313,7 +307,7 @@ func (m *model[S]) findByPrefix(prefix string) (page, sect, idx int, ok bool) {
 	search := func(menus [][]Option[S]) (int, int, bool) {
 		for si, menu := range menus {
 			for ii, o := range menu {
-				if strings.HasPrefix(strconv.Itoa(o.Number), prefix) {
+				if strings.HasPrefix(strconv.Itoa(o.number), prefix) {
 					return si, ii, true
 				}
 			}

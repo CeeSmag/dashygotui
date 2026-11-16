@@ -35,29 +35,19 @@ import (
 //
 // Declare it as an addon.
 type BackgroundPicker[S any] struct {
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
 	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
 	Hotkey string
-	// Order sorts the option within its section. Optional.
-	Order int
 }
 
 // Addons implements [dashygotui.Addon].
 func (a BackgroundPicker[S]) Addons() []dashygotui.Addon[S] {
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Key:     "stdaddons.background",
-		Section: a.Section,
-		Number:  a.Number,
-		Label:   "Background",
+		Label: "Background",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			return ctx.Badge(ctx.BackgroundMode().String())
 		},
 		Do:     openBackgroundPicker[S],
 		Hotkey: a.Hotkey,
-		Order:  a.Order,
 	}}
 }
 
@@ -98,24 +88,15 @@ func openBackgroundPicker[S any](ctx *dashygotui.Context[S]) {
 //
 // Declare it as an addon.
 type TransparencyToggle[S any] struct {
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
 	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
 	Hotkey string
-	// Order sorts the option within its section. Optional.
-	Order int
 }
 
 // Addons implements [dashygotui.Addon].
 func (a TransparencyToggle[S]) Addons() []dashygotui.Addon[S] {
 	const previousKey = "stdaddons.transparency.previous"
 	return []dashygotui.Addon[S]{dashygotui.Option[S]{
-		Key:     "stdaddons.transparency",
-		Section: a.Section,
-		Number:  a.Number,
-		Label:   "Transparent Background",
+		Label: "Transparent Background",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			return ctx.OnOff(ctx.BackgroundMode() == dashygotui.BackgroundOff)
 		},
@@ -137,6 +118,5 @@ func (a TransparencyToggle[S]) Addons() []dashygotui.Addon[S] {
 			return nil
 		},
 		Hotkey: a.Hotkey,
-		Order:  a.Order,
 	}}
 }

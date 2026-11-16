@@ -8,15 +8,12 @@ For when to use what, read `COOKBOOK.md`; for the narrative, `ADDONS.md`.
 
 ### `Config`
 
-Config describes a dashboard. Pages are required; the rest have sensible defaults.
+Config describes a dashboard. Map is required; the rest have sensible defaults.
 
 | Field | Type | What it does |
 | --- | --- | --- |
 | `Title` | `string` | Title names the application in the header and the terminal window title. |
-| `Addons` | `[]Addon[S]` | Addons are the dashboard's options, widgets, views, shortcuts and hooks. An application passes the list that dashygotui gen writes (addons.All()); a test passes the few it needs. Each is checked when [New] runs. An empty list is a dashboard with pages and sections only. |
-| `Map` | `Map[S]` | Map is what the dashboard contains and where: its pages, their panels and rows, and the dashboard's shortcuts and hooks. It replaces Pages, Sections and Addons; set one or the other. |
-| `Pages` | `[]Page[S]` | Pages are the dashboard tabs, in tab order. At least one is required. |
-| `Sections` | `[]SectionSpec[S]` | Sections are the option containers on the pages. Options and widgets refer to pages and sections declared here by ID. |
+| `Map` | `Map[S]` | Map is what the dashboard contains and where: its pages, their panels and rows, and the dashboard's shortcuts and hooks. An application writes it in addons/addons.go. Required: it needs at least one page. |
 | `Poll` | `func(ctx context.Context) (S, error)` | Poll fetches the application state. It is called at Interval, in the background, and once at start. When nil the state stays the zero value of S and nothing is polled. |
 | `Interval` | `time.Duration` | Interval is how often the dashboard refreshes. Default one second. The user can change it at run time; the choice is kept in Store. |
 | `PollTimeout` | `time.Duration` | PollTimeout is the deadline of one Poll call. Default ten seconds; a negative value means no deadline. A poll that runs past it counts as failed, with an error wrapping [context.DeadlineExceeded], and the next poll starts on schedule. Poll should return when its ctx is done; a call that ignores it is abandoned and its result is discarded, so Poll may be called again while an abandoned call is still running. |
@@ -50,11 +47,11 @@ Map is what a dashboard contains and where: its pages, the panels on each page, 
 
 ### `Page`
 
-Page declares one tab of the dashboard. Pages appear in the order they are listed in [Config.Pages].
+Page is a tab of the dashboard, in [Map.Pages], or a sub-page: a page placed as a row of a panel, which the row opens full-screen. Its Panels are what it shows.
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `ID` | `string` | ID is the unique name sections and widgets refer to. Required. |
+| `ID` | `string` | ID is the name [Context.GotoPage] uses for a tab, and [Context.OpenView] and [Config.StartView] for a sub-page. Optional; unique when set. |
 | `Title` | `string` | Title is the tab label. Required. |
 | `ShortTitle` | `string` | ShortTitle is used when the terminal is narrower than 100 columns. |
 | `TinyTitle` | `string` | TinyTitle is used when the terminal is narrower than 75 columns. |
@@ -64,7 +61,7 @@ Page declares one tab of the dashboard. Pages appear in the order they are liste
 | `FallbackBelow` | `Size` | FallbackBelow is the page body size under which Fallback is used: when the body is narrower than Cols or shorter than Rows. A zero field is ignored. Fallback needs FallbackBelow or FallbackWhen, not both. |
 | `FallbackWhen` | `func(Size) bool` | FallbackWhen decides for any rule FallbackBelow cannot say, such as "narrow and short, or very short". It receives the size of the page body. Fallback needs FallbackBelow or FallbackWhen, not both. |
 | `Session` | `func(*Context[S]) (end func())` | Session is called when the page becomes the one on screen and returns the function to call when it stops being: when the user moves to another page or opens a view over it. Coming back starts a new session. Use it for work that only matters while the page is visible, such as asking a backend for more detail. Like [View.Session], it is not called when the dashboard quits, and a pop-up over the page does not end it. Optional. |
-| `Panels` | `[]Panel[S]` | Panels are what the page shows, in order: each a widget or a list of rows. Used in a [Map]; a page of [Config.Pages] takes its sections and widgets from [Config.Sections] and the addons instead. |
+| `Panels` | `[]Panel[S]` | Panels are what the page shows, in order: each a widget or a list of rows, arranged by Layout. |
 | `Entry` | `*Entry[S]` | Entry is how the row that opens the page looks when the page is placed as a row of a panel: a sub-page. Its Label defaults to the page's Title. It is not used on a tab. Optional. |
 
 ### `Panel`
@@ -81,30 +78,12 @@ Panel is one bordered panel of a page: one widget, or a list of numbered rows. S
 | `Widget` | `Widget[S]` | Widget is the panel's widget. Optional. |
 | `Items` | `[]Addon[S]` | Items are the panel's rows, top to bottom: an [Option], a [View] (the row opens it), a [Page] (the row opens it as a sub-page), or a ready-made setting such as one from package stdaddons. |
 
-### `SectionSpec`
-
-SectionSpec declares a section: a bordered panel on a page that holds options. Sections are declared in the dashboard file; addons fill them with options by section ID.
-
-| Field | Type | What it does |
-| --- | --- | --- |
-| `ID` | `string` | ID is the unique name options refer to. Required. |
-| `Page` | `string` | Page is the ID of the page the section appears on. Required. |
-| `Order` | `int` | Order sorts the section among the page's panels, ascending. |
-| `Title` | `string` | Title is shown in the panel's top border. Required. |
-| `Subtitle` | `string` | Subtitle is shown in the panel's bottom border. Optional. |
-| `Noun` | `string` | Noun is the word counted in the default badge, "option" by default. The badge reads "[3 options]". |
-| `Badge` | `func(*Context[S]) string` | Badge overrides the default count badge. Optional. |
-
 ### `Option`
 
-Option is one numbered, selectable row in a section: the thing an addon adds to a menu. Declare it as an addon (see [Config.Addons]).
+Option is one numbered row of a panel: the thing an addon adds to a menu. The map places it in a panel's Items, and its position there is its number.
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Key` | `string` | Key is a unique, stable identifier such as "storage". Required. It must not start with "dashygotui.", which the library keeps for its own settings. |
-| `Section` | `string` | Section is the ID of the section the option appears in, as declared in [Config.Sections]. Required. |
-| `Number` | `int` | Number is the number that selects the option from the keyboard: typing it jumps straight to the row, on any page. It must be positive and unique across the whole dashboard. Required. |
-| `Order` | `int` | Order sorts the option within its section, ascending. When zero the Number is used. |
 | `Label` | `string` | Label is the row text. Required. |
 | `Hotkey` | `string` | Hotkey is an optional key that runs the option directly from any dashboard page, without selecting it first: "l" to open the logs, say. It is shown after the label as "(l)". It must not clash with a navigation key, a digit, a shortcut or another option's hotkey. Inside a view's own options it works only in that view. |
 | `HotkeyDisplay` | `string` | HotkeyDisplay is how the hotkey is written after the label, such as "Ctrl+L". It defaults to Hotkey. |
@@ -119,14 +98,11 @@ Option is one numbered, selectable row in a section: the thing an addon adds to 
 
 ### `Entry`
 
-Entry describes the option that opens a view; see [View.Entry].
+Entry is how the row that opens a view or a sub-page looks; see [View.Entry] and [Page.Entry].
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Section` | `string` | Section is the ID of the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number, unique across the dashboard. Required. |
-| `Order` | `int` | Order sorts the option within its section. When zero the Number is used. |
-| `Label` | `string` | Label is the row text. It defaults to the view's Title. |
+| `Label` | `string` | Label is the row text. It defaults to the view's or page's Title. |
 | `Hotkey` | `string` | Hotkey, HotkeyDisplay, HotkeyTone and HotkeyHint are those of [Option]. |
 | `HotkeyDisplay` | `string` |  |
 | `HotkeyTone` | `Tone` |  |
@@ -136,13 +112,10 @@ Entry describes the option that opens a view; see [View.Entry].
 
 ### `Widget`
 
-Widget is a read-only panel on a page: a chart, a gauge, a status readout. Declare it as an addon (see [Config.Addons]).
+Widget is a read-only panel: a chart, a gauge, a status readout. The map places it as a panel of a page ([Panel].Widget).
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Key` | `string` | Key is a unique, stable identifier such as "disk_io". Required. |
-| `Page` | `string` | Page is the ID of the page the widget appears on, as declared in [Config.Pages]. Required. |
-| `Order` | `int` | Order sorts the widget among the page's panels (sections and widgets together), ascending. |
 | `Title` | `string` | Title is shown in the panel's top border. Required. |
 | `Subtitle` | `string` | Subtitle is shown in the panel's bottom border. Optional. |
 | `MinHeight` | `int` | MinHeight is the height in rows, borders included, the widget would like when panels are stacked. It defaults to 11. |
@@ -152,25 +125,19 @@ Widget is a read-only panel on a page: a chart, a gauge, a status readout. Decla
 
 ### `View`
 
-View is a full-screen page opened from an option or a shortcut with [Context.OpenView] and left with the Back key. Declare it as an addon (see [Config.Addons]). A view draws a header, a body and a footer. The body is, in order of precedence, Body when set, otherwise a status panel (Status) above a menu of numbered rows (Options), either of which may be absent.
+View is a full-screen body opened from a row, a shortcut or [Context.OpenView], and left with the Back key: a log, a long text, a table with keys of its own. The map places it as a row of a panel (the row opens it), or in [Map.Views] when it has no row. For a full page of panels opened from a row, place a [Page] as the row instead: a sub-page. A view draws a header, its Body and a footer.
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `ID` | `string` | ID is the unique name passed to [Context.OpenView]. Required. |
-| `Title` | `string` | Title names the view in the header and above the status panel. Required. |
-| `Badge` | `func(*Context[S]) string` | Badge is shown beside the title. Optional. |
-| `Subtitle` | `string` | Subtitle is shown in the bottom border of the status panel. Optional. |
-| `OptionsTitle` | `string` | OptionsTitle names the options panel. It defaults to "Options". |
-| `OptionsSubtitle` | `string` | OptionsSubtitle is shown in the bottom border of the options panel. Optional. |
+| `ID` | `string` | ID is the name [Context.OpenView], an option's Opens and [Config.StartView] use. A view in [Map.Views] needs one; a view placed as a row is named by its place in the map when it has none. |
+| `Title` | `string` | Title names the view in the header and its panel. Required. |
+| `Badge` | `func(*Context[S]) string` | Badge is shown in the view's panel (Follow, Framed, Panel). Optional. |
 | `Header` | `func(*Context[S]) []panel.Segment` | Header returns extra header segments, shown after the view title and before the clock, such as "Mode: ON". They are dropped before the title when the terminal is narrow. Optional. |
 | `Hints` | `func(*Context[S]) []Hint` | Hints returns extra footer hints, shown with the view's own. Optional. |
 | `Mode` | `string` | Mode is the footer's left-hand label, such as "LIVE". It defaults to the Title in capitals. |
 | `Tag` | `func(*Context[S]) string` | Tag returns a short muted note for the header, such as "Mode: ON". Empty shows nothing. Header is the way to add several or styled segments. Optional. |
-| `Status` | `func(*Context[S], Size) []string` | Status returns the rows of the status panel. Optional. |
-| `Options` | `func(*Context[S]) []Option[S]` | Options returns the menu rows, called afresh on every frame so badges and availability can change. Numbers need only be unique within the view; a row with no Number is numbered by its position, from 1. |
-| `Items` | `[]Option[S]` | Items is Options for a list that never changes: the rows themselves, with badges that may still change. Set Items or Options, not both. |
-| `Entry` | `*Entry[S]` | Entry makes the view reachable from a menu: it registers an option that opens this view, with the hotkey and footer hint the entry asks for, so a view and the way into it are one declaration. Optional. |
-| `Body` | `func(*Context[S], Size) []string` | Body draws the whole body itself, replacing Status and Options. It returns rows for the given body size. |
+| `Entry` | `*Entry[S]` | Entry is how the row that opens the view looks, when the view is placed as a row of a panel: its label, hotkey, footer hint and badge. Optional. |
+| `Body` | `func(*Context[S], Size) []string` | Body draws the view. It returns rows for the given body size. Required. |
 | `Follow` | `bool` | Follow makes the view a log: Scroll and Tail, drawn in a panel. It needs Body. |
 | `Framed` | `bool` | Framed draws the body in a bordered panel with the view's Title, as Panel does with no settings. It needs Body. |
 | `Panel` | `*ViewPanel[S]` | Panel draws the body inside a bordered panel, as the status panel and the menu are, instead of edge to edge. Body is then given the panel's inner size, and a scrolling body shows its position in the panel's bottom border. It needs Body. Optional. |
@@ -320,10 +287,7 @@ Toggle is an on/off setting. Opening the row flips it.
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Key` | `string` | Key names the setting in the Store and the option. Required and unique. |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
+| `Key` | `string` | Key names the setting in the Store. Required and unique. |
 | `Label` | `string` | Label is the row text. Required. |
 | `Hotkey` | `string` | Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option]. |
 | `HotkeyDisplay` | `string` |  |
@@ -337,10 +301,7 @@ Number is a whole-number setting, edited in a pop-up that validates the range.
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Key` | `string` | Key names the setting in the Store and the option. Required and unique. |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
+| `Key` | `string` | Key names the setting in the Store. Required and unique. |
 | `Label` | `string` | Label is the row text. Required. |
 | `Hotkey` | `string` | Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option]. |
 | `HotkeyDisplay` | `string` |  |
@@ -358,10 +319,7 @@ Pick is a setting chosen from a fixed list, shown in a pop-up with the current c
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Key` | `string` | Key names the setting in the Store and the option. Required and unique. |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
+| `Key` | `string` | Key names the setting in the Store. Required and unique. |
 | `Label` | `string` | Label is the row text. Required. |
 | `Hotkey` | `string` | Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option]. |
 | `HotkeyDisplay` | `string` |  |
@@ -377,10 +335,7 @@ Text is a text setting, edited in a one-line pop-up. Secret masks the input and 
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Key` | `string` | Key names the setting in the Store and the option. Required and unique. |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
+| `Key` | `string` | Key names the setting in the Store. Required and unique. |
 | `Label` | `string` | Label is the row text. Required. |
 | `Hotkey` | `string` | Hotkey, HotkeyDisplay and HotkeyHint are those of [dashygotui.Option]. |
 | `HotkeyDisplay` | `string` |  |
@@ -399,10 +354,7 @@ ThemePicker is an option that opens a colour palette picker. Moving the highligh
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
 | `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
 
 ### `RefreshRatePicker`
 
@@ -410,10 +362,7 @@ RefreshRatePicker is an option that opens a refresh-rate picker. Declare it as a
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
 | `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
 
 ### `SpacingMenu`
 
@@ -421,10 +370,7 @@ SpacingMenu is an option that opens the spacing menu: the four gaps that frame t
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
 | `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
 
 ### `DisplayPicker`
 
@@ -432,10 +378,7 @@ DisplayPicker is an option that opens a display-mode picker: Auto (detect the Li
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
 | `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
 
 ### `BackgroundPicker`
 
@@ -443,10 +386,7 @@ Background registers an option that lets the user choose how the palette's backg
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
 | `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
 
 ### `TransparencyToggle`
 
@@ -454,22 +394,16 @@ TransparencyToggle is a one-key switch for a transparent background: on leaves t
 
 | Field | Type | What it does |
 | --- | --- | --- |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
 | `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
 
 ### `LogView`
 
-LogView is a full-screen log view of Buffer and the option that opens it. Declare it as an addon: var logView = stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Section: "views", Number: 52} The view shows the newest entry on top and scrolls with the arrow keys (or j and k), PgUp and PgDn; Home returns to the live top and End jumps to the oldest entry. Scrolled away from the top, it keeps the line being read while new entries arrive. The f key cycles the minimum level shown. Entries filed under a category with [logs.Buffer.In] get a strip of tabs along the top, "All" first; CategoryKey moves along them, each tab keeps its own scroll position, and a tab you are not on shows how many entries arrived since you left it. Divert the application's logger into Buffer before the dashboard starts: restore := buf.Divert(log.Default()) defer restore() The option's badge counts the entries, and the errors among them.
+LogView is a full-screen log view of Buffer and the row that opens it. Place it in a panel's Items in the map: stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Hotkey: "g"} The view shows the newest entry on top and scrolls with the arrow keys (or j and k), PgUp and PgDn; Home returns to the live top and End jumps to the oldest entry. Scrolled away from the top, it keeps the line being read while new entries arrive. The f key cycles the minimum level shown. Entries filed under a category with [logs.Buffer.In] get a strip of tabs along the top, "All" first; CategoryKey moves along them, each tab keeps its own scroll position, and a tab you are not on shows how many entries arrived since you left it. Divert the application's logger into Buffer before the dashboard starts: restore := buf.Divert(log.Default()) defer restore() The option's badge counts the entries, and the errors among them.
 
 | Field | Type | What it does |
 | --- | --- | --- |
 | `Buffer` | `*logs.Buffer` | Buffer is the log buffer shown. Required. |
-| `Section` | `string` | Section is the section the option appears in. Required. |
-| `Number` | `int` | Number is the option's number. Required and unique. |
 | `Hotkey` | `string` | Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional. |
-| `Order` | `int` | Order sorts the option within its section. Optional. |
 | `Categories` | `[]string` | Categories are tabs always shown, in this order, ahead of any category the buffer meets later. Optional. |
 | `CategoryKey` | `string` | CategoryKey is the key that selects the next category tab; the same letter in upper case selects the previous one. Without it the tabs cannot be switched. Optional. |
 

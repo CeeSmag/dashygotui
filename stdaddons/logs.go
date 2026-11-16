@@ -11,10 +11,10 @@ import (
 	"github.com/CeeSmag/dashygotui/panel"
 )
 
-// LogView is a full-screen log view of Buffer and the option that opens it.
-// Declare it as an addon:
+// LogView is a full-screen log view of Buffer and the row that opens it. Place
+// it in a panel's Items in the map:
 //
-//	var logView = stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Section: "views", Number: 52}
+//	stdaddons.LogView[dashboard.State]{Buffer: dashboard.Logs, Hotkey: "g"}
 //
 // The view shows the newest entry on top and scrolls with the arrow keys (or j
 // and k), PgUp and PgDn; Home returns to the live top and End jumps to the
@@ -34,14 +34,8 @@ import (
 type LogView[S any] struct {
 	// Buffer is the log buffer shown. Required.
 	Buffer *logs.Buffer
-	// Section is the section the option appears in. Required.
-	Section string
-	// Number is the option's number. Required and unique.
-	Number int
 	// Hotkey runs the option from any page, like [dashygotui.Option].Hotkey. Optional.
 	Hotkey string
-	// Order sorts the option within its section. Optional.
-	Order int
 	// Categories are tabs always shown, in this order, ahead of any category
 	// the buffer meets later. Optional.
 	Categories []string
@@ -85,12 +79,8 @@ func (a LogView[S]) Addons() []dashygotui.Addon[S] {
 		},
 	}
 	option := dashygotui.Option[S]{
-		Key:     viewID,
-		Section: a.Section,
-		Number:  a.Number,
-		Order:   a.Order,
-		Hotkey:  a.Hotkey,
-		Label:   "Logs",
+		Hotkey: a.Hotkey,
+		Label:  "Logs",
 		Badge: func(ctx *dashygotui.Context[S]) string {
 			badge := ctx.Count(buf.Len(), "entries")
 			if n := buf.Count(logs.Error); n > 0 {

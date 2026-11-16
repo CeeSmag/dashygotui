@@ -23,16 +23,14 @@ type ctx = dashygotui.Context[state]
 // palette, spacing and interval so a test can watch them change.
 func harness(st dashygotui.Store) dashygotui.Config[state] {
 	r := collect.New[state]()
-	r.Add(stdaddons.ThemePicker[state]{Section: "look", Number: 20})
-	r.Add(stdaddons.SpacingMenu[state]{Section: "look", Number: 21})
-	r.Add(stdaddons.RefreshRatePicker[state]{Section: "look", Number: 22})
+	r.Add(stdaddons.ThemePicker[state]{})
+	r.Add(stdaddons.SpacingMenu[state]{})
+	r.Add(stdaddons.RefreshRatePicker[state]{})
 	return dashygotui.Config[state]{
-		Title:    "T",
-		Addons:   []dashygotui.Addon[state]{r},
-		Store:    st,
-		Pages:    []dashygotui.Page[state]{{ID: "p", Title: "Page"}},
-		Sections: []dashygotui.SectionSpec[state]{{ID: "look", Page: "p", Title: "Look"}},
-		Poll:     func(context.Context) (state, error) { return state{}, nil },
+		Title: "T",
+		Store: st,
+		Map:   dashygotui.Map[state]{Pages: []dashygotui.Page[state]{{ID: "p", Title: "Page", Panels: []dashygotui.Panel[state]{{Title: "Look", Number: 20, Items: []dashygotui.Addon[state]{r.All("look")}}}}}},
+		Poll:  func(context.Context) (state, error) { return state{}, nil },
 		Header: func(c *ctx) []panel.Segment {
 			sp := c.Spacing()
 			return []panel.Segment{{Prio: 100, Text: fmt.Sprintf("pal=%s gaps=%d.%d.%d.%d every=%s",
@@ -200,15 +198,5 @@ func TestRefreshIntervalsAreFastestFirstAndIndependent(t *testing.T) {
 	a[0] = time.Hour
 	if dashygotui.RefreshIntervals()[0] == time.Hour {
 		t.Error("RefreshIntervals must return a fresh slice")
-	}
-}
-
-func TestRegisteringTwiceIsReported(t *testing.T) {
-	r := collect.New[state]()
-	r.Add(stdaddons.ThemePicker[state]{Section: "look", Number: 20})
-	r.Add(stdaddons.ThemePicker[state]{Section: "look", Number: 30})
-	err := collect.Errors(r)
-	if err == nil || !strings.Contains(err.Error(), `duplicate option key "stdaddons.theme"`) {
-		t.Errorf("err = %v", err)
 	}
 }
