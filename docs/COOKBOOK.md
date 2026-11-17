@@ -136,8 +136,9 @@ stdaddons.DirBrowser[State]{
 ```
 
 Enter opens, Ctrl+Enter selects the highlighted directory, Ctrl+B goes up,
-Ctrl+S searches, Ctrl+H toggles dot-directories (hidden by default), letters
-jump, Ctrl+D creates a folder. Keys are shown in a right-hand panel.
+Ctrl+S opens a search bar above the panels, Ctrl+H toggles dot-directories
+(hidden by default), letters jump, Ctrl+D creates a folder. Keys are shown in
+a right-hand panel.
 
 ## Show a log, or a long body
 

@@ -5,6 +5,13 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [0.6.6] - 2026-11-17
+
+### Changed
+
+- **`stdaddons.DirBrowser`**: Ctrl+S shows a one-line search bar above the
+  Folders and Keys panels instead of appending the query to the left subtitle.
+
 ## [0.6.5] - 2026-11-17
 
 ### Changed

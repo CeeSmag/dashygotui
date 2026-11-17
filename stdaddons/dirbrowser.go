@@ -12,6 +12,7 @@ import (
 	"github.com/CeeSmag/dashygotui/browse"
 	"github.com/CeeSmag/dashygotui/modal"
 	"github.com/CeeSmag/dashygotui/panel"
+	"github.com/CeeSmag/dashygotui/text"
 	"github.com/CeeSmag/dashygotui/theme"
 )
 
@@ -30,10 +31,10 @@ import (
 //
 // The view starts at Start (or the user home), lists directories with item count,
 // size and modified time in a left panel (~75%), with key hints on the right
-// (~25%). Enter opens, Ctrl+Enter selects the highlighted directory, Ctrl+B
-// goes to the parent, Ctrl+S searches, Ctrl+H toggles dot-directories, letter
-// and digit keys jump, and Ctrl+D creates a directory. Dot-directories are
-// hidden by default.
+// (~25%). Ctrl+S opens a one-line search bar above both panels. Enter opens,
+// Ctrl+Enter selects the highlighted directory, Ctrl+B goes to the parent,
+// Ctrl+H toggles dot-directories, letter and digit keys jump, and Ctrl+D
+// creates a directory. Dot-directories are hidden by default.
 type DirBrowser[S any] struct {
 	// Label is the row text. Required.
 	Label string
@@ -165,6 +166,13 @@ func dirBrowserBody(th *theme.Theme, nav *browse.Navigator, title string, size d
 	if size.Cols < 20 || size.Rows < 4 {
 		return panel.Panel(th, title, "", nav.DisplayPath(nav.Dir()), size.Cols, size.Rows, nil)
 	}
+	barH := 0
+	var bar []string
+	if nav.Searching() {
+		barH = 1
+		bar = []string{dirBrowserSearchBar(th, nav, size.Cols)}
+	}
+	panelsH := max(size.Rows-barH, 1)
 	rightW := max(size.Cols/4, 18)
 	leftW := size.Cols - rightW - gap
 	if leftW < 12 {
@@ -172,25 +180,40 @@ func dirBrowserBody(th *theme.Theme, nav *browse.Navigator, title string, size d
 		rightW = 0
 	}
 	sub := nav.DisplayPath(nav.Dir())
-	if nav.Searching() {
-		sub += "  Search: " + nav.Filter() + th.G.EchoChar
-	}
 	if err := nav.Err(); err != "" {
 		sub += "  " + err
 	}
 	listInner := max(leftW-4, 1)
-	listRows := max(size.Rows-2, 1)
-	left := panel.Panel(th, title, "", sub, leftW, size.Rows, nav.Rows(th, listInner, listRows))
+	listRows := max(panelsH-2, 1)
+	left := panel.Panel(th, title, "", sub, leftW, panelsH, nav.Rows(th, listInner, listRows))
+	var panels []string
 	if rightW == 0 {
-		return left
+		panels = left
+	} else {
+		keysTitle := "Keys"
+		hiddenBadge := ""
+		if nav.ShowHidden() {
+			hiddenBadge = th.Muted.Render("[.]")
+		}
+		right := panel.Panel(th, keysTitle, hiddenBadge, "", rightW, panelsH, dirBrowserKeyLines(th, nav, max(rightW-4, 1)))
+		panels = panel.HJoin(gap, left, right)
 	}
-	keysTitle := "Keys"
-	hiddenBadge := ""
-	if nav.ShowHidden() {
-		hiddenBadge = th.Muted.Render("[.]")
+	if barH == 0 {
+		return panels
 	}
-	right := panel.Panel(th, keysTitle, hiddenBadge, "", rightW, size.Rows, dirBrowserKeyLines(th, nav, max(rightW-4, 1)))
-	return panel.HJoin(gap, left, right)
+	return panel.Frame(panel.VStack(bar, panels), size.Cols, size.Rows)
+}
+
+func dirBrowserSearchBar(th *theme.Theme, nav *browse.Navigator, cols int) string {
+	prompt := th.Key.Render("Search:") + " " + th.White.Render(nav.Filter()+th.G.EchoChar)
+	hint := th.Muted.Render("Esc clear")
+	gap := 2
+	hintW := text.Width(hint)
+	if cols > hintW+gap+10 {
+		mid := cols - hintW - gap
+		return th.Fit(prompt, mid) + strings.Repeat(" ", gap) + hint
+	}
+	return th.Fit(prompt, cols)
 }
 
 func dirBrowserKeyLines(th *theme.Theme, nav *browse.Navigator, cols int) []string {
