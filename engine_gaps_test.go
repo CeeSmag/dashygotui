@@ -173,7 +173,7 @@ func TestViewHeaderAndHints(t *testing.T) {
 	f.reg.Shortcut(dashygotui.Shortcut[state]{Key: "v", Run: func(c *ctx) tea.Cmd { _ = c.OpenView("diag"); return nil }})
 	d := f.driver(120, 30)
 	d.Press("v")
-	d.RequireContains("Diagnostics", "Mode: ON", "DIAG", "[F5] Probe", "[Esc/b] Back", "all good")
+	d.RequireContains("Diagnostics", "Mode: ON", "DIAG", "[F5] Probe", "[Esc/b/q] Back", "all good")
 	head := d.Lines()[0]
 	if strings.Index(head, "Diagnostics") > strings.Index(head, "Mode: ON") {
 		t.Errorf("header segments from the view go after its title: %q", head)

@@ -130,10 +130,12 @@ modal       = Overlay(box) centred, clipped (keeps the keys and bottom border)
 Dispatch order for a key press: shortcuts with `ScopeEverywhere` (even over a
 pop-up and ahead of the force-quit keys, so an application can rebind them);
 the force-quit keys (or `Config.OnForceQuit`); the open pop-up; the open view; or
-the page. On a page: pages-scope shortcuts, then option hotkeys, then
-navigation, then typed digits (or, for a non-digit that nothing claimed,
-`Config.OnUnboundKey`). Reserved keys (navigation, digits, and for most
-shortcuts the force-quit keys) and duplicate keys are startup errors.
+the page. In a view or subpage, Back and Quit (`q`) both leave (pop the stack);
+Quit only ends the program from a dashboard tab page. On a page: pages-scope
+shortcuts, then option hotkeys, then navigation, then typed digits (or, for a
+non-digit that nothing claimed, `Config.OnUnboundKey`). Reserved keys
+(navigation, digits, and for most shortcuts the force-quit keys) and duplicate
+keys are startup errors.
 
 ## Symbols and colour modes
 

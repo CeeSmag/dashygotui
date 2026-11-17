@@ -961,7 +961,7 @@ func TestStorageSaveChainsAReload(t *testing.T) {
 func TestDiagnosticsViewChrome(t *testing.T) {
 	d := newApp(t, store.NewMemory())
 	d.Press("d")
-	d.RequireContains("Diagnostics", "HEALTHY", "Health", "Actions", "Enter runs the highlighted one", "[t] Self-test", "[Esc/b] Back")
+	d.RequireContains("Diagnostics", "HEALTHY", "Health", "Actions", "Enter runs the highlighted one", "[t] Self-test", "[Esc/b/q] Back")
 	d.RequireAbsent("Options")
 }
 

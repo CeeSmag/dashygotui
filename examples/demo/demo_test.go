@@ -165,7 +165,7 @@ func TestDiagnosticsViewAndSelfTest(t *testing.T) {
 	d := newDemo(t, store.NewMemory())
 	d.Type("3")
 	d.Press("enter")
-	d.RequireContains("Diagnostics", "● HEALTHY", "Uptime", "Requests", "DIAG", "[Esc/b] Back")
+	d.RequireContains("Diagnostics", "● HEALTHY", "Uptime", "Requests", "DIAG", "[Esc/b/q] Back")
 	requireRows(t, d, "1", "Run Self-Test")
 	d.Press("enter")
 	d.RequireContains("✓ Self-test passed: 12 of 12 checks.")
@@ -306,7 +306,7 @@ func TestLogsViewShowsWhatTheAddonsLogged(t *testing.T) {
 	d.Press("enter")            // run the backup, which logs a line
 	d.Advance(10 * time.Second) // let the result message clear from the footer
 	d.Press("g")
-	d.RequireContains("Logs", "LIVE", "backup finished", "INFO", "[Esc/b] Back")
+	d.RequireContains("Logs", "LIVE", "backup finished", "INFO", "[Esc/b/q] Back")
 	d.Press("esc")
 
 	d.Type("2")

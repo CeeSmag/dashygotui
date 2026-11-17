@@ -109,7 +109,7 @@ Widget is a read-only panel: a chart, a gauge, a status readout. The map places 
 
 ### `View`
 
-View is a full-screen body opened from a row, a shortcut or [Context.OpenView], and left with the Back key: a log, a long text, a table with keys of its own. The map places it as a row of a panel (the row opens it), or in [Map.Views] when it has no row. For a full page of panels opened from a row, place a [Page] as the row instead: a sub-page. A view draws a header, its Body and a footer.
+View is a full-screen body opened from a row, a shortcut or [Context.OpenView], and left with Back or Quit (Esc/`b`/`q` by default): a log, a long text, a table with keys of its own. The map places it as a row of a panel (the row opens it), or in [Map.Views] when it has no row. For a full page of panels opened from a row, place a [Page] as the row instead: a sub-page. A view draws a header, its Body and a footer.
 
 | Field | Type | What it does |
 | --- | --- | --- |

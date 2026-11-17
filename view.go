@@ -14,7 +14,8 @@ import (
 )
 
 // viewKey handles a key press in a full-screen view: the view's own keys first,
-// then Back, the shared menu navigation, and Quit.
+// then Back (Esc/b and q), the shared menu navigation. Quit only leaves a
+// dashboard tab page; here q backs out like Esc.
 func (m *model[S]) viewKey(msg tea.KeyPressMsg) tea.Cmd {
 	v := m.d.views[m.view]
 	if v.Keys != nil {
@@ -37,15 +38,12 @@ func (m *model[S]) viewKey(msg tea.KeyPressMsg) tea.Cmd {
 	if v.Scroll && m.scrollViewKey(v, msg) {
 		return nil
 	}
-	if key.Matches(msg, k.Back) {
+	if key.Matches(msg, k.Back) || key.Matches(msg, k.Quit) {
 		m.back()
 		return nil
 	}
 	if cmd, ok := m.navKey(msg); ok {
 		return cmd
-	}
-	if key.Matches(msg, k.Quit) {
-		return m.quit(ExitInfo{})
 	}
 	m.unusedKey(strings.ToLower(msg.String()))
 	return nil
@@ -122,7 +120,7 @@ func (m *model[S]) viewScreen(cols, rows int) []string {
 			hints = append(hints, m.shortcutHint(s))
 		}
 	}
-	hints = append(hints, m.hint("Esc/b", "Back", th.Key, 1000), m.hint("q", "Quit", th.Red, 900))
+	hints = append(hints, m.hint("Esc/b/q", "Back", th.Key, 1000))
 
 	mode := cmp.Or(v.Mode, strings.ToUpper(v.Title))
 	out := append([]string{panel.Header(th, segs, cols)}, panel.Frame(lines, cols, body)...)

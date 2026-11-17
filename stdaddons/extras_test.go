@@ -110,7 +110,7 @@ func TestLogsViewShowsNewestFirstAndScrolls(t *testing.T) {
 	buf := seeded()
 	d := dashtest.New(t, extras(buf, store.NewMemory(), "xterm"), 140, 20)
 	d.Press("g") // the hotkey opens the view
-	d.RequireContains("Logs", "LIVE", "LOGS", "network down", "disk failure", "entry 040", "f filter: debug", "[Esc/b] Back")
+	d.RequireContains("Logs", "LIVE", "LOGS", "network down", "disk failure", "entry 040", "f filter: debug", "[Esc/b/q] Back")
 	lines := d.Lines()
 	var order []int
 	for i, l := range lines {

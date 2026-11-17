@@ -5,6 +5,15 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [0.6.3] - 2026-11-17
+
+### Changed
+
+- **`q` backs out of views and subpages.** On a full-screen view or window, Quit
+  (`q` by default) leaves like Back (Esc/`b`) instead of ending the dashboard.
+  It still quits from a tab page. The view footer shows `[Esc/b/q] Back`. Force-quit
+  (`ctrl+q` / `ctrl+c`) is unchanged.
+
 ## [0.6.2] - 2026-11-17
 
 ### Added

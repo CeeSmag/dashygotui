@@ -17,7 +17,7 @@ type KeyMap struct {
 	NextPage key.Binding // next dashboard page
 	PrevPage key.Binding // previous dashboard page
 	Back     key.Binding // close a pop-up, leave a view
-	Quit     key.Binding // quit from a page
+	Quit     key.Binding // quit from a page; in a view or subpage it backs out instead
 	Force    key.Binding // quit from anywhere, including over a pop-up
 	Slower   key.Binding // lower the refresh rate
 	Faster   key.Binding // raise the refresh rate

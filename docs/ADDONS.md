@@ -451,7 +451,8 @@ force-quit keys (`ctrl+q`, `ctrl+c`); if you do, keep a way out.
 To keep the default quit but intercept it, set `Config.OnForceQuit` (for
 instance to open a "Stop and exit?" confirmation). Rebind the built-in keys with
 `Config.Keys`. To flash a footer hint when a key nothing handles is pressed, set
-`Config.OnUnboundKey`.
+`Config.OnUnboundKey`. On a view or subpage, `q` backs out like Esc; it only
+quits from a dashboard tab page.
 
 ## Logs
 

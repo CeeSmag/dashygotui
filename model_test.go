@@ -394,7 +394,7 @@ func TestViewOpensAndBackRestoresTheCursor(t *testing.T) {
 	d := f.driver(120, 40)
 	d.Press("tab", "down", "down") // cursor on [3]
 	d.Press("enter")
-	d.RequireContains("Diagnostics", "all systems nominal", "Run Self-Test", "DIAGNOSTICS", "[Esc/b] Back")
+	d.RequireContains("Diagnostics", "all systems nominal", "Run Self-Test", "DIAGNOSTICS", "[Esc/b/q] Back")
 	d.RequireAbsent("Quick Actions")
 
 	d.Press("enter") // the view's own menu
@@ -435,9 +435,32 @@ func TestViewBodyAndKeys(t *testing.T) {
 	d.Press("b")
 	d.RequireAbsent("line one")
 	d.Press("l", "q")
-	if !d.Quit() {
-		t.Error("q should quit from a view")
+	if d.Quit() {
+		t.Error("q should back out of a view, not quit")
 	}
+	d.RequireAbsent("line one")
+	d.RequireContains("[q] Quit") // back on a page: q quits
+	d.Press("q")
+	if !d.Quit() {
+		t.Error("q should quit from a page")
+	}
+}
+
+func TestQuitBacksOutOfASubpage(t *testing.T) {
+	f := newFixture(t)
+	f.reg.Add(dashygotui.Hotkey[state]{Key: "t", Item: dashygotui.Page[state]{Title: "Tools",
+		Panels: []panelT{{Title: "Tools", Items: []dashygotui.Addon[state]{
+			option{Label: "First Tool", Do: func(*ctx) {}},
+		}}}}})
+	d := f.driver(120, 30)
+	d.Press("t")
+	d.RequireContains("TOOLS", "[Esc/b/q] Back")
+	d.Press("q")
+	if d.Quit() {
+		t.Fatal("q must not quit while a subpage is open")
+	}
+	d.RequireAbsent("TOOLS")
+	d.RequireContains("[q] Quit")
 }
 
 func TestOpenViewUnknown(t *testing.T) {
