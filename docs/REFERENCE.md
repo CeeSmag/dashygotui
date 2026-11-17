@@ -374,7 +374,7 @@ LogView is a full-screen log view of Buffer and the row that opens it. Place it 
 
 ### `DirBrowser`
 
-DirBrowser is a full-screen directory picker and the row that opens it. Place it in a panel's Items in the map: stdaddons.DirBrowser[dashboard.State]{ Label: "Choose Folder", Start: func(c *dashboard.Ctx) string { return c.State().Home }, OnSelect: func(c *dashboard.Ctx, path string) tea.Cmd { return c.RunTask("folder", "Saving...", func(ctx context.Context) (string, error) { return c.State().SetFolder(ctx, path) }) }, } The view starts at Start (or the user home), lists directories with item count, size and modified time, and uses its own keys: Enter opens, Ctrl+Enter selects the current directory, Ctrl+B goes to the parent, Ctrl+F searches, letter and digit keys jump, and Ctrl+D creates a directory.
+DirBrowser is a full-screen directory picker and the row that opens it. Place it in a panel's Items in the map: stdaddons.DirBrowser[dashboard.State]{ Label: "Choose Folder", Start: func(c *dashboard.Ctx) string { return c.State().Home }, OnSelect: func(c *dashboard.Ctx, path string) tea.Cmd { return c.RunTask("folder", "Saving...", func(ctx context.Context) (string, error) { return c.State().SetFolder(ctx, path) }) }, } The view starts at Start (or the user home), lists directories with item count, size and modified time in a left panel (~75%), with key hints on the right (~25%). Enter opens, Ctrl+Enter selects the highlighted directory, Ctrl+B goes to the parent, Ctrl+S searches, Ctrl+H toggles dot-directories, letter and digit keys jump, and Ctrl+D creates a directory. Dot-directories are hidden by default.
 
 | Field | Type | What it does |
 | --- | --- | --- |
@@ -383,6 +383,6 @@ DirBrowser is a full-screen directory picker and the row that opens it. Place it
 | `ID` | `string` | ID names the view for Opens. It defaults to "stdaddons.dirbrowser". |
 | `Badge` | `func(*dashygotui.Context[S]) string` | Badge is the row badge. Optional. |
 | `Start` | `func(*dashygotui.Context[S]) string` | Start returns the directory to open when the view is entered. Empty or unset uses the user home directory. |
-| `OnSelect` | `func(ctx *dashygotui.Context[S], path string) tea.Cmd` | OnSelect runs after the user confirms a directory with Ctrl+Enter. The view has already closed. path is absolute. Optional. |
+| `OnSelect` | `func(ctx *dashygotui.Context[S], path string) tea.Cmd` | OnSelect runs after the user confirms a directory with Ctrl+Enter. The view has already closed. path is the absolute path of the highlighted directory. Optional. |
 | `Pending` | `string` | Pending is the footer message while a create-directory Save runs. Defaults to "Creating the folder...". |
 

@@ -31,7 +31,7 @@ type Action int
 // Actions a host may need to handle after [Navigator.HandleKey].
 const (
 	ActionNone   Action = iota
-	ActionSelect        // confirm the current directory
+	ActionSelect        // confirm the highlighted directory
 	ActionCreate        // open the create-directory UI
 )
 
@@ -39,16 +39,17 @@ const (
 // and letter-jump state. It is not safe for concurrent use; the dashboard
 // drives it from its update loop.
 type Navigator struct {
-	cwd      string
-	entries  []Entry
-	cursor   int
-	filter   string
-	search   bool
-	jump     rune // last letter-jump key; 0 when none
-	err      string
-	home     string
-	cache    map[string]dirStats
-	dirsOnly bool
+	cwd        string
+	entries    []Entry
+	cursor     int
+	filter     string
+	search     bool
+	jump       rune // last letter-jump key; 0 when none
+	err        string
+	home       string
+	cache      map[string]dirStats
+	dirsOnly   bool
+	showHidden bool // when false, names starting with '.' are omitted
 }
 
 // New returns a navigator rooted at start (or the user home when start is
@@ -90,23 +91,33 @@ func (n *Navigator) Searching() bool { return n.search }
 // Filter is the current search text.
 func (n *Navigator) Filter() string { return n.filter }
 
+// ShowHidden reports whether directories whose names start with '.' are listed.
+func (n *Navigator) ShowHidden() bool { return n.showHidden }
+
+// ToggleHidden shows or hides dot-directories and keeps the cursor valid.
+func (n *Navigator) ToggleHidden() {
+	n.showHidden = !n.showHidden
+	n.clampCursor()
+}
+
 // Cursor is the index into [Navigator.Visible].
 func (n *Navigator) Cursor() int { return n.cursor }
 
 // Home is the user home directory used for "~" display, or empty.
 func (n *Navigator) Home() string { return n.home }
 
-// Visible returns the listing after the search filter.
+// Visible returns the listing after hidden-name and search filters.
 func (n *Navigator) Visible() []Entry {
-	if n.filter == "" {
-		return n.entries
-	}
 	q := strings.ToLower(n.filter)
 	var out []Entry
 	for _, e := range n.entries {
-		if strings.Contains(strings.ToLower(e.Name), q) {
-			out = append(out, e)
+		if !n.showHidden && strings.HasPrefix(e.Name, ".") {
+			continue
 		}
+		if q != "" && !strings.Contains(strings.ToLower(e.Name), q) {
+			continue
+		}
+		out = append(out, e)
 	}
 	return out
 }
@@ -118,6 +129,16 @@ func (n *Navigator) Selected() (Entry, bool) {
 		return Entry{}, false
 	}
 	return vis[n.cursor], true
+}
+
+// SelectedPath is the absolute path of the highlighted directory, or false
+// when nothing is highlighted.
+func (n *Navigator) SelectedPath() (string, bool) {
+	e, ok := n.Selected()
+	if !ok {
+		return "", false
+	}
+	return e.Path, true
 }
 
 // Reload re-reads the current directory.
@@ -332,12 +353,18 @@ func (n *Navigator) HandleKey(key string, bodyRows int) (action Action, handled 
 		n.Open("")
 		return ActionNone, true
 	case "ctrl+enter":
+		if _, ok := n.Selected(); !ok {
+			return ActionNone, true
+		}
 		return ActionSelect, true
 	case "ctrl+b", "backspace":
 		n.Parent()
 		return ActionNone, true
-	case "ctrl+f":
+	case "ctrl+s":
 		n.search = true
+		return ActionNone, true
+	case "ctrl+h":
+		n.ToggleHidden()
 		return ActionNone, true
 	case "ctrl+d":
 		return ActionCreate, true
@@ -359,7 +386,7 @@ func (n *Navigator) HandleKey(key string, bodyRows int) (action Action, handled 
 func (n *Navigator) searchKey(key string) (Action, bool) {
 	low := strings.ToLower(key)
 	switch low {
-	case "esc", "ctrl+f":
+	case "esc", "ctrl+s":
 		n.search = false
 		if low == "esc" {
 			n.filter = ""
@@ -372,7 +399,13 @@ func (n *Navigator) searchKey(key string) (Action, bool) {
 		return ActionNone, true
 	case "ctrl+enter":
 		n.search = false
+		if _, ok := n.Selected(); !ok {
+			return ActionNone, true
+		}
 		return ActionSelect, true
+	case "ctrl+h":
+		n.ToggleHidden()
+		return ActionNone, true
 	case "ctrl+d":
 		return ActionCreate, true
 	case "ctrl+b":

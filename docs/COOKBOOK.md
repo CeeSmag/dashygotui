@@ -135,8 +135,9 @@ stdaddons.DirBrowser[State]{
 }
 ```
 
-Enter opens, Ctrl+Enter selects the current directory, Ctrl+B goes up, Ctrl+F
-searches, letters jump, Ctrl+D creates a folder.
+Enter opens, Ctrl+Enter selects the highlighted directory, Ctrl+B goes up,
+Ctrl+S searches, Ctrl+H toggles dot-directories (hidden by default), letters
+jump, Ctrl+D creates a folder. Keys are shown in a right-hand panel.
 
 ## Show a log, or a long body
 

@@ -24,6 +24,9 @@ browse: func (n *Navigator) Reset(dir string)
 browse: func (n *Navigator) Rows(th *theme.Theme, cols, bodyRows int) []string
 browse: func (n *Navigator) Searching() bool
 browse: func (n *Navigator) Selected() (Entry, bool)
+browse: func (n *Navigator) SelectedPath() (string, bool)
+browse: func (n *Navigator) ShowHidden() bool
+browse: func (n *Navigator) ToggleHidden()
 browse: func (n *Navigator) Visible() []Entry
 browse: func New(start string) *Navigator
 browse: func ValidateName(dir, name string) error

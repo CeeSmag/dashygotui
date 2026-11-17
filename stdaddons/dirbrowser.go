@@ -12,6 +12,7 @@ import (
 	"github.com/CeeSmag/dashygotui/browse"
 	"github.com/CeeSmag/dashygotui/modal"
 	"github.com/CeeSmag/dashygotui/panel"
+	"github.com/CeeSmag/dashygotui/theme"
 )
 
 // DirBrowser is a full-screen directory picker and the row that opens it. Place
@@ -28,9 +29,11 @@ import (
 //	}
 //
 // The view starts at Start (or the user home), lists directories with item count,
-// size and modified time, and uses its own keys: Enter opens, Ctrl+Enter
-// selects the current directory, Ctrl+B goes to the parent, Ctrl+F searches,
-// letter and digit keys jump, and Ctrl+D creates a directory.
+// size and modified time in a left panel (~75%), with key hints on the right
+// (~25%). Enter opens, Ctrl+Enter selects the highlighted directory, Ctrl+B
+// goes to the parent, Ctrl+S searches, Ctrl+H toggles dot-directories, letter
+// and digit keys jump, and Ctrl+D creates a directory. Dot-directories are
+// hidden by default.
 type DirBrowser[S any] struct {
 	// Label is the row text. Required.
 	Label string
@@ -44,7 +47,8 @@ type DirBrowser[S any] struct {
 	// unset uses the user home directory.
 	Start func(*dashygotui.Context[S]) string
 	// OnSelect runs after the user confirms a directory with Ctrl+Enter. The
-	// view has already closed. path is absolute. Optional.
+	// view has already closed. path is the absolute path of the highlighted
+	// directory. Optional.
 	OnSelect func(ctx *dashygotui.Context[S], path string) tea.Cmd
 	// Pending is the footer message while a create-directory Save runs.
 	// Defaults to "Creating the folder...".
@@ -95,44 +99,19 @@ func (a DirBrowser[S]) Addons() []dashygotui.Addon[S] {
 			return nil
 		},
 		Body: func(ctx *dashygotui.Context[S], size dashygotui.Size) []string {
-			th, nav := ctx.Theme(), navOf(ctx)
-			sub := nav.DisplayPath(nav.Dir())
-			if nav.Searching() {
-				sub += "  Search: " + nav.Filter() + th.G.EchoChar
-			}
-			if err := nav.Err(); err != "" {
-				sub += "  " + err
-			}
-			body := nav.Rows(th, max(size.Cols-4, 1), max(size.Rows-2, 1))
-			return panel.Panel(th, title, "", sub, size.Cols, size.Rows, body)
+			return dirBrowserBody(ctx.Theme(), navOf(ctx), title, size)
 		},
-		Hints: func(ctx *dashygotui.Context[S]) []dashygotui.Hint {
-			nav := navOf(ctx)
-			if nav.Searching() {
-				return []dashygotui.Hint{
-					{Key: "type", Label: "filter", Prio: 10},
-					{Key: "Esc", Label: "clear", Prio: 20},
-					{Key: "Enter", Label: "open", Prio: 30},
-					{Key: "Ctrl+Enter", Label: "select", Prio: 40},
-				}
-			}
-			return []dashygotui.Hint{
-				{Key: ctx.Theme().G.UpDown, Label: "move", Prio: 10},
-				{Key: "Enter", Label: "open", Prio: 20},
-				{Key: "Ctrl+Enter", Label: "select", Prio: 30},
-				{Key: "Ctrl+B", Label: "back", Prio: 40},
-				{Key: "a-z", Label: "jump", Prio: 50},
-				{Key: "Ctrl+F", Label: "search", Prio: 60},
-				{Key: "Ctrl+D", Label: "new dir", Prio: 70},
-			}
-		},
+		Hints: func(*dashygotui.Context[S]) []dashygotui.Hint { return nil },
 		Keys: func(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) (tea.Cmd, bool) {
 			nav := navOf(ctx)
 			bodyRows := max(ctx.Size().Rows-4, 1)
 			act, handled := nav.HandleKey(msg.String(), bodyRows)
 			switch act {
 			case browse.ActionSelect:
-				path := nav.Dir()
+				path, ok := nav.SelectedPath()
+				if !ok {
+					return nil, true
+				}
 				ctx.Back()
 				if a.OnSelect != nil {
 					return a.OnSelect(ctx, path), true
@@ -179,4 +158,73 @@ func (a DirBrowser[S]) Addons() []dashygotui.Addon[S] {
 		Opens: viewID,
 	}
 	return []dashygotui.Addon[S]{view, option}
+}
+
+func dirBrowserBody(th *theme.Theme, nav *browse.Navigator, title string, size dashygotui.Size) []string {
+	const gap = 1
+	if size.Cols < 20 || size.Rows < 4 {
+		return panel.Panel(th, title, "", nav.DisplayPath(nav.Dir()), size.Cols, size.Rows, nil)
+	}
+	rightW := max(size.Cols/4, 18)
+	leftW := size.Cols - rightW - gap
+	if leftW < 12 {
+		leftW = size.Cols
+		rightW = 0
+	}
+	sub := nav.DisplayPath(nav.Dir())
+	if nav.Searching() {
+		sub += "  Search: " + nav.Filter() + th.G.EchoChar
+	}
+	if err := nav.Err(); err != "" {
+		sub += "  " + err
+	}
+	listInner := max(leftW-4, 1)
+	listRows := max(size.Rows-2, 1)
+	left := panel.Panel(th, title, "", sub, leftW, size.Rows, nav.Rows(th, listInner, listRows))
+	if rightW == 0 {
+		return left
+	}
+	keysTitle := "Keys"
+	hiddenBadge := ""
+	if nav.ShowHidden() {
+		hiddenBadge = th.Muted.Render("[.]")
+	}
+	right := panel.Panel(th, keysTitle, hiddenBadge, "", rightW, size.Rows, dirBrowserKeyLines(th, nav, max(rightW-4, 1)))
+	return panel.HJoin(gap, left, right)
+}
+
+func dirBrowserKeyLines(th *theme.Theme, nav *browse.Navigator, cols int) []string {
+	type row struct{ key, label string }
+	var rows []row
+	if nav.Searching() {
+		rows = []row{
+			{"type", "filter"},
+			{"Esc", "clear"},
+			{"Enter", "open"},
+			{"Ctrl+Enter", "select"},
+			{"Ctrl+S", "done"},
+		}
+	} else {
+		hidden := "show hidden"
+		if nav.ShowHidden() {
+			hidden = "hide hidden"
+		}
+		rows = []row{
+			{th.G.UpDown, "move"},
+			{"Enter", "open"},
+			{"Ctrl+Enter", "select"},
+			{"Ctrl+B", "parent"},
+			{"a-z 0-9", "jump"},
+			{"Ctrl+S", "search"},
+			{"Ctrl+D", "new folder"},
+			{"Ctrl+H", hidden},
+			{"q", "close"},
+		}
+	}
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		line := th.Key.Render(r.key) + "  " + th.Muted.Render(r.label)
+		out = append(out, th.Fit(line, cols))
+	}
+	return out
 }

@@ -64,7 +64,7 @@ func TestSearchFilter(t *testing.T) {
 	mustMkdir(t, filepath.Join(root, "VaultStorage"))
 	mustMkdir(t, filepath.Join(root, "Videos"))
 	n := New(root)
-	_, _ = n.HandleKey("ctrl+f", 10)
+	_, _ = n.HandleKey("ctrl+s", 10)
 	if !n.Searching() {
 		t.Fatal("expected search mode")
 	}
@@ -74,6 +74,27 @@ func TestSearchFilter(t *testing.T) {
 	vis := n.Visible()
 	if len(vis) != 1 || vis[0].Name != "VaultStorage" {
 		t.Fatalf("filter %q -> %#v", n.Filter(), names(vis))
+	}
+}
+
+func TestHiddenDirsDefaultAndToggle(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	mustMkdir(t, filepath.Join(root, "Visible"))
+	mustMkdir(t, filepath.Join(root, ".config"))
+	n := New(root)
+	if n.ShowHidden() {
+		t.Fatal("hidden should be off by default")
+	}
+	if got := names(n.Visible()); len(got) != 1 || got[0] != "Visible" {
+		t.Fatalf("visible = %v", got)
+	}
+	_, _ = n.HandleKey("ctrl+h", 10)
+	if !n.ShowHidden() {
+		t.Fatal("ctrl+h should show hidden")
+	}
+	if got := names(n.Visible()); len(got) != 2 {
+		t.Fatalf("with hidden = %v", got)
 	}
 }
 
@@ -107,9 +128,21 @@ func TestOpenAndSelect(t *testing.T) {
 	if n.Dir() != filepath.Join(root, "Vault") {
 		t.Fatalf("cwd = %q", n.Dir())
 	}
+	n.Parent()
+	n.Focus("Vault")
 	act, ok := n.HandleKey("ctrl+enter", 10)
 	if !ok || act != ActionSelect {
 		t.Fatalf("select: act=%v ok=%v", act, ok)
+	}
+	path, ok := n.SelectedPath()
+	if !ok || path != filepath.Join(root, "Vault") {
+		t.Fatalf("SelectedPath = %q ok=%v", path, ok)
+	}
+	// Empty listing: Ctrl+Enter is handled but does not select.
+	n.Open("Vault")
+	act, ok = n.HandleKey("ctrl+enter", 10)
+	if !ok || act != ActionNone {
+		t.Fatalf("empty select: act=%v ok=%v", act, ok)
 	}
 }
 
