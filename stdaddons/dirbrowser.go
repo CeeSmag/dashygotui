@@ -223,8 +223,9 @@ func dirBrowserKeyLines(th *theme.Theme, nav *browse.Navigator, cols int) []stri
 		rows = []row{
 			{"type", "filter"},
 			{"Esc", "clear"},
-			{"Enter", "open"},
+			{"Enter/right", "open"},
 			{"Ctrl+Enter", "select"},
+			{"left", "parent"},
 			{"Ctrl+S", "done"},
 		}
 	} else {
@@ -234,9 +235,9 @@ func dirBrowserKeyLines(th *theme.Theme, nav *browse.Navigator, cols int) []stri
 		}
 		rows = []row{
 			{th.G.UpDown, "move"},
-			{"Enter", "open"},
+			{"Enter/right", "open"},
 			{"Ctrl+Enter", "select"},
-			{"Ctrl+B", "parent"},
+			{"Ctrl+B/left", "parent"},
 			{"a-z 0-9", "jump"},
 			{"Ctrl+S", "search"},
 			{"Ctrl+D", "new folder"},

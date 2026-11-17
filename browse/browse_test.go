@@ -118,6 +118,42 @@ func TestParentStopsAtRoot(t *testing.T) {
 	}
 }
 
+func TestArrowOpenAndParent(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	mustMkdir(t, filepath.Join(root, "Vault"))
+	n := New(root)
+	n.Focus("Vault")
+	_, _ = n.HandleKey("right", 10)
+	if n.Dir() != filepath.Join(root, "Vault") {
+		t.Fatalf("right open cwd = %q", n.Dir())
+	}
+	_, _ = n.HandleKey("left", 10)
+	if n.Dir() != root {
+		t.Fatalf("left parent cwd = %q", n.Dir())
+	}
+}
+
+func TestSearchCtrlEnterSelectsHighlight(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	mustMkdir(t, filepath.Join(root, "VaultStorage"))
+	mustMkdir(t, filepath.Join(root, "Videos"))
+	n := New(root)
+	_, _ = n.HandleKey("ctrl+s", 10)
+	_, _ = n.HandleKey("v", 10)
+	_, _ = n.HandleKey("a", 10)
+	_, _ = n.HandleKey("u", 10)
+	act, ok := n.HandleKey("ctrl+enter", 10)
+	if !ok || act != ActionSelect {
+		t.Fatalf("search ctrl+enter: act=%v ok=%v", act, ok)
+	}
+	path, ok := n.SelectedPath()
+	if !ok || path != filepath.Join(root, "VaultStorage") {
+		t.Fatalf("SelectedPath = %q ok=%v", path, ok)
+	}
+}
+
 func TestOpenAndSelect(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

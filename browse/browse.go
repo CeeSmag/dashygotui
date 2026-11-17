@@ -349,7 +349,7 @@ func (n *Navigator) HandleKey(key string, bodyRows int) (action Action, handled 
 			n.cursor = len(vis) - 1
 		}
 		return ActionNone, true
-	case "enter":
+	case "enter", "right":
 		n.Open("")
 		return ActionNone, true
 	case "ctrl+enter":
@@ -357,7 +357,7 @@ func (n *Navigator) HandleKey(key string, bodyRows int) (action Action, handled 
 			return ActionNone, true
 		}
 		return ActionSelect, true
-	case "ctrl+b", "backspace":
+	case "ctrl+b", "backspace", "left":
 		n.Parent()
 		return ActionNone, true
 	case "ctrl+s":
@@ -393,22 +393,22 @@ func (n *Navigator) searchKey(key string) (Action, bool) {
 			n.clampCursor()
 		}
 		return ActionNone, true
-	case "enter":
+	case "enter", "right":
 		n.search = false
 		n.Open("")
 		return ActionNone, true
 	case "ctrl+enter":
-		n.search = false
 		if _, ok := n.Selected(); !ok {
 			return ActionNone, true
 		}
+		n.search = false
 		return ActionSelect, true
 	case "ctrl+h":
 		n.ToggleHidden()
 		return ActionNone, true
 	case "ctrl+d":
 		return ActionCreate, true
-	case "ctrl+b":
+	case "ctrl+b", "left":
 		n.search = false
 		n.Parent()
 		return ActionNone, true
@@ -434,7 +434,7 @@ func (n *Navigator) searchKey(key string) (Action, bool) {
 	}
 	if strings.HasPrefix(low, "ctrl+") || strings.HasPrefix(low, "alt+") ||
 		low == "tab" || low == "shift+tab" || low == "pgup" || low == "pgdown" ||
-		low == "home" || low == "end" || low == "left" || low == "right" {
+		low == "home" || low == "end" {
 		return ActionNone, false
 	}
 	if rs := []rune(key); len(rs) == 1 && !strings.Contains(key, "+") {
