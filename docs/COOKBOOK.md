@@ -190,6 +190,9 @@ application is a field or a method of `State`: `c.State().Logger("net")`,
 `Shortcut{Key: "ctrl+q", Display: "Ctrl+Q", Tone: dashygotui.ToneDanger, Label: "Stop"}`;
 for a row, the map's `Hotkey{Key, Hint, Item}`. Tones follow the theme.
 
+When a key nothing handles is pressed, `Config.OnUnboundKey` can return a footer
+hint (`"Nothing on [z]. Use [Tab], [1-9], or [q]."`), or `""` to stay silent.
+
 ## Colour something
 
 `c.Theme().Green.Render(...)`, `c.Theme().Muted...`, or a `Tone`. Never a colour

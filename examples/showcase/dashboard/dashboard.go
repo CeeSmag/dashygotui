@@ -192,6 +192,9 @@ func Config(o Options) dashygotui.Config[State] {
 			})
 			return nil
 		},
+		OnUnboundKey: func(_ *Ctx, key string) string {
+			return "Nothing on [" + key + "]. Use [Tab], numbered rows, or [q]."
+		},
 
 		Header: func(c *Ctx) []panel.Segment {
 			th := c.Theme()

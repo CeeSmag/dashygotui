@@ -5,6 +5,14 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [0.6.2] - 2026-11-17
+
+### Added
+
+- **`Config.OnUnboundKey`**: when a key on a page or in a view is not bound to
+  anything, return a footer hint string (or `""` to stay silent). Digits that match
+  no option still use the built-in "No option" flash. Additive.
+
 ## [0.6.1] - 2026-11-17
 
 ### Added

@@ -132,6 +132,7 @@ dashygotui: field Config.Interval time.Duration
 dashygotui: field Config.Keys KeyMap
 dashygotui: field Config.Map Map[S]
 dashygotui: field Config.OnForceQuit func(*Context[S]) tea.Cmd
+dashygotui: field Config.OnUnboundKey func(*Context[S], string) string
 dashygotui: field Config.Palette string
 dashygotui: field Config.Palettes []theme.Palette
 dashygotui: field Config.Poll func(ctx context.Context) (S, error)

@@ -28,6 +28,7 @@ Config describes a dashboard. Map is required; the rest have sensible defaults.
 | `DetectTTY` | `func() bool` | DetectTTY decides what [GlyphsAuto] means, replacing the built-in check of the environment. Use it for a test the library cannot make for you, such as asking the operating system whether the terminal is a Linux virtual console. Optional. |
 | `Getenv` | `func(string) string` | Getenv reads environment variables for glyph auto-detection. Default [os.Getenv]; tests inject their own. |
 | `OnForceQuit` | `func(*Context[S]) tea.Cmd` | OnForceQuit is called instead of quitting when a force-quit key is pressed (ctrl+q and ctrl+c by default), for example to open a "Stop and exit?" confirmation. Return the command to run. Optional. |
+| `OnUnboundKey` | `func(*Context[S], string) string` | OnUnboundKey is called when a key on a page or in a view is not bound to anything (not a shortcut, hotkey, navigation key, digit jump, quit, or rate change). Return a non-empty string to show it as a footer hint, or "" to stay silent. Digits that match no option still show the built-in "No option" flash and do not call this. Optional. |
 | `Keys` | `KeyMap` | Keys overrides the default key bindings. Unset bindings keep their defaults. |
 | `Spacing` | `*Spacing` | Spacing overrides the default spacing; the user's saved choice in Store wins over both. |
 | `AltScroll` | `bool` | AltScroll asks the terminal to turn the mouse wheel into arrow keys while the dashboard is up, which keeps text selection with the terminal. It is off by default. |

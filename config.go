@@ -90,6 +90,12 @@ type Config[S any] struct {
 	// pressed (ctrl+q and ctrl+c by default), for example to open a "Stop and
 	// exit?" confirmation. Return the command to run. Optional.
 	OnForceQuit func(*Context[S]) tea.Cmd
+	// OnUnboundKey is called when a key on a page or in a view is not bound to
+	// anything (not a shortcut, hotkey, navigation key, digit jump, quit, or
+	// rate change). Return a non-empty string to show it as a footer hint, or
+	// "" to stay silent. Digits that match no option still show the built-in
+	// "No option" flash and do not call this. Optional.
+	OnUnboundKey func(*Context[S], string) string
 
 	// Keys overrides the default key bindings. Unset bindings keep their
 	// defaults.

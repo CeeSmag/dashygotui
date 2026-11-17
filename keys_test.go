@@ -192,6 +192,47 @@ func TestGlobalShortcutReplacesTheDefaultQuit(t *testing.T) {
 	}
 }
 
+func TestOnUnboundKeyFlashesHint(t *testing.T) {
+	f := newFixture(t)
+	f.cfg.OnUnboundKey = func(_ *ctx, key string) string {
+		return "Nothing on [" + key + "]. Use [Tab] or [q]."
+	}
+	d := f.driver(120, 40)
+	d.Press("z")
+	d.RequireContains("Nothing on [z]. Use [Tab] or [q].")
+}
+
+func TestOnUnboundKeyEmptyStaysSilent(t *testing.T) {
+	f := newFixture(t)
+	called := 0
+	f.cfg.OnUnboundKey = func(_ *ctx, key string) string {
+		called++
+		return ""
+	}
+	d := f.driver(120, 40)
+	d.Press("z")
+	if called != 1 {
+		t.Fatalf("called = %d, want 1", called)
+	}
+	d.RequireAbsent("Nothing on")
+}
+
+func TestOnUnboundKeyDoesNotReplaceNoOption(t *testing.T) {
+	f := newFixture(t)
+	called := 0
+	f.cfg.OnUnboundKey = func(_ *ctx, key string) string {
+		called++
+		return "Nothing on [" + key + "]"
+	}
+	d := f.driver(120, 40)
+	d.Press("9")
+	d.RequireContains("No option [9]")
+	d.RequireAbsent("Nothing on")
+	if called != 0 {
+		t.Fatalf("digit miss must not call OnUnboundKey, called=%d", called)
+	}
+}
+
 func TestOnForceQuitReplacesTheDefault(t *testing.T) {
 	f := newFixture(t)
 	asked := 0

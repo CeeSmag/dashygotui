@@ -47,7 +47,7 @@ func (m *model[S]) viewKey(msg tea.KeyPressMsg) tea.Cmd {
 	if key.Matches(msg, k.Quit) {
 		return m.quit(ExitInfo{})
 	}
-	m.digitKey(strings.ToLower(msg.String()))
+	m.unusedKey(strings.ToLower(msg.String()))
 	return nil
 }
 

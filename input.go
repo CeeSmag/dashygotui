@@ -102,7 +102,7 @@ func (m *model[S]) dashKey(msg tea.KeyPressMsg) tea.Cmd {
 	case key.Matches(msg, k.Back):
 		m.digits = ""
 	default:
-		m.digitKey(name)
+		m.unusedKey(name)
 	}
 	return nil
 }
@@ -111,6 +111,20 @@ func (m *model[S]) dashKey(msg tea.KeyPressMsg) tea.Cmd {
 func (m *model[S]) digitKey(name string) {
 	if len(name) == 1 && name[0] >= '0' && name[0] <= '9' {
 		m.typeDigit(rune(name[0]))
+	}
+}
+
+// unusedKey handles a key that nothing on the page or view claimed: digits go
+// to the number jump; anything else may flash [Config.OnUnboundKey]'s hint.
+func (m *model[S]) unusedKey(name string) {
+	if len(name) == 1 && name[0] >= '0' && name[0] <= '9' {
+		m.digitKey(name)
+		return
+	}
+	if f := m.d.cfg.OnUnboundKey; f != nil {
+		if msg := f(m.ctx, name); msg != "" {
+			m.setFlash(msg, false, FlashHint)
+		}
 	}
 }
 
