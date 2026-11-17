@@ -76,6 +76,16 @@ func TestEdit(t *testing.T) {
 			t.Error("Submit must not run on Esc")
 		}
 	})
+	t.Run("ctrl+b cancels without submitting", func(t *testing.T) {
+		called := false
+		d := open(t, &modal.Edit[state]{Title: "E", Submit: func(*ctx, string) tea.Cmd { called = true; return nil }})
+		d.Type("abc")
+		d.Press("ctrl+b")
+		d.RequireAbsent("Enter")
+		if called {
+			t.Error("Submit must not run on Ctrl+B")
+		}
+	})
 	t.Run("empty closes with a note", func(t *testing.T) {
 		called := false
 		d := open(t, &modal.Edit[state]{Title: "E", Submit: func(*ctx, string) tea.Cmd { called = true; return nil }})

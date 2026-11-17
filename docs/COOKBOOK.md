@@ -121,6 +121,23 @@ The message it returns is shown in the footer. Never `go func()`.
 
 `modal.Edit{Save: ..., OnSaved: func(c, msg) tea.Cmd { return restart(c) }}`.
 
+## Pick a directory
+
+```go
+stdaddons.DirBrowser[State]{
+	Label: "Choose Folder",
+	Start: func(c *Ctx) string { return c.State().Home },
+	OnSelect: func(c *Ctx, path string) tea.Cmd {
+		return c.RunTask("folder", "Saving...", func(ctx context.Context) (string, error) {
+			return c.State().SetFolder(ctx, path)
+		})
+	},
+}
+```
+
+Enter opens, Ctrl+Enter selects the current directory, Ctrl+B goes up, Ctrl+F
+searches, letters jump, Ctrl+D creates a folder.
+
 ## Show a log, or a long body
 
 `View{Follow: true, Body: ...}` is a scrolling log that starts at the newest row and

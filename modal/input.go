@@ -92,7 +92,7 @@ type Edit[S any] struct {
 func (e *Edit[S]) HandleKey(ctx *dashygotui.Context[S], msg tea.KeyPressMsg) tea.Cmd {
 	e.ensure(ctx)
 	switch strings.ToLower(msg.String()) {
-	case "esc":
+	case "esc", "ctrl+b":
 		ctx.CloseModal()
 		return nil
 	case "enter":
@@ -190,7 +190,7 @@ func (e *Edit[S]) Render(ctx *dashygotui.Context[S], size dashygotui.Size) []str
 	case e.saving:
 		body = append(body, "", th.Muted.Render("Saving..."))
 	}
-	body = append(body, "", keys(th, "Enter", "Save", "Esc", "Cancel"))
+	body = append(body, "", keys(th, "Enter", "Save", "Ctrl+B/Esc", "Cancel"))
 	return popup(th, e.Title, "", w, size.Rows, body)
 }
 

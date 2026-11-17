@@ -1,6 +1,10 @@
 package addons
 
 import (
+	"os"
+
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/CeeSmag/dashygotui"
 	"github.com/CeeSmag/dashygotui/examples/showcase/dashboard"
 	"github.com/CeeSmag/dashygotui/stdaddons"
@@ -19,6 +23,14 @@ func viewsPage() dashboard.Page {
 					Categories: []string{"net", "disk", "auth"}, CategoryKey: "c"}},
 				dashboard.Hotkey{Key: "n", Item: notesView},  // [53]
 				dashboard.Hotkey{Key: "e", Item: streamView}, // [54]
+				dashboard.Hotkey{Key: "f", Item: stdaddons.DirBrowser[dashboard.State]{
+					Label: "Pick a Folder",
+					Start: func(*dashboard.Ctx) string { return os.TempDir() },
+					OnSelect: func(c *dashboard.Ctx, path string) tea.Cmd {
+						c.Flash("Selected " + path)
+						return nil
+					},
+				}}, // [55]
 			}},
 			{Title: "Navigation", Subtitle: "Context.GotoPage", Number: 60, Items: []dashboard.Addon{
 				gotoChartsOption, gotoThemeOption, gotoMonitorOption, // [60] to [62]

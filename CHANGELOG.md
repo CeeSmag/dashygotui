@@ -5,6 +5,17 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/). Until 1.0, a minor version may change
 the API; each such change is listed under **Changed** or **Removed**.
 
+## [0.6.4] - 2026-11-17
+
+### Added
+
+- **`browse` package and `stdaddons.DirBrowser`**: a full-screen directory picker
+  with columnar name / items / size / modified, letter-jump, Ctrl+F search,
+  Ctrl+B parent, Ctrl+Enter to select the current directory, and Ctrl+D to create
+  a folder (via `modal.Edit`). Additive.
+- **`modal.Edit` cancels on Ctrl+B** as well as Esc, so create-directory and other
+  editors share the browser's back key. Additive.
+
 ## [0.6.3] - 2026-11-17
 
 ### Changed

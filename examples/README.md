@@ -4,7 +4,7 @@ Three applications, all built on the same library and tested end to end.
 
 | | What it is | Run it |
 | --- | --- | --- |
-| [`showcase`](showcase/) | **Uses every feature.** Six pages, 44 options, 11 widgets, 5 views (one of them a subpage), 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 50 feature files and a map split by page. Start here. | `make run` |
+| [`showcase`](showcase/) | **Uses every feature.** Six pages, 45 options, 11 widgets, 6 views (one of them a subpage), 4 shortcuts, standard and custom pop-ups, hooks, themes, TTY mode, all from 50 feature files and a map split by page. Start here. | `make run` |
 | [`buildwatch`](buildwatch/) | **A second, unrelated app** (a CI build monitor) written entirely in the short forms: about 100 lines of addon code. Compare it with the showcase. | `go run ./examples/buildwatch` |
 | [`demo`](demo/) | The small quickstart: three pages and a handful of addons. Also the library's integration test. | `make run-demo` |
 

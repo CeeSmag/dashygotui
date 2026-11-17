@@ -97,7 +97,7 @@ func referenceText(t *testing.T) string {
 	}{
 		{"Package dashygotui", ".", []string{"Config", "Map", "Page", "Panel", "Option", "Widget", "View", "ViewPanel", "Shortcut", "Hook"}},
 		{"Package modal", "modal", []string{"Edit", "Confirm", "Typed", "Notice", "Choice", "Slider"}},
-		{"Package stdaddons", "stdaddons", []string{"Toggle", "Number", "Pick", "Text", "ThemePicker", "RefreshRatePicker", "SpacingMenu", "DisplayPicker", "BackgroundPicker", "TransparencyToggle", "LogView"}},
+		{"Package stdaddons", "stdaddons", []string{"Toggle", "Number", "Pick", "Text", "ThemePicker", "RefreshRatePicker", "SpacingMenu", "DisplayPicker", "BackgroundPicker", "TransparencyToggle", "LogView", "DirBrowser"}},
 	} {
 		body, err := guard.FieldReference(part.dir, part.types...)
 		if err != nil {

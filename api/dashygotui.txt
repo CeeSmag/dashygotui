@@ -1,4 +1,35 @@
 # The exported API of dashygotui. Generated: go test -run TestAPISnapshot -update
+browse: const ActionCreate
+browse: const ActionNone Action
+browse: const ActionSelect
+browse: field Entry.Bytes int64
+browse: field Entry.Files int64
+browse: field Entry.ModTime time.Time
+browse: field Entry.Name string
+browse: field Entry.Path string
+browse: func (n *Navigator) Cursor() int
+browse: func (n *Navigator) Dir() string
+browse: func (n *Navigator) DisplayPath(path string) string
+browse: func (n *Navigator) Err() string
+browse: func (n *Navigator) Exists(name string) bool
+browse: func (n *Navigator) Filter() string
+browse: func (n *Navigator) Focus(name string)
+browse: func (n *Navigator) HandleKey(key string, bodyRows int) (action Action, handled bool)
+browse: func (n *Navigator) Home() string
+browse: func (n *Navigator) Mkdir(name string) error
+browse: func (n *Navigator) Open(name string)
+browse: func (n *Navigator) Parent()
+browse: func (n *Navigator) Reload()
+browse: func (n *Navigator) Reset(dir string)
+browse: func (n *Navigator) Rows(th *theme.Theme, cols, bodyRows int) []string
+browse: func (n *Navigator) Searching() bool
+browse: func (n *Navigator) Selected() (Entry, bool)
+browse: func (n *Navigator) Visible() []Entry
+browse: func New(start string) *Navigator
+browse: func ValidateName(dir, name string) error
+browse: type Action int
+browse: type Entry struct
+browse: type Navigator struct
 chart: const DefaultHold
 chart: field Sample.T time.Time
 chart: field Sample.V float64
@@ -532,6 +563,13 @@ panel: func TooSmall(th *theme.Theme, cols, rows, minCols, minRows int) []string
 panel: func VStack(blocks ...[]string) []string
 panel: type Hint struct
 panel: type Segment struct
+stdaddons: field DirBrowser.Badge func(*dashygotui.Context[S]) string
+stdaddons: field DirBrowser.ID string
+stdaddons: field DirBrowser.Label string
+stdaddons: field DirBrowser.OnSelect func(ctx *dashygotui.Context[S], path string) tea.Cmd
+stdaddons: field DirBrowser.Pending string
+stdaddons: field DirBrowser.Start func(*dashygotui.Context[S]) string
+stdaddons: field DirBrowser.Title string
 stdaddons: field LogView.Buffer *logs.Buffer
 stdaddons: field LogView.Categories []string
 stdaddons: field LogView.CategoryKey string
@@ -563,6 +601,7 @@ stdaddons: field Toggle.Key string
 stdaddons: field Toggle.Label string
 stdaddons: field Toggle.OnChange func(ctx *dashygotui.Context[S], on bool) tea.Cmd
 stdaddons: func (a BackgroundPicker[S]) Addons() []dashygotui.Addon[S]
+stdaddons: func (a DirBrowser[S]) Addons() []dashygotui.Addon[S]
 stdaddons: func (a DisplayPicker[S]) Addons() []dashygotui.Addon[S]
 stdaddons: func (a LogView[S]) Addons() []dashygotui.Addon[S]
 stdaddons: func (a RefreshRatePicker[S]) Addons() []dashygotui.Addon[S]
@@ -574,6 +613,7 @@ stdaddons: func (p Pick[S]) Addons() []dashygotui.Addon[S]
 stdaddons: func (t Text[S]) Addons() []dashygotui.Addon[S]
 stdaddons: func (t Toggle[S]) Addons() []dashygotui.Addon[S]
 stdaddons: type BackgroundPicker[S any] struct
+stdaddons: type DirBrowser[S any] struct
 stdaddons: type DisplayPicker[S any] struct
 stdaddons: type LogView[S any] struct
 stdaddons: type Number[S any] struct
